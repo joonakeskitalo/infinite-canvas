@@ -270,7 +270,7 @@
       const toast = document.getElementById("toast");
       const bgColorPicker = document.getElementById("bg-color-picker");
 
-      // Create an isolated offscreen workspace layer explicitly for drawings
+      // Isolated offscreen layer for drawings
       const drawingCanvas = document.createElement("canvas");
       const drawingCtx = drawingCanvas.getContext("2d");
 
@@ -639,19 +639,14 @@
       // --- MASTER RENDERING PIPELINE ---
       function render(targetCtx = ctx, isExporting = false) {
         if (!isExporting) {
-          // Clear the main tracking viewport canvas context
           targetCtx.clearRect(0, 0, canvas.width, canvas.height);
-
-          // Keep offscreen context structurally synchronized
           drawingCanvas.width = canvas.width;
           drawingCanvas.height = canvas.height;
         }
 
-        // Choose the context to draw vectors onto (offscreen buffer vs direct export context)
         const vectorCtx = isExporting ? targetCtx : drawingCtx;
         vectorCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
 
-        // Setup multi-matrix viewport coordinates
         targetCtx.save();
         vectorCtx.save();
 
@@ -682,8 +677,12 @@
           }
         });
 
-        // 2. Draw Vector Art Paths into isolated workspace context
-        drawings.forEach((shape) => {
+        // 2. Separate shapes and erasers so erasers always stack on top of standard vector structures
+        const activeDrawings = drawings.filter((d) => d.type !== "eraser");
+        const activeErasers = drawings.filter((d) => d.type === "eraser");
+
+        // Draw standard visible vector structures first
+        activeDrawings.forEach((shape) => {
           drawShape(vectorCtx, shape, isExporting);
 
           if (
@@ -706,20 +705,30 @@
           }
         });
 
-        // 3. Render Active Shapes / Live Previews safely into drawing layer
-        if (!isExporting && activeShape) {
+        // Handle current preview drawing safely based on type
+        if (!isExporting && activeShape && activeShape.type !== "eraser") {
+          drawShape(vectorCtx, activeShape, false);
+        }
+
+        // Draw eraser strokes last so they cleanly subtract drawings underneath them
+        activeErasers.forEach((eraserPath) => {
+          drawShape(vectorCtx, eraserPath, isExporting);
+        });
+
+        // Handle active preview eraser stroke last
+        if (!isExporting && activeShape && activeShape.type === "eraser") {
           drawShape(vectorCtx, activeShape, false);
         }
 
         targetCtx.restore();
         vectorCtx.restore();
 
-        // 4. Composite the insulated drawings back onto the main canvas view
+        // 3. Composite the drawings layer onto the main canvas view
         if (!isExporting) {
           targetCtx.drawImage(drawingCanvas, 0, 0);
         }
 
-        // 5. Draw selection boxes on top
+        // 4. Draw selection box UI
         if (!isExporting) {
           targetCtx.save();
           targetCtx.translate(transform.x, transform.y);
@@ -762,7 +771,6 @@
         }
 
         if (shape.type === "eraser") {
-          // destination-out cleanly deletes drawings on the offscreen layer, leaving images untouched
           targetCtx.save();
           targetCtx.globalCompositeOperation = "destination-out";
           targetCtx.lineWidth = shape.width;
