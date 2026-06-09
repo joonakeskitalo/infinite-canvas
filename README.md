@@ -7,3 +7,4 @@ Basic infinite canvas app with the following features:
 - Drawing tool and background color selection
 - Zoom
 - Copy as PNG
+- Hold shift to lock line orientation to horizontal, vertical or 45 degree angle. Also actives grid snap for move tool
