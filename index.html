@@ -1680,8 +1680,6 @@
       centerCanvasBtn.addEventListener("click", () => {
         transform.x = 0;
         transform.y = 0;
-        transform.zoom = 1.0;
-        updateZoomSliderValue();
         render();
         showToast("Centered camera view to coordinate (0,0)");
       });
