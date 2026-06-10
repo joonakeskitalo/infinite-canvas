@@ -126,7 +126,7 @@
         color: #aaa;
       }
       .control-group input[type="range"] {
-        width: 140px;
+        width: 110px;
         accent-color: #007acc;
         cursor: pointer;
       }
@@ -174,6 +174,52 @@
       .action-btn.blue-action:hover {
         background: #138496;
       }
+      .action-btn.dark-action {
+        background: #343a40;
+        border: 1px solid #454d55;
+      }
+      .action-btn.dark-action:hover {
+        background: #23272b;
+      }
+
+      /* Alignment Submenu UI Overlay panel - High z-index priority fix */
+      #alignment-panel {
+        display: none;
+        position: fixed;
+        top: 112px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(25, 25, 25, 0.95);
+        border: 1px solid #555;
+        padding: 6px 12px;
+        border-radius: 6px;
+        gap: 6px;
+        align-items: center;
+        z-index: 11; /* Always structural priority over #toolbar */
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+      }
+      .align-btn {
+        background: #444;
+        color: #eee;
+        border: none;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      .align-btn:hover {
+        background: #007acc;
+        color: #fff;
+      }
+      .align-title {
+        font-size: 11px;
+        color: #888;
+        margin-right: 4px;
+        font-weight: bold;
+        text-transform: uppercase;
+      }
+
       /* Invisible Input element for text tools */
       #text-ghost-input {
         position: absolute;
@@ -303,6 +349,9 @@
 
       <div class="separator"></div>
       <div class="action-container">
+        <button class="action-btn dark-action" id="center-canvas-btn">
+          Center to Canvas
+        </button>
         <button class="action-btn" id="export-btn">Export Canvas PNG</button>
         <button class="action-btn secondary-action" id="export-50-btn">
           Copy PNG (50% Size)
@@ -311,6 +360,31 @@
           Download Saved Images
         </button>
       </div>
+    </div>
+
+    <div id="alignment-panel">
+      <span class="align-title">Align Selected:</span>
+      <button class="align-btn" data-align="left">Left</button>
+      <button class="align-btn" data-align="centerX">Center X</button>
+      <button class="align-btn" data-align="right">Right</button>
+      <div
+        style="width: 1px; height: 16px; background: #555; margin: 0 2px"
+      ></div>
+      <button class="align-btn" data-align="top">Top</button>
+      <button class="align-btn" data-align="centerY">Center Y</button>
+      <button class="align-btn" data-align="bottom">Bottom</button>
+      <div
+        style="
+          width: 1px;
+          height: 16px;
+          background: #555;
+          margin: 0 4px;
+          box-shadow: 1px 0 0 #333;
+        "
+      ></div>
+      <span class="align-title">Distribute:</span>
+      <button class="align-btn" data-align="distributeX">Distribute X</button>
+      <button class="align-btn" data-align="distributeY">Distribute Y</button>
     </div>
 
     <div id="toast">Canvas copied to clipboard as PNG!</div>
@@ -331,6 +405,8 @@
       const exportBtn = document.getElementById("export-btn");
       const export50Btn = document.getElementById("export-50-btn");
       const downloadImagesBtn = document.getElementById("download-images-btn");
+      const centerCanvasBtn = document.getElementById("center-canvas-btn");
+      const alignmentPanel = document.getElementById("alignment-panel");
       const toast = document.getElementById("toast");
       const bgColorPicker = document.getElementById("bg-color-picker");
 
@@ -350,6 +426,7 @@
 
       let isInteracting = false;
       let startX, startY;
+      let panLockDirection = null; // Lock tracking states for move tools: null, 'x', or 'y'
       let isMiddleClick = false;
       let isRightClickHand = false;
       let lastMousePos = {
@@ -396,6 +473,15 @@
           if (b.dataset.tool === currentTool) b.classList.add("active");
           else b.classList.remove("active");
         });
+        toggleAlignmentPanelVisibility();
+      }
+
+      function toggleAlignmentPanelVisibility() {
+        if (currentTool === "select" && selectedElements.length > 1) {
+          alignmentPanel.style.display = "flex";
+        } else {
+          alignmentPanel.style.display = "none";
+        }
       }
 
       const buttons = document.querySelectorAll(".tool-btn");
@@ -476,7 +562,10 @@
       });
 
       window.addEventListener("keyup", (e) => {
-        if (e.key === "Shift") isShiftPressed = false;
+        if (e.key === "Shift") {
+          isShiftPressed = false;
+          panLockDirection = null; // Flush active pan lock configurations
+        }
 
         if (e.key === " " || e.code === "Space") {
           if (isSpacePressed) {
@@ -523,6 +612,7 @@
 
             showToast(`Removed ${selectedElements.length} selected asset(s)`);
             selectedElements = [];
+            toggleAlignmentPanelVisibility();
             render();
           }
           return;
@@ -731,7 +821,7 @@
           vectorCtx.scale(transform.zoom, transform.zoom);
         }
 
-        // 1. Draw Pasted Images directly to the main context
+        // 1. Draw Pasted Images directly to the main layout context
         images.forEach((imgData) => {
           targetCtx.drawImage(
             imgData.img,
@@ -968,6 +1058,7 @@
         isInteracting = true;
         startX = e.clientX;
         startY = e.clientY;
+        panLockDirection = null; // Clear lock direction state vectors on click initial down flags
 
         isMiddleClick = e.button === 1;
         isRightClickHand = e.button === 2;
@@ -1097,6 +1188,7 @@
             regionEnd = { ...worldPos };
             selectedElements = [];
           }
+          toggleAlignmentPanelVisibility();
           render();
         } else if (
           [
@@ -1124,11 +1216,24 @@
       container.addEventListener("mousemove", (e) => {
         if (!isInteracting) return;
 
-        const dx = e.clientX - startX;
-        const dy = e.clientY - startY;
+        let dx = e.clientX - startX;
+        let dy = e.clientY - startY;
         let worldPos = screenToWorld(e.clientX, e.clientY);
 
         if (isMiddleClick || isRightClickHand || currentTool === "pan") {
+          // If Shift key is active, lock translations to 1D orthogonal tracking vectors
+          if (isShiftPressed) {
+            if (!panLockDirection) {
+              if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+                panLockDirection = Math.abs(dx) >= Math.abs(dy) ? "x" : "y";
+              }
+            }
+            if (panLockDirection === "x") dy = 0;
+            else if (panLockDirection === "y") dx = 0;
+          } else {
+            panLockDirection = null;
+          }
+
           transform.x += dx;
           transform.y += dy;
           startX = e.clientX;
@@ -1214,6 +1319,7 @@
       window.addEventListener("mouseup", (e) => {
         if (!isInteracting) return;
         isInteracting = false;
+        panLockDirection = null;
 
         if (currentTool === "select" && isRegionSelecting) {
           isRegionSelecting = false;
@@ -1250,15 +1356,15 @@
 
           if (selectedElements.length > 0)
             showToast(`Selected group of ${selectedElements.length} assets`);
-          render();
         }
 
         if (activeShape) {
           drawings.push(activeShape);
           activeShape = null;
-          render();
         }
 
+        toggleAlignmentPanelVisibility();
+        render();
         isMiddleClick = false;
         isRightClickHand = false;
         updateCursor();
@@ -1333,6 +1439,138 @@
         zoomSlider.blur();
       });
 
+      centerCanvasBtn.addEventListener("click", () => {
+        transform.x = 0;
+        transform.y = 0;
+        transform.zoom = 1.0;
+        updateZoomSliderValue();
+        render();
+        showToast("Centered camera view to coordinate (0,0)");
+      });
+
+      // Helper alignment offset utility applier
+      function translateElement(el, shiftX, shiftY) {
+        if (el.elementType === "image") {
+          el.x += shiftX;
+          el.y += shiftY;
+        } else if (el.type === "pen" || el.type === "eraser") {
+          el.points.forEach((p) => {
+            p.x += shiftX;
+            p.y += shiftY;
+          });
+        } else {
+          el.start.x += shiftX;
+          el.start.y += shiftY;
+          el.end.x += shiftX;
+          el.end.y += shiftY;
+        }
+      }
+
+      // --- ALIGNMENT & DISTRIBUTION COMPUTATION LOGIC ENGINE ---
+      const alignButtons = document.querySelectorAll(".align-btn");
+      alignButtons.forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          const alignType = e.target.dataset.align;
+          if (selectedElements.length < 2) return;
+
+          // 1. Compute bounds for all targeted units
+          let groupMinX = Infinity,
+            groupMinY = Infinity;
+          let groupMaxX = -Infinity,
+            groupMaxY = -Infinity;
+
+          const boundsMap = selectedElements.map((el) => {
+            let b;
+            if (el.elementType === "image") {
+              b = {
+                x: el.x,
+                y: el.y,
+                w: el.w,
+                h: el.h,
+                maxX: el.x + el.w,
+                maxY: el.y + el.h,
+              };
+            } else {
+              b = getShapeBounds(el);
+            }
+            if (b.x < groupMinX) groupMinX = b.x;
+            if (b.y < groupMinY) groupMinY = b.y;
+            if (b.maxX > groupMaxX) groupMaxX = b.maxX;
+            if (b.maxY > groupMaxY) groupMaxY = b.maxY;
+            return { el, b };
+          });
+
+          const groupCenterX = (groupMinX + groupMaxX) / 2;
+          const groupCenterY = (groupMinY + groupMaxY) / 2;
+
+          // Handle Distribution logic types separately from structural snaps
+          if (alignType === "distributeX" || alignType === "distributeY") {
+            if (selectedElements.length < 3) {
+              showToast("Requires at least 3 elements to distribute spacing");
+              return;
+            }
+
+            if (alignType === "distributeX") {
+              // Sort nodes sequentially across the grid space plane
+              boundsMap.sort((a, b) => a.b.x + a.b.w / 2 - (b.b.x + b.b.w / 2));
+              const totalElementsWidth = boundsMap.reduce(
+                (sum, item) => sum + item.b.w,
+                0,
+              );
+              const availableSpace = groupMaxX - groupMinX - totalElementsWidth;
+              const gap = availableSpace / (boundsMap.length - 1);
+
+              let currentX = groupMinX;
+              boundsMap.forEach((item, index) => {
+                if (index > 0 && index < boundsMap.length - 1) {
+                  const shiftX = currentX - item.b.x;
+                  translateElement(item.el, shiftX, 0);
+                }
+                currentX += item.b.w + gap;
+              });
+            } else {
+              boundsMap.sort((a, b) => a.b.y + a.b.h / 2 - (b.b.y + b.b.h / 2));
+              const totalElementsHeight = boundsMap.reduce(
+                (sum, item) => sum + item.b.h,
+                0,
+              );
+              const availableSpace =
+                groupMaxY - groupMinY - totalElementsHeight;
+              const gap = availableSpace / (boundsMap.length - 1);
+
+              let currentY = groupMinY;
+              boundsMap.forEach((item, index) => {
+                if (index > 0 && index < boundsMap.length - 1) {
+                  const shiftY = currentY - item.b.y;
+                  translateElement(item.el, 0, shiftY);
+                }
+                currentY += item.b.h + gap;
+              });
+            }
+          } else {
+            // Standard structural absolute alignments snaps logic loops
+            boundsMap.forEach(({ el, b }) => {
+              let shiftX = 0;
+              let shiftY = 0;
+
+              if (alignType === "left") shiftX = groupMinX - b.x;
+              else if (alignType === "centerX")
+                shiftX = groupCenterX - (b.x + b.w / 2);
+              else if (alignType === "right") shiftX = groupMaxX - b.maxX;
+              else if (alignType === "top") shiftY = groupMinY - b.y;
+              else if (alignType === "centerY")
+                shiftY = groupCenterY - (b.y + b.h / 2);
+              else if (alignType === "bottom") shiftY = groupMaxY - b.maxY;
+
+              translateElement(el, shiftX, shiftY);
+            });
+          }
+
+          render();
+          showToast(`Executed selection ${alignType}`);
+        });
+      });
+
       // Calculate workspace bounds helper function
       function getCanvasContentBounds() {
         let minX = Infinity,
@@ -1376,7 +1614,6 @@
         const originalWidth = bounds.maxX - bounds.minX;
         const originalHeight = bounds.maxY - bounds.minY;
 
-        // Compute targeted render bounds base on requested output density scales
         const exportCanvas = document.createElement("canvas");
         exportCanvas.width = originalWidth * scaleFactor;
         exportCanvas.height = originalHeight * scaleFactor;
@@ -1385,7 +1622,6 @@
         exportCtx.fillStyle = bgColor;
         exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
 
-        // Apply downsampling or upsampling matrix transforms safely
         exportCtx.scale(scaleFactor, scaleFactor);
         exportCtx.translate(-bounds.minX, -bounds.minY);
 
