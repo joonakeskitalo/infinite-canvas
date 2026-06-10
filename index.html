@@ -67,7 +67,6 @@
       .tool-btn svg {
         width: 20px;
         height: 20px;
-        fill: currentColor;
       }
       .tool-btn:hover {
         background: #333;
@@ -273,9 +272,22 @@
         data-tool="pan"
         title="Hand Tool [H]"
       >
-        <svg viewBox="0 0 24 24">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2" />
+          <path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2" />
+          <path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8" />
           <path
-            d="M23 10c0-1.1-.9-2-2-2-.2 0-.4 0-.6.1-.3-1-.1-1.9-.9-2.6C19 5 18.1 5 17.5 5.4c-.4-.9-1.3-1.4-2.3-1.3-1 0-1.8.6-2.1 1.5-.4-.4-1-.6-1.6-.6-1.1 0-2 .9-2 2v5.3c-.6-.5-1.4-.7-2.1-.5-.8.2-1.4.9-1.6 1.7-.3 1.1.1 2.3.9 3l4.3 4.3c1 .9 2.3 1.4 3.6 1.4h4.3c2.8 0 5-2.2 5-5V10z"
+            d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"
           />
         </svg>
       </button>
@@ -285,7 +297,7 @@
         data-tool="select"
         title="Select Tool [V]"
       >
-        <svg viewBox="0 0 24 24">
+        <svg viewBox="0 0 24 24" fill="currentColor">
           <path d="M7 2l12 11.2-5.3.7 3.5 6.6-2.5 1.3-3.6-6.6-4.1 3.5V2z" />
         </svg>
       </button>
@@ -298,9 +310,19 @@
         data-tool="pen"
         title="Pen Tool [B]"
       >
-        <svg viewBox="0 0 24 24">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <path
-            d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+            d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"
           />
         </svg>
       </button>
@@ -310,7 +332,9 @@
         data-tool="line"
         title="Line Tool [L]"
       >
-        <svg viewBox="0 0 24 24"><path d="M4 20L20 4l1.5 1.5L5.5 21.5z" /></svg>
+        <svg fill="currentColor" viewBox="0 0 24 24">
+          <path d="M4 20L20 4l1.5 1.5L5.5 21.5z" />
+        </svg>
       </button>
       <button
         class="tool-btn"
@@ -318,8 +342,19 @@
         data-tool="arrow"
         title="Arrow Tool [A]"
       >
-        <svg viewBox="0 0 24 24">
-          <path d="M16.01 11H4v2h12.01v3L20 12l-3.99-4v3z" />
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M19 13V19H13" />
+          <path d="M5 5L19 19" />
         </svg>
       </button>
       <button
@@ -328,7 +363,7 @@
         data-tool="rect-border"
         title="Box Border Tool [R]"
       >
-        <svg viewBox="0 0 24 24">
+        <svg viewBox="0 0 24 24" fill="currentColor">
           <path
             d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"
           />
@@ -340,7 +375,7 @@
         data-tool="rect-fill"
         title="Box Fill Tool [F]"
       >
-        <svg viewBox="0 0 24 24">
+        <svg viewBox="0 0 24 24" fill="currentColor">
           <path
             d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"
           />
@@ -355,7 +390,9 @@
         data-tool="text"
         title="Text Tool [T]"
       >
-        <svg viewBox="0 0 24 24"><path d="M5 4v3h5.5v12h3V7H19V4H5z" /></svg>
+        <svg fill="currentColor" viewBox="0 0 24 24">
+          <path d="M5 4v3h5.5v12h3V7H19V4H5z" />
+        </svg>
       </button>
       <button
         class="tool-btn"
@@ -363,10 +400,21 @@
         data-tool="eraser"
         title="Object Eraser Tool [E]"
       >
-        <svg viewBox="0 0 24 24">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <path
-            d="M15.14 3c-.51 0-1.02.2-1.41.59L2.59 14.73c-.78.78-.78 2.05 0 2.83L6.44 21.4c.39.39.9.59 1.41.59H22v-2h-5.59l4.59-4.59c.78-.78.78-2.05 0-2.83L16.56 3.59c-.39-.39-.9-.59-1.42-.59zM15.14 5l4.41 4.41-2.12 2.12-4.41-4.41L15.14 5zm-3.53 3.53l4.41 4.41-6.19 6.19H5.41l-2.82-2.82 9.01-9.01z"
+            d="M21 21H8a2 2 0 0 1-1.42-.587l-3.994-3.999a2 2 0 0 1 0-2.828l10-10a2 2 0 0 1 2.829 0l5.999 6a2 2 0 0 1 0 2.828L12.834 21"
           />
+          <path d="m5.082 11.09 8.828 8.828" />
         </svg>
       </button>
 
