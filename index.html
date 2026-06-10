@@ -1238,8 +1238,10 @@
 
       // --- MOUSE & EVENT LOGIC ---
       container.addEventListener("mousedown", (e) => {
-        if (ghostInput.style.display === "block" && e.target !== ghostInput)
+        if (ghostInput.style.display === "block") {
+          if (e.target === ghostInput) return; // Let the user click around inside their text input
           bakeText();
+        }
 
         isInteracting = true;
         startX = e.clientX;
@@ -1420,6 +1422,48 @@
             end: worldPos,
             points: [worldPos],
           };
+        }
+      });
+
+      // Double-click to edit existing text elements
+      container.addEventListener("dblclick", (e) => {
+        if (currentTool !== "select") return; // Only allow editing in Select Mode
+
+        const worldPos = screenToWorld(e.clientX, e.clientY);
+
+        // Find if we double-clicked a text element (looping backwards for top-most)
+        for (let i = drawings.length - 1; i >= 0; i--) {
+          const shape = drawings[i];
+          if (shape.type === "text" && isPointHittingShape(worldPos, shape)) {
+            // 1. Remove it from the drawing array so it doesn't double-render
+            const [editingText] = drawings.splice(i, 1);
+            selectedElements = []; // Clear selection highlights
+
+            // 2. Position the ghost input over the old text
+            activeTextCoord = editingText.start;
+            currentFontSize = editingText.fontSize;
+
+            ghostInput.value = editingText.text;
+            ghostInput.style.display = "block";
+            ghostInput.style.color = editingText.color;
+
+            const screenPos = worldToScreen(
+              activeTextCoord.x,
+              activeTextCoord.y,
+            );
+            ghostInput.style.left = `${screenPos.x}px`;
+            ghostInput.style.top = `${screenPos.y - currentFontSize * transform.zoom * 0.2}px`;
+            ghostInput.style.fontSize = `${currentFontSize * transform.zoom}px`;
+
+            // 3. Focus and highlight the text for quick changing
+            setTimeout(() => {
+              ghostInput.focus();
+              ghostInput.select();
+            }, 20);
+
+            render();
+            break;
+          }
         }
       });
 
