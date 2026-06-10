@@ -33,7 +33,7 @@
         left: 0;
         display: block;
       }
-      /* Toolbar Styles */
+      /* Compact Toolbar Styles */
       #toolbar {
         position: fixed;
         top: 20px;
@@ -43,9 +43,9 @@
         backdrop-filter: blur(10px);
         border: 1px solid #444;
         border-radius: 8px;
-        padding: 8px 14px;
+        padding: 6px 10px;
         display: flex;
-        gap: 6px;
+        gap: 4px;
         align-items: center;
         z-index: 10;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
@@ -54,21 +54,20 @@
         background: transparent;
         border: 1px solid transparent;
         color: #ccc;
-        padding: 6px 8px;
+        padding: 6px;
         border-radius: 4px;
         cursor: pointer;
-        font-weight: 500;
-        font-size: 13px;
         transition: all 0.2s;
         display: flex;
-        flex-direction: column;
         align-items: center;
-        min-width: 58px;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
       }
-      .tool-btn span {
-        font-size: 9px;
-        color: #777;
-        margin-top: 2px;
+      .tool-btn svg {
+        width: 20px;
+        height: 20px;
+        fill: currentColor;
       }
       .tool-btn:hover {
         background: #333;
@@ -81,7 +80,7 @@
       }
       .separator {
         width: 1px;
-        height: 30px;
+        height: 24px;
         background: #444;
         margin: 0 4px;
       }
@@ -89,40 +88,40 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        font-size: 10px;
+        font-size: 9px;
         color: #aaa;
-        gap: 2px;
+        gap: 1px;
       }
       .color-picker-wrapper input[type="color"] {
         border: none;
-        width: 24px;
-        height: 24px;
+        width: 20px;
+        height: 20px;
         border-radius: 4px;
         cursor: pointer;
         background: transparent;
+        padding: 0;
       }
       .color-presets {
         display: flex;
-        gap: 3px;
-        margin-left: 2px;
+        gap: 2px;
       }
       .preset-btn {
-        width: 16px;
-        height: 16px;
+        width: 12px;
+        height: 12px;
         border: 1px solid #555;
-        border-radius: 3px;
+        border-radius: 2px;
         cursor: pointer;
         transition: transform 0.1s;
       }
       .preset-btn:hover {
-        transform: scale(1.15);
+        transform: scale(1.2);
       }
-      /* Dynamic Control Groups */
+      /* Control Groups */
       .control-group {
         display: flex;
         align-items: center;
-        gap: 6px;
-        font-size: 12px;
+        gap: 4px;
+        font-size: 11px;
         color: #aaa;
       }
       .control-group input[type="range"] {
@@ -134,30 +133,32 @@
         background: #2d2d2d;
         color: #fff;
         border: 1px solid #555;
-        padding: 4px;
+        padding: 3px;
         border-radius: 4px;
         outline: none;
         cursor: pointer;
+        font-size: 11px;
       }
       #zoom-val {
-        min-width: 36px;
+        min-width: 32px;
         text-align: right;
       }
       /* Action buttons style */
       .action-container {
         display: flex;
-        gap: 4px;
+        gap: 3px;
       }
       .action-btn {
         background: #28a745;
         color: white;
         border: none;
-        padding: 8px 10px;
+        padding: 6px 8px;
         border-radius: 4px;
         font-size: 11px;
-        font-weight: bold;
+        font-weight: 500;
         cursor: pointer;
         transition: background 0.2s;
+        white-space: nowrap;
       }
       .action-btn:hover {
         background: #218838;
@@ -182,42 +183,57 @@
         background: #23272b;
       }
 
-      /* Alignment Submenu UI Overlay panel - High z-index priority fix */
+      /* Alignment Panel */
       #alignment-panel {
         display: none;
         position: fixed;
-        top: 112px;
+        top: 72px;
         left: 50%;
         transform: translateX(-50%);
-        background: rgba(25, 25, 25, 0.95);
-        border: 1px solid #555;
-        padding: 6px 12px;
+        background: rgba(30, 30, 30, 0.95);
+        backdrop-filter: blur(10px);
+        border: 1px solid #444;
+        padding: 4px 8px;
         border-radius: 6px;
-        gap: 6px;
+        gap: 4px;
         align-items: center;
-        z-index: 11; /* Always structural priority over #toolbar */
+        z-index: 11;
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
       }
       .align-btn {
-        background: #444;
-        color: #eee;
-        border: none;
-        padding: 4px 8px;
+        background: transparent;
+        border: 1px solid transparent;
+        color: #ccc;
+        padding: 4px;
         border-radius: 4px;
-        font-size: 11px;
         cursor: pointer;
-        transition: background 0.15s;
+        transition: all 0.15s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+      }
+      .align-btn svg {
+        width: 18px;
+        height: 18px;
+        fill: currentColor;
       }
       .align-btn:hover {
+        background: #444;
+        color: #fff;
+      }
+      .align-btn:active {
         background: #007acc;
         color: #fff;
       }
       .align-title {
-        font-size: 11px;
+        font-size: 10px;
         color: #888;
-        margin-right: 4px;
+        margin: 0 4px;
         font-weight: bold;
         text-transform: uppercase;
+        letter-spacing: 0.5px;
       }
 
       /* Invisible Input element for text tools */
@@ -251,84 +267,153 @@
   </head>
   <body style="background-color: #1e1e1e">
     <div id="toolbar">
-      <button class="tool-btn active" id="tool-pan" data-tool="pan">
-        Hand <span>[H]</span>
+      <button
+        class="tool-btn active"
+        id="tool-pan"
+        data-tool="pan"
+        title="Hand Tool [H]"
+      >
+        <svg viewBox="0 0 24 24">
+          <path
+            d="M23 10c0-1.1-.9-2-2-2-.2 0-.4 0-.6.1-.3-1-.1-1.9-.9-2.6C19 5 18.1 5 17.5 5.4c-.4-.9-1.3-1.4-2.3-1.3-1 0-1.8.6-2.1 1.5-.4-.4-1-.6-1.6-.6-1.1 0-2 .9-2 2v5.3c-.6-.5-1.4-.7-2.1-.5-.8.2-1.4.9-1.6 1.7-.3 1.1.1 2.3.9 3l4.3 4.3c1 .9 2.3 1.4 3.6 1.4h4.3c2.8 0 5-2.2 5-5V10z"
+          />
+        </svg>
       </button>
-      <button class="tool-btn" id="tool-select" data-tool="select">
-        Select <span>[V]</span>
+      <button
+        class="tool-btn"
+        id="tool-select"
+        data-tool="select"
+        title="Select Tool [V]"
+      >
+        <svg viewBox="0 0 24 24">
+          <path d="M7 2l12 11.2-5.3.7 3.5 6.6-2.5 1.3-3.6-6.6-4.1 3.5V2z" />
+        </svg>
       </button>
-      <div class="separator"></div>
-      <button class="tool-btn" id="tool-pen" data-tool="pen">
-        Pen <span>[B]</span>
-      </button>
-      <button class="tool-btn" id="tool-line" data-tool="line">
-        Line <span>[L]</span>
-      </button>
-      <button class="tool-btn" id="tool-arrow" data-tool="arrow">
-        Arrow <span>[A]</span>
-      </button>
-      <button class="tool-btn" id="tool-rect-border" data-tool="rect-border">
-        Box <span>[R]</span>
-      </button>
-      <button class="tool-btn" id="tool-rect-fill" data-tool="rect-fill">
-        Fill <span>[F]</span>
-      </button>
-      <div class="separator"></div>
-      <button class="tool-btn" id="tool-text" data-tool="text">
-        Text <span>[T]</span>
-      </button>
-      <button class="tool-btn" id="tool-eraser" data-tool="eraser">
-        Eraser <span>[E]</span>
-      </button>
-      <button class="tool-btn" id="tool-obj-eraser" data-tool="obj-eraser">
-        Obj Erase<span>[O]</span>
-      </button>
+
       <div class="separator"></div>
 
-      <div class="color-picker-wrapper">
-        <div style="display: flex; align-items: center; gap: 4px">
-          <input
-            type="color"
-            id="color-picker"
-            value="#ff4444"
-            title="Choose Drawing Color"
+      <button
+        class="tool-btn"
+        id="tool-pen"
+        data-tool="pen"
+        title="Pen Tool [B]"
+      >
+        <svg viewBox="0 0 24 24">
+          <path
+            d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
           />
+        </svg>
+      </button>
+      <button
+        class="tool-btn"
+        id="tool-line"
+        data-tool="line"
+        title="Line Tool [L]"
+      >
+        <svg viewBox="0 0 24 24"><path d="M4 20L20 4l1.5 1.5L5.5 21.5z" /></svg>
+      </button>
+      <button
+        class="tool-btn"
+        id="tool-arrow"
+        data-tool="arrow"
+        title="Arrow Tool [A]"
+      >
+        <svg viewBox="0 0 24 24">
+          <path d="M16.01 11H4v2h12.01v3L20 12l-3.99-4v3z" />
+        </svg>
+      </button>
+      <button
+        class="tool-btn"
+        id="tool-rect-border"
+        data-tool="rect-border"
+        title="Box Border Tool [R]"
+      >
+        <svg viewBox="0 0 24 24">
+          <path
+            d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"
+          />
+        </svg>
+      </button>
+      <button
+        class="tool-btn"
+        id="tool-rect-fill"
+        data-tool="rect-fill"
+        title="Box Fill Tool [F]"
+      >
+        <svg viewBox="0 0 24 24">
+          <path
+            d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"
+          />
+        </svg>
+      </button>
+
+      <div class="separator"></div>
+
+      <button
+        class="tool-btn"
+        id="tool-text"
+        data-tool="text"
+        title="Text Tool [T]"
+      >
+        <svg viewBox="0 0 24 24"><path d="M5 4v3h5.5v12h3V7H19V4H5z" /></svg>
+      </button>
+      <button
+        class="tool-btn"
+        id="tool-eraser"
+        data-tool="eraser"
+        title="Stroke Eraser Tool [E]"
+      >
+        <svg viewBox="0 0 24 24">
+          <path
+            d="M15.14 3c-.51 0-1.02.2-1.41.59L2.59 14.73c-.78.78-.78 2.05 0 2.83L6.44 21.4c.39.39.9.59 1.41.59H22v-2h-5.59l4.59-4.59c.78-.78.78-2.05 0-2.83L16.56 3.59c-.39-.39-.9-.59-1.42-.59zM15.14 5l4.41 4.41-2.12 2.12-4.41-4.41L15.14 5zm-3.53 3.53l4.41 4.41-6.19 6.19H5.41l-2.82-2.82 9.01-9.01z"
+          />
+        </svg>
+      </button>
+      <button
+        class="tool-btn"
+        id="tool-obj-eraser"
+        data-tool="obj-eraser"
+        title="Object Delete Eraser Tool [O]"
+      >
+        <svg viewBox="0 0 24 24">
+          <path
+            d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"
+          />
+        </svg>
+      </button>
+
+      <div class="separator"></div>
+
+      <div class="color-picker-wrapper" title="Draw Color & Presets">
+        <div style="display: flex; align-items: center; gap: 3px">
+          <input type="color" id="color-picker" value="#ff4444" />
           <div class="color-presets">
             <div
               class="preset-btn"
               style="background: #ff4444"
               data-color="#ff4444"
-              title="Red Preset"
             ></div>
             <div
               class="preset-btn"
               style="background: #28a745"
               data-color="#28a745"
-              title="Green Preset"
             ></div>
             <div
               class="preset-btn"
               style="background: #007acc"
               data-color="#007acc"
-              title="Blue Preset"
             ></div>
           </div>
         </div>
-        <span>Draw</span>
+        <span>Color</span>
       </div>
-      <div class="color-picker-wrapper">
-        <input
-          type="color"
-          id="bg-color-picker"
-          value="#1e1e1e"
-          title="Choose Background Color"
-        />
+      <div class="color-picker-wrapper" title="Background Workspace Color">
+        <input type="color" id="bg-color-picker" value="#1e1e1e" />
         <span>BG</span>
       </div>
 
       <div class="control-group">
-        <span style="margin-left: 4px">Size:</span>
-        <select id="font-size-select" title="Text Font Size">
+        <select id="font-size-select" title="Text Font Size Configuration">
           <option value="12">12px</option>
           <option value="16" selected>16px</option>
           <option value="20">20px</option>
@@ -341,50 +426,97 @@
 
       <div class="separator"></div>
 
-      <div class="control-group">
-        <span>Zoom:</span>
+      <div class="control-group" title="Zoom Slider">
         <input type="range" id="zoom-slider" min="5" max="200" value="100" />
         <span id="zoom-val">100%</span>
       </div>
 
       <div class="separator"></div>
+
       <div class="action-container">
         <button class="action-btn dark-action" id="center-canvas-btn">
-          Center to Canvas
+          Center
         </button>
-        <button class="action-btn" id="export-btn">Export Canvas PNG</button>
+        <button class="action-btn" id="export-btn">Export</button>
         <button class="action-btn secondary-action" id="export-50-btn">
-          Copy PNG (50% Size)
+          Copy 50%
         </button>
         <button class="action-btn blue-action" id="download-images-btn">
-          Download Saved Images
+          Assets
         </button>
       </div>
     </div>
 
     <div id="alignment-panel">
-      <span class="align-title">Align Selected:</span>
-      <button class="align-btn" data-align="left">Left</button>
-      <button class="align-btn" data-align="centerX">Center X</button>
-      <button class="align-btn" data-align="right">Right</button>
+      <span class="align-title">Align</span>
+
+      <button class="align-btn" data-align="left" title="Align Left">
+        <svg viewBox="0 0 24 24">
+          <path d="M4 2h2v20H4V2zm4 3h12v3H8V5zm0 6h8v3H8v-3zm0 6h11v3H8v-3z" />
+        </svg>
+      </button>
+      <button class="align-btn" data-align="centerX" title="Align Center X">
+        <svg viewBox="0 0 24 24">
+          <path d="M11 2h2v3h6v3h-6v8h4v3h-4v3h-2v-3H7v-3h4v-8H5V5h6V2z" />
+        </svg>
+      </button>
+      <button class="align-btn" data-align="right" title="Align Right">
+        <svg viewBox="0 0 24 24">
+          <path
+            d="M18 2h2v20h-2V2zM4 5h12v3H4V5zm4 6h8v3H8v-3zm-3 6h11v3H5v-3z"
+          />
+        </svg>
+      </button>
+
       <div
-        style="width: 1px; height: 16px; background: #555; margin: 0 2px"
+        style="width: 1px; height: 18px; background: #444; margin: 0 4px"
       ></div>
-      <button class="align-btn" data-align="top">Top</button>
-      <button class="align-btn" data-align="centerY">Center Y</button>
-      <button class="align-btn" data-align="bottom">Bottom</button>
+
+      <button class="align-btn" data-align="top" title="Align Top">
+        <svg viewBox="0 0 24 24">
+          <path d="M2 4h20v2H2V4zm3 4h3v12H5V8zm6 0h3v8h-3V8zm6 0h3v11h-3V8z" />
+        </svg>
+      </button>
+      <button class="align-btn" data-align="centerY" title="Align Center Y">
+        <svg viewBox="0 0 24 24">
+          <path d="M2 11h3V5h3v6h8V7h3v4h3v2h-3v4h-3v-4H8v6H5v-6H2v-2z" />
+        </svg>
+      </button>
+      <button class="align-btn" data-align="bottom" title="Align Bottom">
+        <svg viewBox="0 0 24 24">
+          <path
+            d="M2 18h20v2H2v-2zm3-11h3v10H5V7zm6 4h3v6h-3v-6zm6-7h3v13h-3V4z"
+          />
+        </svg>
+      </button>
+
       <div
-        style="
-          width: 1px;
-          height: 16px;
-          background: #555;
-          margin: 0 4px;
-          box-shadow: 1px 0 0 #333;
-        "
+        style="width: 1px; height: 18px; background: #444; margin: 0 4px"
       ></div>
-      <span class="align-title">Distribute:</span>
-      <button class="align-btn" data-align="distributeX">Distribute X</button>
-      <button class="align-btn" data-align="distributeY">Distribute Y</button>
+      <span class="align-title">Distribute</span>
+
+      <button
+        class="align-btn"
+        data-align="distributeX"
+        title="Distribute Horizontally"
+      >
+        <svg viewBox="0 0 24 24">
+          <path
+            d="M4 22H2V2h2v20zM22 2h-2v20h2V2zM7 5h10v3H7V5zm2 6h6v3H9v-3z"
+          />
+        </svg>
+      </button>
+      <button
+        class="align-btn"
+        data-align="distributeY"
+        title="Distribute Vertically"
+      >
+        <svg viewBox="0 0 24 24">
+          <path
+            d="M2 4V2h20v2H2zm0 18v-2h20v2H2zM5 7h3v10H5V7zm6 2h3v6h-3V9z"
+          />
+        </svg>
+      </button>
     </div>
 
     <div id="toast">Canvas copied to clipboard as PNG!</div>
@@ -410,7 +542,6 @@
       const toast = document.getElementById("toast");
       const bgColorPicker = document.getElementById("bg-color-picker");
 
-      // Isolated offscreen layer for drawings
       const drawingCanvas = document.createElement("canvas");
       const drawingCtx = drawingCanvas.getContext("2d");
 
@@ -426,7 +557,7 @@
 
       let isInteracting = false;
       let startX, startY;
-      let panLockDirection = null; // Lock tracking states for move tools: null, 'x', or 'y'
+      let panLockDirection = null;
       let isMiddleClick = false;
       let isRightClickHand = false;
       let lastMousePos = {
@@ -503,7 +634,6 @@
         (e) => (drawColor = e.target.value),
       );
 
-      // Connect Preset Buttons
       const presetBtns = document.querySelectorAll(".preset-btn");
       presetBtns.forEach((btn) => {
         btn.addEventListener("click", (e) => {
@@ -564,7 +694,7 @@
       window.addEventListener("keyup", (e) => {
         if (e.key === "Shift") {
           isShiftPressed = false;
-          panLockDirection = null; // Flush active pan lock configurations
+          panLockDirection = null;
         }
 
         if (e.key === " " || e.code === "Space") {
@@ -799,7 +929,6 @@
         }
       });
 
-      // --- MASTER RENDERING PIPELINE ---
       function render(targetCtx = ctx, isExporting = false) {
         if (!isExporting) {
           targetCtx.clearRect(0, 0, canvas.width, canvas.height);
@@ -808,7 +937,9 @@
         }
 
         const vectorCtx = isExporting ? targetCtx : drawingCtx;
-        vectorCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+        if (!isExporting) {
+          vectorCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+        }
 
         targetCtx.save();
         vectorCtx.save();
@@ -821,7 +952,6 @@
           vectorCtx.scale(transform.zoom, transform.zoom);
         }
 
-        // 1. Draw Pasted Images directly to the main layout context
         images.forEach((imgData) => {
           targetCtx.drawImage(
             imgData.img,
@@ -840,7 +970,6 @@
           }
         });
 
-        // 2. Separate drawing paths from erasers so erasers correctly mask out vector shapes
         const activeDrawings = drawings.filter((d) => d.type !== "eraser");
         const activeErasers = drawings.filter((d) => d.type === "eraser");
 
@@ -886,7 +1015,6 @@
           targetCtx.drawImage(drawingCanvas, 0, 0);
         }
 
-        // 3. Selection visual bounding boxes
         if (!isExporting) {
           targetCtx.save();
           targetCtx.translate(transform.x, transform.y);
@@ -933,8 +1061,8 @@
           targetCtx.globalCompositeOperation = "destination-out";
           targetCtx.lineWidth = shape.width;
           targetCtx.strokeStyle = "rgba(0,0,0,1)";
-          targetCtx.lineCap = "round";
-          targetCtx.lineJoin = "round";
+          targetCtx.lineCap = "square";
+          targetCtx.lineJoin = "miter";
           if (shape.points.length >= 2) {
             targetCtx.beginPath();
             targetCtx.moveTo(shape.points[0].x, shape.points[0].y);
@@ -1058,7 +1186,7 @@
         isInteracting = true;
         startX = e.clientX;
         startY = e.clientY;
-        panLockDirection = null; // Clear lock direction state vectors on click initial down flags
+        panLockDirection = null;
 
         isMiddleClick = e.button === 1;
         isRightClickHand = e.button === 2;
@@ -1105,34 +1233,13 @@
 
         if (currentTool === "select") {
           let clickedElement = null;
+          const isModifierActive = e.metaKey || e.ctrlKey;
 
-          for (let item of selectedElements) {
-            if (item.elementType === "image") {
-              if (
-                worldPos.x >= item.x &&
-                worldPos.x <= item.x + item.w &&
-                worldPos.y >= item.y &&
-                worldPos.y <= item.y + item.h
-              ) {
-                clickedElement = item;
-                break;
-              }
-            } else {
-              if (isPointHittingShape(worldPos, item)) {
-                clickedElement = item;
-                break;
-              }
-            }
-          }
-
-          if (!clickedElement) {
-            for (let i = drawings.length - 1; i >= 0; i--) {
-              if (isPointHittingShape(worldPos, drawings[i])) {
-                clickedElement = drawings[i];
-                clickedElement.elementType = "drawing";
-                selectedElements = [clickedElement];
-                break;
-              }
+          for (let i = drawings.length - 1; i >= 0; i--) {
+            if (isPointHittingShape(worldPos, drawings[i])) {
+              clickedElement = drawings[i];
+              clickedElement.elementType = "drawing";
+              break;
             }
           }
 
@@ -1147,8 +1254,9 @@
               ) {
                 clickedElement = img;
                 clickedElement.elementType = "image";
-                selectedElements = [clickedElement];
-                images.push(images.splice(i, 1)[0]);
+                if (!isModifierActive) {
+                  images.push(images.splice(i, 1)[0]);
+                }
                 break;
               }
             }
@@ -1156,6 +1264,25 @@
 
           if (clickedElement) {
             isRegionSelecting = false;
+
+            if (isModifierActive) {
+              const alreadySelectedIdx = selectedElements.findIndex(
+                (el) => el.id === clickedElement.id,
+              );
+              if (alreadySelectedIdx !== -1) {
+                selectedElements.splice(alreadySelectedIdx, 1);
+              } else {
+                selectedElements.push(clickedElement);
+              }
+            } else {
+              const isAlreadyInSelection = selectedElements.some(
+                (el) => el.id === clickedElement.id,
+              );
+              if (!isAlreadyInSelection) {
+                selectedElements = [clickedElement];
+              }
+            }
+
             dragOffsets = selectedElements.map((el) => {
               if (el.elementType === "image") {
                 return {
@@ -1183,10 +1310,12 @@
               }
             });
           } else {
+            if (!isModifierActive) {
+              selectedElements = [];
+            }
             isRegionSelecting = true;
             regionStart = { ...worldPos };
             regionEnd = { ...worldPos };
-            selectedElements = [];
           }
           toggleAlignmentPanelVisibility();
           render();
@@ -1221,7 +1350,6 @@
         let worldPos = screenToWorld(e.clientX, e.clientY);
 
         if (isMiddleClick || isRightClickHand || currentTool === "pan") {
-          // If Shift key is active, lock translations to 1D orthogonal tracking vectors
           if (isShiftPressed) {
             if (!panLockDirection) {
               if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
@@ -1328,8 +1456,11 @@
           const ry = Math.min(regionStart.y, regionEnd.y);
           const rw = Math.abs(regionEnd.x - regionStart.x);
           const rh = Math.abs(regionEnd.y - regionStart.y);
+          const isModifierActive = e.metaKey || e.ctrlKey;
 
-          selectedElements = [];
+          if (!isModifierActive) {
+            selectedElements = [];
+          }
 
           images.forEach((img) => {
             if (
@@ -1337,8 +1468,10 @@
               img.x + img.w <= rx + rw &&
               img.y >= ry &&
               img.y + img.h <= ry + rh
-            )
-              selectedElements.push(img);
+            ) {
+              if (!selectedElements.some((el) => el.id === img.id))
+                selectedElements.push(img);
+            }
           });
 
           drawings.forEach((shape) => {
@@ -1350,7 +1483,8 @@
               b.y + b.h > ry;
             if (overlaps) {
               if (shape.type !== "text") shape.elementType = "drawing";
-              selectedElements.push(shape);
+              if (!selectedElements.some((el) => el.id === shape.id))
+                selectedElements.push(shape);
             }
           });
 
@@ -1448,7 +1582,6 @@
         showToast("Centered camera view to coordinate (0,0)");
       });
 
-      // Helper alignment offset utility applier
       function translateElement(el, shiftX, shiftY) {
         if (el.elementType === "image") {
           el.x += shiftX;
@@ -1470,10 +1603,11 @@
       const alignButtons = document.querySelectorAll(".align-btn");
       alignButtons.forEach((btn) => {
         btn.addEventListener("click", (e) => {
-          const alignType = e.target.dataset.align;
+          const targetBtn = e.target.closest(".align-btn");
+          if (!targetBtn) return;
+          const alignType = targetBtn.dataset.align;
           if (selectedElements.length < 2) return;
 
-          // 1. Compute bounds for all targeted units
           let groupMinX = Infinity,
             groupMinY = Infinity;
           let groupMaxX = -Infinity,
@@ -1503,7 +1637,6 @@
           const groupCenterX = (groupMinX + groupMaxX) / 2;
           const groupCenterY = (groupMinY + groupMaxY) / 2;
 
-          // Handle Distribution logic types separately from structural snaps
           if (alignType === "distributeX" || alignType === "distributeY") {
             if (selectedElements.length < 3) {
               showToast("Requires at least 3 elements to distribute spacing");
@@ -1511,7 +1644,6 @@
             }
 
             if (alignType === "distributeX") {
-              // Sort nodes sequentially across the grid space plane
               boundsMap.sort((a, b) => a.b.x + a.b.w / 2 - (b.b.x + b.b.w / 2));
               const totalElementsWidth = boundsMap.reduce(
                 (sum, item) => sum + item.b.w,
@@ -1548,7 +1680,6 @@
               });
             }
           } else {
-            // Standard structural absolute alignments snaps logic loops
             boundsMap.forEach(({ el, b }) => {
               let shiftX = 0;
               let shiftY = 0;
@@ -1571,7 +1702,6 @@
         });
       });
 
-      // Calculate workspace bounds helper function
       function getCanvasContentBounds() {
         let minX = Infinity,
           minY = Infinity;
@@ -1603,7 +1733,6 @@
         };
       }
 
-      // --- EXPORT MASTER CONTROLLERS ---
       async function executePNGExport(scaleFactor = 1.0) {
         if (images.length === 0 && drawings.length === 0) {
           showToast("Canvas is completely empty!");
@@ -1614,6 +1743,7 @@
         const originalWidth = bounds.maxX - bounds.minX;
         const originalHeight = bounds.maxY - bounds.minY;
 
+        // Completely isolated standalone target context setup
         const exportCanvas = document.createElement("canvas");
         exportCanvas.width = originalWidth * scaleFactor;
         exportCanvas.height = originalHeight * scaleFactor;
@@ -1625,7 +1755,27 @@
         exportCtx.scale(scaleFactor, scaleFactor);
         exportCtx.translate(-bounds.minX, -bounds.minY);
 
-        render(exportCtx, true);
+        // Directly render asset blocks to isolated context bypassing screen dependency
+        images.forEach((imgData) => {
+          exportCtx.drawImage(
+            imgData.img,
+            imgData.x,
+            imgData.y,
+            imgData.w,
+            imgData.h,
+          );
+        });
+
+        const activeDrawings = drawings.filter((d) => d.type !== "eraser");
+        const activeErasers = drawings.filter((d) => d.type === "eraser");
+
+        activeDrawings.forEach((shape) => {
+          drawShape(exportCtx, shape, true);
+        });
+
+        activeErasers.forEach((eraserPath) => {
+          drawShape(exportCtx, eraserPath, true);
+        });
 
         exportCanvas.toBlob(async (blob) => {
           if (!blob) {
@@ -1657,7 +1807,6 @@
       exportBtn.addEventListener("click", () => executePNGExport(1.0));
       export50Btn.addEventListener("click", () => executePNGExport(0.5));
 
-      // Individual Download Option for Pasted Files
       downloadImagesBtn.addEventListener("click", () => {
         if (images.length === 0) {
           showToast("No pasted images found to download!");
@@ -1686,3 +1835,4 @@
     </script>
   </body>
 </html>
+˛
