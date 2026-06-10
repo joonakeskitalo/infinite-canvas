@@ -101,6 +101,22 @@
         cursor: pointer;
         background: transparent;
       }
+      .color-presets {
+        display: flex;
+        gap: 3px;
+        margin-left: 2px;
+      }
+      .preset-btn {
+        width: 16px;
+        height: 16px;
+        border: 1px solid #555;
+        border-radius: 3px;
+        cursor: pointer;
+        transition: transform 0.1s;
+      }
+      .preset-btn:hover {
+        transform: scale(1.15);
+      }
       /* Dynamic Control Groups */
       .control-group {
         display: flex;
@@ -110,7 +126,7 @@
         color: #aaa;
       }
       .control-group input[type="range"] {
-        width: 168px;
+        width: 140px;
         accent-color: #007acc;
         cursor: pointer;
       }
@@ -128,19 +144,35 @@
         text-align: right;
       }
       /* Action buttons style */
+      .action-container {
+        display: flex;
+        gap: 4px;
+      }
       .action-btn {
         background: #28a745;
         color: white;
         border: none;
-        padding: 8px 12px;
+        padding: 8px 10px;
         border-radius: 4px;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: bold;
         cursor: pointer;
         transition: background 0.2s;
       }
       .action-btn:hover {
         background: #218838;
+      }
+      .action-btn.secondary-action {
+        background: #6c757d;
+      }
+      .action-btn.secondary-action:hover {
+        background: #5a6268;
+      }
+      .action-btn.blue-action {
+        background: #17a2b8;
+      }
+      .action-btn.blue-action:hover {
+        background: #138496;
       }
       /* Invisible Input element for text tools */
       #text-ghost-input {
@@ -208,12 +240,34 @@
       <div class="separator"></div>
 
       <div class="color-picker-wrapper">
-        <input
-          type="color"
-          id="color-picker"
-          value="#ff4444"
-          title="Choose Drawing Color"
-        />
+        <div style="display: flex; align-items: center; gap: 4px">
+          <input
+            type="color"
+            id="color-picker"
+            value="#ff4444"
+            title="Choose Drawing Color"
+          />
+          <div class="color-presets">
+            <div
+              class="preset-btn"
+              style="background: #ff4444"
+              data-color="#ff4444"
+              title="Red Preset"
+            ></div>
+            <div
+              class="preset-btn"
+              style="background: #28a745"
+              data-color="#28a745"
+              title="Green Preset"
+            ></div>
+            <div
+              class="preset-btn"
+              style="background: #007acc"
+              data-color="#007acc"
+              title="Blue Preset"
+            ></div>
+          </div>
+        </div>
         <span>Draw</span>
       </div>
       <div class="color-picker-wrapper">
@@ -248,7 +302,15 @@
       </div>
 
       <div class="separator"></div>
-      <button class="action-btn" id="export-btn">Export Canvas PNG</button>
+      <div class="action-container">
+        <button class="action-btn" id="export-btn">Export Canvas PNG</button>
+        <button class="action-btn secondary-action" id="export-50-btn">
+          Copy PNG (50% Size)
+        </button>
+        <button class="action-btn blue-action" id="download-images-btn">
+          Download Saved Images
+        </button>
+      </div>
     </div>
 
     <div id="toast">Canvas copied to clipboard as PNG!</div>
@@ -267,6 +329,8 @@
       const zoomSlider = document.getElementById("zoom-slider");
       const zoomValDisplay = document.getElementById("zoom-val");
       const exportBtn = document.getElementById("export-btn");
+      const export50Btn = document.getElementById("export-50-btn");
+      const downloadImagesBtn = document.getElementById("download-images-btn");
       const toast = document.getElementById("toast");
       const bgColorPicker = document.getElementById("bg-color-picker");
 
@@ -352,6 +416,15 @@
         "input",
         (e) => (drawColor = e.target.value),
       );
+
+      // Connect Preset Buttons
+      const presetBtns = document.querySelectorAll(".preset-btn");
+      presetBtns.forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          drawColor = e.target.dataset.color;
+          colorPicker.value = drawColor;
+        });
+      });
 
       bgColorPicker.addEventListener("input", (e) => {
         bgColor = e.target.value;
@@ -658,7 +731,7 @@
           vectorCtx.scale(transform.zoom, transform.zoom);
         }
 
-        // 1. Draw Pasted Images directly to the main layout context
+        // 1. Draw Pasted Images directly to the main context
         images.forEach((imgData) => {
           targetCtx.drawImage(
             imgData.img,
@@ -677,11 +750,10 @@
           }
         });
 
-        // 2. Separate shapes and erasers so erasers always stack on top of standard vector structures
+        // 2. Separate drawing paths from erasers so erasers correctly mask out vector shapes
         const activeDrawings = drawings.filter((d) => d.type !== "eraser");
         const activeErasers = drawings.filter((d) => d.type === "eraser");
 
-        // Draw standard visible vector structures first
         activeDrawings.forEach((shape) => {
           drawShape(vectorCtx, shape, isExporting);
 
@@ -705,17 +777,14 @@
           }
         });
 
-        // Handle current preview drawing safely based on type
         if (!isExporting && activeShape && activeShape.type !== "eraser") {
           drawShape(vectorCtx, activeShape, false);
         }
 
-        // Draw eraser strokes last so they cleanly subtract drawings underneath them
         activeErasers.forEach((eraserPath) => {
           drawShape(vectorCtx, eraserPath, isExporting);
         });
 
-        // Handle active preview eraser stroke last
         if (!isExporting && activeShape && activeShape.type === "eraser") {
           drawShape(vectorCtx, activeShape, false);
         }
@@ -723,12 +792,11 @@
         targetCtx.restore();
         vectorCtx.restore();
 
-        // 3. Composite the drawings layer onto the main canvas view
         if (!isExporting) {
           targetCtx.drawImage(drawingCanvas, 0, 0);
         }
 
-        // 4. Draw selection box UI
+        // 3. Selection visual bounding boxes
         if (!isExporting) {
           targetCtx.save();
           targetCtx.translate(transform.x, transform.y);
@@ -892,7 +960,7 @@
         targetCtx.restore();
       }
 
-      // --- COMPREHENSIVE CLICK ENGINE ---
+      // --- MOUSE & EVENT LOGIC ---
       container.addEventListener("mousedown", (e) => {
         if (ghostInput.style.display === "block" && e.target !== ghostInput)
           bakeText();
@@ -1265,12 +1333,8 @@
         zoomSlider.blur();
       });
 
-      exportBtn.addEventListener("click", async () => {
-        if (images.length === 0 && drawings.length === 0) {
-          showToast("Canvas is completely empty!");
-          return;
-        }
-
+      // Calculate workspace bounds helper function
+      function getCanvasContentBounds() {
         let minX = Infinity,
           minY = Infinity;
         let maxX = -Infinity,
@@ -1293,19 +1357,37 @@
         });
 
         const padding = 50;
-        minX -= padding;
-        minY -= padding;
-        maxX += padding;
-        maxY += padding;
+        return {
+          minX: minX - padding,
+          minY: minY - padding,
+          maxX: maxX + padding,
+          maxY: maxY + padding,
+        };
+      }
 
+      // --- EXPORT MASTER CONTROLLERS ---
+      async function executePNGExport(scaleFactor = 1.0) {
+        if (images.length === 0 && drawings.length === 0) {
+          showToast("Canvas is completely empty!");
+          return;
+        }
+
+        const bounds = getCanvasContentBounds();
+        const originalWidth = bounds.maxX - bounds.minX;
+        const originalHeight = bounds.maxY - bounds.minY;
+
+        // Compute targeted render bounds base on requested output density scales
         const exportCanvas = document.createElement("canvas");
-        exportCanvas.width = maxX - minX;
-        exportCanvas.height = maxY - minY;
-        const exportCtx = exportCanvas.getContext("2d");
+        exportCanvas.width = originalWidth * scaleFactor;
+        exportCanvas.height = originalHeight * scaleFactor;
 
+        const exportCtx = exportCanvas.getContext("2d");
         exportCtx.fillStyle = bgColor;
         exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
-        exportCtx.translate(-minX, -minY);
+
+        // Apply downsampling or upsampling matrix transforms safely
+        exportCtx.scale(scaleFactor, scaleFactor);
+        exportCtx.translate(-bounds.minX, -bounds.minY);
 
         render(exportCtx, true);
 
@@ -1317,12 +1399,16 @@
           try {
             const item = new ClipboardItem({ "image/png": blob });
             await navigator.clipboard.write([item]);
-            showToast("Full content PNG copied to Clipboard!");
+            showToast(
+              scaleFactor === 0.5
+                ? "50% scale PNG copied to Clipboard!"
+                : "Full scale PNG copied to Clipboard!",
+            );
           } catch (err) {
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
-            a.download = `full_canvas_${Date.now()}.png`;
+            a.download = `canvas_export_${Date.now()}.png`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -1330,6 +1416,34 @@
             showToast("Downloaded PNG File (Clipboard API Blocked)");
           }
         }, "image/png");
+      }
+
+      exportBtn.addEventListener("click", () => executePNGExport(1.0));
+      export50Btn.addEventListener("click", () => executePNGExport(0.5));
+
+      // Individual Download Option for Pasted Files
+      downloadImagesBtn.addEventListener("click", () => {
+        if (images.length === 0) {
+          showToast("No pasted images found to download!");
+          return;
+        }
+
+        images.forEach((imgData, index) => {
+          const tempCanvas = document.createElement("canvas");
+          tempCanvas.width = imgData.img.naturalWidth || imgData.w;
+          tempCanvas.height = imgData.img.naturalHeight || imgData.h;
+          const tempCtx = tempCanvas.getContext("2d");
+          tempCtx.drawImage(imgData.img, 0, 0);
+
+          const dataUrl = tempCanvas.toDataURL("image/png");
+          const a = document.createElement("a");
+          a.href = dataUrl;
+          a.download = `pasted_asset_${index + 1}.png`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        });
+        showToast(`Downloading ${images.length} separate asset files...`);
       });
 
       resize();
