@@ -1115,8 +1115,10 @@
       function drawShape(targetCtx, shape, isExporting) {
         let calculatedWidth = shape.width;
         if (shape.type !== "text") {
-          calculatedWidth =
-            CONSTANT_LINE_WIDTH / (isExporting ? 1 : transform.zoom);
+          // Boost the line width specifically for exports, otherwise scale with zoom
+          calculatedWidth = isExporting
+            ? 8
+            : CONSTANT_LINE_WIDTH / transform.zoom;
         }
 
         targetCtx.save();
