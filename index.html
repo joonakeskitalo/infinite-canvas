@@ -1324,7 +1324,7 @@
 
           // 2. Normal element selection hit testing
           let clickedElement = null;
-          const isModifierActive = e.metaKey || e.ctrlKey;
+          const isModifierActive = e.metaKey || e.shiftKey || e.ctrlKey;
 
           for (let i = drawings.length - 1; i >= 0; i--) {
             if (isPointHittingShape(worldPos, drawings[i])) {
