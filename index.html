@@ -125,7 +125,7 @@
         color: #aaa;
       }
       .control-group input[type="range"] {
-        width: 110px;
+        width: 120px;
         accent-color: #007acc;
         cursor: pointer;
       }
@@ -361,23 +361,11 @@
         class="tool-btn"
         id="tool-eraser"
         data-tool="eraser"
-        title="Stroke Eraser Tool [E]"
+        title="Object Eraser Tool [E]"
       >
         <svg viewBox="0 0 24 24">
           <path
             d="M15.14 3c-.51 0-1.02.2-1.41.59L2.59 14.73c-.78.78-.78 2.05 0 2.83L6.44 21.4c.39.39.9.59 1.41.59H22v-2h-5.59l4.59-4.59c.78-.78.78-2.05 0-2.83L16.56 3.59c-.39-.39-.9-.59-1.42-.59zM15.14 5l4.41 4.41-2.12 2.12-4.41-4.41L15.14 5zm-3.53 3.53l4.41 4.41-6.19 6.19H5.41l-2.82-2.82 9.01-9.01z"
-          />
-        </svg>
-      </button>
-      <button
-        class="tool-btn"
-        id="tool-obj-eraser"
-        data-tool="obj-eraser"
-        title="Object Delete Eraser Tool [O]"
-      >
-        <svg viewBox="0 0 24 24">
-          <path
-            d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"
           />
         </svg>
       </button>
@@ -449,7 +437,6 @@
 
     <div id="alignment-panel">
       <span class="align-title">Align</span>
-
       <button class="align-btn" data-align="left" title="Align Left">
         <svg viewBox="0 0 24 24">
           <path d="M4 2h2v20H4V2zm4 3h12v3H8V5zm0 6h8v3H8v-3zm0 6h11v3H8v-3z" />
@@ -467,11 +454,9 @@
           />
         </svg>
       </button>
-
       <div
         style="width: 1px; height: 18px; background: #444; margin: 0 4px"
       ></div>
-
       <button class="align-btn" data-align="top" title="Align Top">
         <svg viewBox="0 0 24 24">
           <path d="M2 4h20v2H2V4zm3 4h3v12H5V8zm6 0h3v8h-3V8zm6 0h3v11h-3V8z" />
@@ -489,12 +474,10 @@
           />
         </svg>
       </button>
-
       <div
         style="width: 1px; height: 18px; background: #444; margin: 0 4px"
       ></div>
       <span class="align-title">Distribute</span>
-
       <button
         class="align-btn"
         data-align="distributeX"
@@ -542,11 +525,9 @@
       const toast = document.getElementById("toast");
       const bgColorPicker = document.getElementById("bg-color-picker");
 
-      const drawingCanvas = document.createElement("canvas");
-      const drawingCtx = drawingCanvas.getContext("2d");
-
       const GRID_SIZE = 50;
       const CONSTANT_LINE_WIDTH = 4;
+      const RESIZE_HANDLE_SIZE = 10;
 
       let currentTool = "pan";
       let preSpaceTool = null;
@@ -577,6 +558,8 @@
       let regionStart = { x: 0, y: 0 };
       let regionEnd = { x: 0, y: 0 };
       let dragOffsets = [];
+      let resizingElement = null;
+      let resizeStartBounds = null;
 
       let elementIdCounter = 0;
 
@@ -593,8 +576,6 @@
       function resize() {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
-        drawingCanvas.width = window.innerWidth;
-        drawingCanvas.height = window.innerHeight;
         render();
       }
       window.addEventListener("resize", resize);
@@ -659,9 +640,7 @@
         if (currentTool === "pan" || isRightClickHand)
           container.style.cursor = isInteracting ? "grabbing" : "grab";
         else if (currentTool === "select") container.style.cursor = "default";
-        else if (currentTool === "eraser") container.style.cursor = "cell";
-        else if (currentTool === "obj-eraser")
-          container.style.cursor = "pointer";
+        else if (currentTool === "eraser") container.style.cursor = "pointer";
         else if (currentTool === "text") container.style.cursor = "text";
         else container.style.cursor = "crosshair";
       }
@@ -670,11 +649,42 @@
       window.addEventListener("mousemove", (e) => {
         lastMousePos.x = e.clientX;
         lastMousePos.y = e.clientY;
+
+        // Handle context hover cursor changes for resizer handles
+        if (
+          currentTool === "select" &&
+          !isInteracting &&
+          selectedElements.length === 1
+        ) {
+          const el = selectedElements[0];
+          const mouseWorld = screenToWorld(e.clientX, e.clientY);
+          let handleX = 0,
+            handleY = 0;
+
+          if (el.elementType === "image") {
+            handleX = el.x + el.w;
+            handleY = el.y + el.h;
+          } else if (el.type === "text") {
+            handleX = el.start.x + (el.w || 50);
+            handleY = el.start.y + (el.h || el.fontSize);
+          }
+
+          if (handleX !== 0) {
+            const threshold = RESIZE_HANDLE_SIZE / transform.zoom;
+            if (
+              Math.abs(mouseWorld.x - handleX) <= threshold &&
+              Math.abs(mouseWorld.y - handleY) <= threshold
+            ) {
+              container.style.cursor = "nwse-resize";
+              return;
+            }
+          }
+          container.style.cursor = "default";
+        }
       });
 
       window.addEventListener("keydown", (e) => {
         if (e.key === "Shift") isShiftPressed = true;
-
         if (e.key === " " || e.code === "Space") {
           if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT")
             return;
@@ -696,7 +706,6 @@
           isShiftPressed = false;
           panLockDirection = null;
         }
-
         if (e.key === " " || e.code === "Space") {
           if (isSpacePressed) {
             isSpacePressed = false;
@@ -711,11 +720,23 @@
         }
       });
 
+      window.addEventListener("blur", () => {
+        isShiftPressed = false;
+        isSpacePressed = false;
+        panLockDirection = null;
+        if (preSpaceTool !== null) {
+          currentTool = preSpaceTool;
+          preSpaceTool = null;
+          updateToolbarUI();
+          updateCursor();
+        }
+        render();
+      });
+
       window.addEventListener("keydown", (e) => {
         if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT")
           return;
         const key = e.key.toLowerCase();
-
         if (e.key === "+" || e.key === "=") {
           e.preventDefault();
           applyZoom(transform.zoom * 1.1, lastMousePos.x, lastMousePos.y);
@@ -726,20 +747,17 @@
           applyZoom(transform.zoom / 1.1, lastMousePos.x, lastMousePos.y);
           return;
         }
-
         if (key === "z") {
           e.preventDefault();
-          let nextZoom = Math.abs(transform.zoom - 1.0) < 0.01 ? 0.2 : 1.0;
+          let nextZoom = Math.abs(transform.zoom - 1.0) < 0.01 ? 0.3 : 1.0;
           applyZoom(nextZoom, lastMousePos.x, lastMousePos.y);
           return;
         }
-
         if (e.key === "Delete" || e.key === "Backspace") {
           if (currentTool === "select" && selectedElements.length > 0) {
             const idsToRemove = selectedElements.map((el) => el.id);
             images = images.filter((img) => !idsToRemove.includes(img.id));
             drawings = drawings.filter((d) => !idsToRemove.includes(d.id));
-
             showToast(`Removed ${selectedElements.length} selected asset(s)`);
             selectedElements = [];
             toggleAlignmentPanelVisibility();
@@ -758,7 +776,6 @@
         if (key === "f") targetTool = "rect-fill";
         if (key === "t") targetTool = "text";
         if (key === "e") targetTool = "eraser";
-        if (key === "o") targetTool = "obj-eraser";
 
         if (targetTool) {
           preSpaceTool = null;
@@ -813,7 +830,7 @@
           minY = Infinity,
           maxX = -Infinity,
           maxY = -Infinity;
-        if (shape.type === "pen" || shape.type === "eraser") {
+        if (shape.type === "pen") {
           shape.points.forEach((p) => {
             if (p.x < minX) minX = p.x;
             if (p.y < minY) minY = p.y;
@@ -821,10 +838,18 @@
             if (p.y > maxY) maxY = p.y;
           });
         } else if (shape.type === "text") {
+          if (!shape.w || !shape.h) {
+            ctx.save();
+            ctx.font = `${shape.fontSize}px sans-serif`;
+            const metrics = ctx.measureText(shape.text);
+            shape.w = metrics.width;
+            shape.h = shape.fontSize;
+            ctx.restore();
+          }
           minX = shape.start.x;
           minY = shape.start.y;
-          maxX = shape.start.x + (shape.w || 50);
-          maxY = shape.start.y + (shape.h || shape.fontSize);
+          maxX = shape.start.x + shape.w;
+          maxY = shape.start.y + shape.h;
         } else {
           minX = Math.min(shape.start.x, shape.end.x);
           minY = Math.min(shape.start.y, shape.end.y);
@@ -913,10 +938,7 @@
         }
       });
 
-      window.addEventListener("dragover", (e) => {
-        e.preventDefault();
-      });
-
+      window.addEventListener("dragover", (e) => e.preventDefault());
       window.addEventListener("drop", (e) => {
         e.preventDefault();
         if (e.dataTransfer && e.dataTransfer.files.length > 0) {
@@ -931,27 +953,17 @@
 
       function render(targetCtx = ctx, isExporting = false) {
         if (!isExporting) {
-          targetCtx.clearRect(0, 0, canvas.width, canvas.height);
-          drawingCanvas.width = canvas.width;
-          drawingCanvas.height = canvas.height;
-        }
-
-        const vectorCtx = isExporting ? targetCtx : drawingCtx;
-        if (!isExporting) {
-          vectorCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+          targetCtx.fillStyle = bgColor;
+          targetCtx.fillRect(0, 0, canvas.width, canvas.height);
         }
 
         targetCtx.save();
-        vectorCtx.save();
-
         if (!isExporting) {
           targetCtx.translate(transform.x, transform.y);
           targetCtx.scale(transform.zoom, transform.zoom);
-
-          vectorCtx.translate(transform.x, transform.y);
-          vectorCtx.scale(transform.zoom, transform.zoom);
         }
 
+        // 1. Render Background Assets
         images.forEach((imgData) => {
           targetCtx.drawImage(
             imgData.img,
@@ -964,73 +976,76 @@
             const isSelected = selectedElements.some(
               (el) => el.id === imgData.id,
             );
+            targetCtx.save();
             targetCtx.strokeStyle = isSelected ? "#ff4444" : "#007acc";
             targetCtx.lineWidth = (isSelected ? 3 : 1.5) / transform.zoom;
             targetCtx.strokeRect(imgData.x, imgData.y, imgData.w, imgData.h);
+
+            if (isSelected && selectedElements.length === 1) {
+              targetCtx.fillStyle = "#ff4444";
+              const hSize = RESIZE_HANDLE_SIZE / transform.zoom;
+              targetCtx.fillRect(
+                imgData.x + imgData.w - hSize / 2,
+                imgData.y + imgData.h - hSize / 2,
+                hSize,
+                hSize,
+              );
+            }
+            targetCtx.restore();
           }
         });
 
-        const activeDrawings = drawings.filter((d) => d.type !== "eraser");
-        const activeErasers = drawings.filter((d) => d.type === "eraser");
-
-        activeDrawings.forEach((shape) => {
-          drawShape(vectorCtx, shape, isExporting);
-
-          if (
-            !isExporting &&
-            currentTool === "select" &&
-            shape.type !== "text"
-          ) {
+        // 2. Render Vector Graphics & Text elements
+        drawings.forEach((shape) => {
+          drawShape(targetCtx, shape, isExporting);
+          if (!isExporting && currentTool === "select") {
             const isSelected = selectedElements.some(
               (el) => el.id === shape.id,
             );
             if (isSelected) {
               const b = getShapeBounds(shape);
-              vectorCtx.save();
-              vectorCtx.strokeStyle = "#ff4444";
-              vectorCtx.lineWidth = 1.5 / transform.zoom;
-              vectorCtx.setLineDash([4 / transform.zoom, 4 / transform.zoom]);
-              vectorCtx.strokeRect(b.x - 4, b.y - 4, b.w + 8, b.h + 8);
-              vectorCtx.restore();
+              targetCtx.save();
+              targetCtx.strokeStyle = "#ff4444";
+              targetCtx.lineWidth = 1.5 / transform.zoom;
+              targetCtx.setLineDash([4 / transform.zoom, 4 / transform.zoom]);
+              targetCtx.strokeRect(b.x - 4, b.y - 4, b.w + 8, b.h + 8);
+
+              if (shape.type === "text" && selectedElements.length === 1) {
+                targetCtx.fillStyle = "#ff4444";
+                const hSize = RESIZE_HANDLE_SIZE / transform.zoom;
+                targetCtx.fillRect(
+                  b.maxX - hSize / 2,
+                  b.maxY - hSize / 2,
+                  hSize,
+                  hSize,
+                );
+              }
+              targetCtx.restore();
             }
           }
         });
 
-        if (!isExporting && activeShape && activeShape.type !== "eraser") {
-          drawShape(vectorCtx, activeShape, false);
-        }
-
-        activeErasers.forEach((eraserPath) => {
-          drawShape(vectorCtx, eraserPath, isExporting);
-        });
-
-        if (!isExporting && activeShape && activeShape.type === "eraser") {
-          drawShape(vectorCtx, activeShape, false);
+        // Live preview layer
+        if (!isExporting && activeShape) {
+          drawShape(targetCtx, activeShape, false);
         }
 
         targetCtx.restore();
-        vectorCtx.restore();
 
-        if (!isExporting) {
-          targetCtx.drawImage(drawingCanvas, 0, 0);
-        }
-
+        // 3. Draw Selection Boxes
         if (!isExporting) {
           targetCtx.save();
           targetCtx.translate(transform.x, transform.y);
           targetCtx.scale(transform.zoom, transform.zoom);
-
           if (isRegionSelecting) {
             targetCtx.strokeStyle = "rgba(0, 122, 204, 0.8)";
             targetCtx.fillStyle = "rgba(0, 122, 204, 0.1)";
             targetCtx.lineWidth = 1.5 / transform.zoom;
             targetCtx.setLineDash([6 / transform.zoom, 4 / transform.zoom]);
-
             const rx = Math.min(regionStart.x, regionEnd.x);
             const ry = Math.min(regionStart.y, regionEnd.y);
             const rw = Math.abs(regionEnd.x - regionStart.x);
             const rh = Math.abs(regionEnd.y - regionStart.y);
-
             targetCtx.fillRect(rx, ry, rw, rh);
             targetCtx.strokeRect(rx, ry, rw, rh);
           }
@@ -1051,27 +1066,9 @@
 
       function drawShape(targetCtx, shape, isExporting) {
         let calculatedWidth = shape.width;
-        if (shape.type !== "eraser" && shape.type !== "text") {
+        if (shape.type !== "text") {
           calculatedWidth =
             CONSTANT_LINE_WIDTH / (isExporting ? 1 : transform.zoom);
-        }
-
-        if (shape.type === "eraser") {
-          targetCtx.save();
-          targetCtx.globalCompositeOperation = "destination-out";
-          targetCtx.lineWidth = shape.width;
-          targetCtx.strokeStyle = "rgba(0,0,0,1)";
-          targetCtx.lineCap = "square";
-          targetCtx.lineJoin = "miter";
-          if (shape.points.length >= 2) {
-            targetCtx.beginPath();
-            targetCtx.moveTo(shape.points[0].x, shape.points[0].y);
-            for (let i = 1; i < shape.points.length; i++)
-              targetCtx.lineTo(shape.points[i].x, shape.points[i].y);
-            targetCtx.stroke();
-          }
-          targetCtx.restore();
-          return;
         }
 
         targetCtx.save();
@@ -1104,7 +1101,6 @@
           if (len > 0.1) {
             const ux = dx / len;
             const uy = dy / len;
-
             const headLength = Math.max(
               16 / (isExporting ? 1 : transform.zoom),
               calculatedWidth * 3.5,
@@ -1113,7 +1109,6 @@
               10 / (isExporting ? 1 : transform.zoom),
               calculatedWidth * 2.2,
             );
-
             const cx = shape.end.x - headLength * ux;
             const cy = shape.end.y - headLength * uy;
             const nx = -uy * headWidth;
@@ -1178,6 +1173,19 @@
         targetCtx.restore();
       }
 
+      function checkAndEraseAtPosition(worldPos) {
+        let erasedSomething = false;
+        for (let i = drawings.length - 1; i >= 0; i--) {
+          if (isPointHittingShape(worldPos, drawings[i])) {
+            drawings.splice(i, 1);
+            erasedSomething = true;
+          }
+        }
+        if (erasedSomething) {
+          render();
+        }
+      }
+
       // --- MOUSE & EVENT LOGIC ---
       container.addEventListener("mousedown", (e) => {
         if (ghostInput.style.display === "block" && e.target !== ghostInput)
@@ -1187,6 +1195,7 @@
         startX = e.clientX;
         startY = e.clientY;
         panLockDirection = null;
+        resizingElement = null;
 
         isMiddleClick = e.button === 1;
         isRightClickHand = e.button === 2;
@@ -1195,6 +1204,11 @@
 
         if (isMiddleClick || isRightClickHand || currentTool === "pan") {
           updateCursor();
+          return;
+        }
+
+        if (currentTool === "eraser") {
+          checkAndEraseAtPosition(worldPos);
           return;
         }
 
@@ -1212,33 +1226,59 @@
           return;
         }
 
-        if (currentTool === "obj-eraser") {
-          isInteracting = false;
-          let erasedSomething = false;
+        if (currentTool === "select") {
+          // 1. Check resize handle hits first
+          if (selectedElements.length === 1) {
+            const el = selectedElements[0];
+            let handleX = 0,
+              handleY = 0;
+            if (el.elementType === "image") {
+              handleX = el.x + el.w;
+              handleY = el.y + el.h;
+            } else if (el.type === "text") {
+              handleX = el.start.x + (el.w || 50);
+              handleY = el.start.y + (el.h || el.fontSize);
+            }
 
-          for (let i = drawings.length - 1; i >= 0; i--) {
-            if (isPointHittingShape(worldPos, drawings[i])) {
-              drawings.splice(i, 1);
-              erasedSomething = true;
-              break;
+            if (handleX !== 0) {
+              const threshold = RESIZE_HANDLE_SIZE / transform.zoom;
+              if (
+                Math.abs(worldPos.x - handleX) <= threshold &&
+                Math.abs(worldPos.y - handleY) <= threshold
+              ) {
+                resizingElement = el;
+                if (el.elementType === "image") {
+                  resizeStartBounds = {
+                    x: el.x,
+                    y: el.y,
+                    w: el.w,
+                    h: el.h,
+                    ratio: el.w / el.h,
+                    startMouse: { ...worldPos },
+                  };
+                } else {
+                  resizeStartBounds = {
+                    startX: el.start.x,
+                    startY: el.start.y,
+                    startFontSize: el.fontSize,
+                    initialW: el.w,
+                    startMouse: { ...worldPos },
+                  };
+                }
+                return;
+              }
             }
           }
 
-          if (erasedSomething) {
-            render();
-            showToast("Drawing path removed");
-          }
-          return;
-        }
-
-        if (currentTool === "select") {
+          // 2. Normal element selection hit testing
           let clickedElement = null;
           const isModifierActive = e.metaKey || e.ctrlKey;
 
           for (let i = drawings.length - 1; i >= 0; i--) {
             if (isPointHittingShape(worldPos, drawings[i])) {
               clickedElement = drawings[i];
-              clickedElement.elementType = "drawing";
+              if (clickedElement.type !== "text")
+                clickedElement.elementType = "drawing";
               break;
             }
           }
@@ -1264,7 +1304,6 @@
 
           if (clickedElement) {
             isRegionSelecting = false;
-
             if (isModifierActive) {
               const alreadySelectedIdx = selectedElements.findIndex(
                 (el) => el.id === clickedElement.id,
@@ -1292,7 +1331,7 @@
                   y: el.y,
                   startMouse: { ...worldPos },
                 };
-              } else if (el.type === "pen" || el.type === "eraser") {
+              } else if (el.type === "pen") {
                 return {
                   id: el.id,
                   type: "points",
@@ -1304,15 +1343,13 @@
                   id: el.id,
                   type: "vectors",
                   start: { ...el.start },
-                  end: { ...el.end },
+                  end: el.end ? { ...el.end } : null,
                   startMouse: { ...worldPos },
                 };
               }
             });
           } else {
-            if (!isModifierActive) {
-              selectedElements = [];
-            }
+            if (!isModifierActive) selectedElements = [];
             isRegionSelecting = true;
             regionStart = { ...worldPos };
             regionEnd = { ...worldPos };
@@ -1320,14 +1357,9 @@
           toggleAlignmentPanelVisibility();
           render();
         } else if (
-          [
-            "pen",
-            "line",
-            "arrow",
-            "rect-border",
-            "rect-fill",
-            "eraser",
-          ].includes(currentTool)
+          ["pen", "line", "arrow", "rect-border", "rect-fill"].includes(
+            currentTool,
+          )
         ) {
           activeShape = {
             id: "draw_" + elementIdCounter++,
@@ -1338,7 +1370,6 @@
             end: worldPos,
             points: [worldPos],
           };
-          if (currentTool === "eraser") activeShape.width = 30 / transform.zoom;
         }
       });
 
@@ -1361,7 +1392,6 @@
           } else {
             panLockDirection = null;
           }
-
           transform.x += dx;
           transform.y += dy;
           startX = e.clientX;
@@ -1371,7 +1401,33 @@
           return;
         }
 
+        if (currentTool === "eraser") {
+          checkAndEraseAtPosition(worldPos);
+          return;
+        }
+
         if (currentTool === "select") {
+          if (resizingElement) {
+            const mouseDx = worldPos.x - resizeStartBounds.startMouse.x;
+            if (resizingElement.elementType === "image") {
+              let newW = resizeStartBounds.w + mouseDx;
+              if (newW < 20) newW = 20;
+              resizingElement.w = newW;
+              resizingElement.h = newW / resizeStartBounds.ratio;
+            } else if (resizingElement.type === "text") {
+              let scaleFactor =
+                (resizeStartBounds.initialW + mouseDx) /
+                resizeStartBounds.initialW;
+              let newFontSize = Math.max(
+                8,
+                Math.round(resizeStartBounds.startFontSize * scaleFactor),
+              );
+              resizingElement.fontSize = newFontSize;
+            }
+            render();
+            return;
+          }
+
           if (isRegionSelecting) {
             regionEnd = { ...worldPos };
             render();
@@ -1379,7 +1435,6 @@
             selectedElements.forEach((el) => {
               const offset = dragOffsets.find((o) => o.id === el.id);
               if (!offset) return;
-
               const curDx = worldPos.x - offset.startMouse.x;
               const curDy = worldPos.y - offset.startMouse.y;
 
@@ -1396,9 +1451,8 @@
                 el.points = offset.points.map((p, idx) => {
                   let tx = p.x + curDx;
                   let ty = p.y + curDy;
-                  if (isShiftPressed && idx === 0) {
+                  if (isShiftPressed && idx === 0)
                     return { x: snapToGrid(tx), y: snapToGrid(ty) };
-                  }
                   return { x: tx, y: ty };
                 });
                 if (isShiftPressed && el.points.length > 0) {
@@ -1412,26 +1466,31 @@
               } else {
                 let tsx = offset.start.x + curDx;
                 let tsy = offset.start.y + curDy;
-                let tex = offset.end.x + curDx;
-                let tey = offset.end.y + curDy;
                 if (isShiftPressed) {
-                  const oldWidth = tex - tsx;
-                  const oldHeight = tey - tsy;
                   tsx = snapToGrid(tsx);
                   tsy = snapToGrid(tsy);
-                  tex = tsx + oldWidth;
-                  tey = tsy + oldHeight;
                 }
                 el.start.x = tsx;
                 el.start.y = tsy;
-                el.end.x = tex;
-                el.end.y = tey;
+
+                if (el.end && offset.end) {
+                  let tex = offset.end.x + curDx;
+                  let tey = offset.end.y + curDy;
+                  if (isShiftPressed) {
+                    const oldWidth = offset.end.x - offset.start.x;
+                    const oldHeight = offset.end.y - offset.start.y;
+                    tex = tsx + oldWidth;
+                    tey = tsy + oldHeight;
+                  }
+                  el.end.x = tex;
+                  el.end.y = tey;
+                }
               }
             });
             render();
           }
         } else if (activeShape) {
-          if (activeShape.type === "pen" || activeShape.type === "eraser") {
+          if (activeShape.type === "pen") {
             if (isShiftPressed && activeShape.points.length > 0)
               worldPos = constraintToAngle(activeShape.points[0], worldPos);
             activeShape.points.push(worldPos);
@@ -1444,23 +1503,21 @@
         }
       });
 
-      window.addEventListener("mouseup", (e) => {
+      container.addEventListener("mouseup", (e) => {
         if (!isInteracting) return;
         isInteracting = false;
         panLockDirection = null;
+        resizingElement = null;
 
         if (currentTool === "select" && isRegionSelecting) {
           isRegionSelecting = false;
-
           const rx = Math.min(regionStart.x, regionEnd.x);
           const ry = Math.min(regionStart.y, regionEnd.y);
           const rw = Math.abs(regionEnd.x - regionStart.x);
           const rh = Math.abs(regionEnd.y - regionStart.y);
           const isModifierActive = e.metaKey || e.ctrlKey;
 
-          if (!isModifierActive) {
-            selectedElements = [];
-          }
+          if (!isModifierActive) selectedElements = [];
 
           images.forEach((img) => {
             if (
@@ -1487,7 +1544,6 @@
                 selectedElements.push(shape);
             }
           });
-
           if (selectedElements.length > 0)
             showToast(`Selected group of ${selectedElements.length} assets`);
         }
@@ -1569,9 +1625,7 @@
         applyZoom(targetZoom, window.innerWidth / 2, window.innerHeight / 2);
       });
 
-      zoomSlider.addEventListener("change", () => {
-        zoomSlider.blur();
-      });
+      zoomSlider.addEventListener("change", () => zoomSlider.blur());
 
       centerCanvasBtn.addEventListener("click", () => {
         transform.x = 0;
@@ -1586,7 +1640,7 @@
         if (el.elementType === "image") {
           el.x += shiftX;
           el.y += shiftY;
-        } else if (el.type === "pen" || el.type === "eraser") {
+        } else if (el.type === "pen") {
           el.points.forEach((p) => {
             p.x += shiftX;
             p.y += shiftY;
@@ -1594,12 +1648,14 @@
         } else {
           el.start.x += shiftX;
           el.start.y += shiftY;
-          el.end.x += shiftX;
-          el.end.y += shiftY;
+          if (el.end) {
+            el.end.x += shiftX;
+            el.end.y += shiftY;
+          }
         }
       }
 
-      // --- ALIGNMENT & DISTRIBUTION COMPUTATION LOGIC ENGINE ---
+      // --- ALIGNMENT PANEL COMPUTATION LOGIC ---
       const alignButtons = document.querySelectorAll(".align-btn");
       alignButtons.forEach((btn) => {
         btn.addEventListener("click", (e) => {
@@ -1614,19 +1670,17 @@
             groupMaxY = -Infinity;
 
           const boundsMap = selectedElements.map((el) => {
-            let b;
-            if (el.elementType === "image") {
-              b = {
-                x: el.x,
-                y: el.y,
-                w: el.w,
-                h: el.h,
-                maxX: el.x + el.w,
-                maxY: el.y + el.h,
-              };
-            } else {
-              b = getShapeBounds(el);
-            }
+            let b =
+              el.elementType === "image"
+                ? {
+                    x: el.x,
+                    y: el.y,
+                    w: el.w,
+                    h: el.h,
+                    maxX: el.x + el.w,
+                    maxY: el.y + el.h,
+                  }
+                : getShapeBounds(el);
             if (b.x < groupMinX) groupMinX = b.x;
             if (b.y < groupMinY) groupMinY = b.y;
             if (b.maxX > groupMaxX) groupMaxX = b.maxX;
@@ -1642,7 +1696,6 @@
               showToast("Requires at least 3 elements to distribute spacing");
               return;
             }
-
             if (alignType === "distributeX") {
               boundsMap.sort((a, b) => a.b.x + a.b.w / 2 - (b.b.x + b.b.w / 2));
               const totalElementsWidth = boundsMap.reduce(
@@ -1651,12 +1704,10 @@
               );
               const availableSpace = groupMaxX - groupMinX - totalElementsWidth;
               const gap = availableSpace / (boundsMap.length - 1);
-
               let currentX = groupMinX;
               boundsMap.forEach((item, index) => {
                 if (index > 0 && index < boundsMap.length - 1) {
-                  const shiftX = currentX - item.b.x;
-                  translateElement(item.el, shiftX, 0);
+                  translateElement(item.el, currentX - item.b.x, 0);
                 }
                 currentX += item.b.w + gap;
               });
@@ -1669,21 +1720,18 @@
               const availableSpace =
                 groupMaxY - groupMinY - totalElementsHeight;
               const gap = availableSpace / (boundsMap.length - 1);
-
               let currentY = groupMinY;
               boundsMap.forEach((item, index) => {
                 if (index > 0 && index < boundsMap.length - 1) {
-                  const shiftY = currentY - item.b.y;
-                  translateElement(item.el, 0, shiftY);
+                  translateElement(item.el, 0, currentY - item.b.y);
                 }
                 currentY += item.b.h + gap;
               });
             }
           } else {
             boundsMap.forEach(({ el, b }) => {
-              let shiftX = 0;
-              let shiftY = 0;
-
+              let shiftX = 0,
+                shiftY = 0;
               if (alignType === "left") shiftX = groupMinX - b.x;
               else if (alignType === "centerX")
                 shiftX = groupCenterX - (b.x + b.w / 2);
@@ -1692,11 +1740,9 @@
               else if (alignType === "centerY")
                 shiftY = groupCenterY - (b.y + b.h / 2);
               else if (alignType === "bottom") shiftY = groupMaxY - b.maxY;
-
               translateElement(el, shiftX, shiftY);
             });
           }
-
           render();
           showToast(`Executed selection ${alignType}`);
         });
@@ -1713,7 +1759,6 @@
           if (x > maxX) maxX = x;
           if (y > maxY) maxY = y;
         }
-
         images.forEach((img) => {
           expandBounds(img.x, img.y);
           expandBounds(img.x + img.w, img.y + img.h);
@@ -1723,7 +1768,6 @@
           expandBounds(b.x, b.y);
           expandBounds(b.x + b.w, b.y + b.h);
         });
-
         const padding = 50;
         return {
           minX: minX - padding,
@@ -1738,57 +1782,47 @@
           showToast("Canvas is completely empty!");
           return;
         }
-
         const bounds = getCanvasContentBounds();
-        const originalWidth = bounds.maxX - bounds.minX;
-        const originalHeight = bounds.maxY - bounds.minY;
+        const exportW = (bounds.maxX - bounds.minX) * scaleFactor;
+        const exportH = (bounds.maxY - bounds.minY) * scaleFactor;
 
-        // Completely isolated standalone target context setup
-        const exportCanvas = document.createElement("canvas");
-        exportCanvas.width = originalWidth * scaleFactor;
-        exportCanvas.height = originalHeight * scaleFactor;
+        const finalCanvas = document.createElement("canvas");
+        finalCanvas.width = exportW;
+        finalCanvas.height = exportH;
+        const finalCtx = finalCanvas.getContext("2d");
 
-        const exportCtx = exportCanvas.getContext("2d");
-        exportCtx.fillStyle = bgColor;
-        exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+        finalCtx.fillStyle = bgColor;
+        finalCtx.fillRect(0, 0, exportW, exportH);
 
-        exportCtx.scale(scaleFactor, scaleFactor);
-        exportCtx.translate(-bounds.minX, -bounds.minY);
+        finalCtx.save();
+        finalCtx.scale(scaleFactor, scaleFactor);
+        finalCtx.translate(-bounds.minX, -bounds.minY);
 
-        // Directly render asset blocks to isolated context bypassing screen dependency
-        images.forEach((imgData) => {
-          exportCtx.drawImage(
+        images.forEach((imgData) =>
+          finalCtx.drawImage(
             imgData.img,
             imgData.x,
             imgData.y,
             imgData.w,
             imgData.h,
-          );
-        });
+          ),
+        );
+        drawings.forEach((shape) => drawShape(finalCtx, shape, true));
+        finalCtx.restore();
 
-        const activeDrawings = drawings.filter((d) => d.type !== "eraser");
-        const activeErasers = drawings.filter((d) => d.type === "eraser");
-
-        activeDrawings.forEach((shape) => {
-          drawShape(exportCtx, shape, true);
-        });
-
-        activeErasers.forEach((eraserPath) => {
-          drawShape(exportCtx, eraserPath, true);
-        });
-
-        exportCanvas.toBlob(async (blob) => {
+        finalCanvas.toBlob(async (blob) => {
           if (!blob) {
             showToast("Failed to compile image asset");
             return;
           }
           try {
-            const item = new ClipboardItem({ "image/png": blob });
-            await navigator.clipboard.write([item]);
+            await navigator.clipboard.write([
+              new ClipboardItem({ "image/png": blob }),
+            ]);
             showToast(
               scaleFactor === 0.5
-                ? "50% scale PNG copied to Clipboard!"
-                : "Full scale PNG copied to Clipboard!",
+                ? "50% scale PNG copied!"
+                : "Full scale PNG copied!",
             );
           } catch (err) {
             const url = URL.createObjectURL(blob);
@@ -1799,7 +1833,7 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-            showToast("Downloaded PNG File (Clipboard API Blocked)");
+            showToast("Downloaded PNG File");
           }
         }, "image/png");
       }
@@ -1812,17 +1846,13 @@
           showToast("No pasted images found to download!");
           return;
         }
-
         images.forEach((imgData, index) => {
           const tempCanvas = document.createElement("canvas");
           tempCanvas.width = imgData.img.naturalWidth || imgData.w;
           tempCanvas.height = imgData.img.naturalHeight || imgData.h;
-          const tempCtx = tempCanvas.getContext("2d");
-          tempCtx.drawImage(imgData.img, 0, 0);
-
-          const dataUrl = tempCanvas.toDataURL("image/png");
+          tempCanvas.getContext("2d").drawImage(imgData.img, 0, 0);
           const a = document.createElement("a");
-          a.href = dataUrl;
+          a.href = tempCanvas.toDataURL("image/png");
           a.download = `pasted_asset_${index + 1}.png`;
           document.body.appendChild(a);
           a.click();
@@ -1835,4 +1865,3 @@
     </script>
   </body>
 </html>
-˛
