@@ -1679,6 +1679,24 @@
                 newX = sb.x + sb.w - newW;
                 newY = sb.y + sb.h - newH;
               }
+
+              // Shift: snap size to 25% increments of the natural image size
+              if (e.shiftKey) {
+                const naturalW = el.img.naturalWidth || sb.w;
+                const naturalH = el.img.naturalHeight || sb.h;
+                const stepW = naturalW * 0.25;
+                const stepH = naturalH * 0.25;
+                newW = Math.max(stepW, Math.round(newW / stepW) * stepW);
+                newH = Math.max(stepH, Math.round(newH / stepH) * stepH);
+                // Re-anchor position after snapping
+                if (hp === "bl" || hp === "tl") {
+                  newX = sb.x + sb.w - newW;
+                }
+                if (hp === "tr" || hp === "tl") {
+                  newY = sb.y + sb.h - newH;
+                }
+              }
+
               el.x = newX;
               el.y = newY;
               el.w = newW;
