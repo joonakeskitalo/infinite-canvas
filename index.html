@@ -1377,6 +1377,23 @@
                 Math.abs(worldPos.x - h.x) <= threshold &&
                 Math.abs(worldPos.y - h.y) <= threshold
               ) {
+                // Store original bounds on first resize for restore-on-dblclick
+                if (!el.originalBounds) {
+                  if (el.elementType === "image") {
+                    el.originalBounds = { w: el.w, h: el.h };
+                  } else if (el.type === "text") {
+                    el.originalBounds = { fontSize: el.fontSize };
+                  } else if (el.type === "pen") {
+                    el.originalBounds = {
+                      points: el.points.map((p) => ({ ...p })),
+                    };
+                  } else {
+                    el.originalBounds = {
+                      start: { ...el.start },
+                      end: el.end ? { ...el.end } : null,
+                    };
+                  }
+                }
                 resizingElement = el;
                 const b =
                   el.elementType === "image"
@@ -1515,6 +1532,47 @@
         if (currentTool !== "select") return; // Only allow editing in Select Mode
 
         const worldPos = screenToWorld(e.clientX, e.clientY);
+
+        // Check if double-clicking a resize handle to restore original size
+        if (selectedElements.length === 1) {
+          const el = selectedElements[0];
+          const threshold = RESIZE_HANDLE_SIZE / transform.zoom;
+          const handles = getElementResizeHandles(el);
+          let hitHandle = false;
+
+          for (const h of handles) {
+            if (
+              Math.abs(worldPos.x - h.x) <= threshold &&
+              Math.abs(worldPos.y - h.y) <= threshold
+            ) {
+              hitHandle = true;
+              break;
+            }
+          }
+
+          if (hitHandle && el.originalBounds) {
+            const ob = el.originalBounds;
+            if (el.elementType === "image") {
+              // Restore to natural image dimensions, centered on current position
+              const centerX = el.x + el.w / 2;
+              const centerY = el.y + el.h / 2;
+              el.w = ob.w;
+              el.h = ob.h;
+              el.x = centerX - ob.w / 2;
+              el.y = centerY - ob.h / 2;
+            } else if (el.type === "text") {
+              el.fontSize = ob.fontSize;
+            } else if (el.type === "pen") {
+              el.points = ob.points.map((p) => ({ ...p }));
+            } else {
+              el.start = { ...ob.start };
+              if (ob.end) el.end = { ...ob.end };
+            }
+            showToast("Restored to original size");
+            render();
+            return;
+          }
+        }
 
         // Find if we double-clicked a text element (looping backwards for top-most)
         for (let i = drawings.length - 1; i >= 0; i--) {
