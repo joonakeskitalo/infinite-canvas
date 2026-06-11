@@ -33,6 +33,13 @@
         left: 0;
         display: block;
       }
+
+      input[type="color"]::-webkit-color-swatch-wrapper {
+        padding: 0;
+      }
+      input[type="color"]::-webkit-color-swatch {
+        border: none;
+      }
       /* Compact Toolbar Styles */
       #toolbar {
         position: fixed;
@@ -91,24 +98,26 @@
         color: #aaa;
         gap: 1px;
       }
+
       .color-picker-wrapper input[type="color"] {
         border: none;
-        width: 20px;
-        height: 20px;
+        width: 18px;
+        height: 18px;
         border-radius: 4px;
         cursor: pointer;
         background: transparent;
         padding: 0;
+        border: 1px solid rgba(211, 211, 211, 0.434);
       }
       .color-presets {
         display: flex;
         gap: 2px;
       }
       .preset-btn {
-        width: 12px;
-        height: 12px;
+        width: 18px;
+        height: 18px;
         border: 1px solid #555;
-        border-radius: 2px;
+        border-radius: 18px;
         cursor: pointer;
         transition: transform 0.1s;
       }
@@ -439,6 +448,16 @@
               style="background: #007acc"
               data-color="#007acc"
             ></div>
+            <div
+              class="preset-btn"
+              style="background: #f0f0f0"
+              data-color="#f0f0f0"
+            ></div>
+            <div
+              class="preset-btn"
+              style="background: #1e2938"
+              data-color="#1e2938"
+            ></div>
           </div>
         </div>
         <span>Color</span>
@@ -447,6 +466,8 @@
         <input type="color" id="bg-color-picker" value="#1e1e1e" />
         <span>BG</span>
       </div>
+
+      <div class="separator"></div>
 
       <div class="control-group">
         <select id="font-size-select" title="Text Font Size Configuration">
