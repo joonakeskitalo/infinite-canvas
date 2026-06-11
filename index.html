@@ -2045,12 +2045,19 @@
         "wheel",
         (e) => {
           e.preventDefault();
-          const zoomFactor = 1.1;
-          const newZoom =
-            e.deltaY < 0
-              ? transform.zoom * zoomFactor
-              : transform.zoom / zoomFactor;
-          applyZoom(newZoom, e.clientX, e.clientY);
+
+          // Pinch-to-zoom on trackpad (or Ctrl+scroll on mouse)
+          if (e.ctrlKey || e.metaKey) {
+            const zoomFactor = 1 - e.deltaY * 0.01;
+            const newZoom = transform.zoom * zoomFactor;
+            applyZoom(newZoom, e.clientX, e.clientY);
+          } else {
+            // Two-finger pan on trackpad (or regular scroll wheel)
+            transform.x -= e.deltaX;
+            transform.y -= e.deltaY;
+            updateZoomSliderValue();
+            render();
+          }
         },
         { passive: false },
       );
