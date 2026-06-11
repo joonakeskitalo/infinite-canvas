@@ -652,6 +652,8 @@
       let resizeStartBounds = null;
 
       let elementIdCounter = 0;
+      let activeSnapGuides = []; // {axis: 'x'|'y', pos: number} for rendering
+      let activeProximityGuides = []; // {axis: 'x'|'y', pos: number, from: number, to: number} for proximity lines
 
       container.addEventListener("contextmenu", (e) => {
         e.preventDefault();
@@ -811,6 +813,11 @@
         if (e.key === "Shift") {
           isShiftPressed = false;
           panLockDirection = null;
+          if (activeSnapGuides.length > 0) {
+            activeSnapGuides = [];
+            activeProximityGuides = [];
+            render();
+          }
         }
         if (e.key === " " || e.code === "Space") {
           if (isSpacePressed) {
@@ -1080,6 +1087,163 @@
         }
       });
 
+      const SNAP_THRESHOLD = 8; // pixels in world space (adjusted by zoom)
+
+      function getSnapTargets(excludeIds) {
+        // Collect edges and centers of all elements not being dragged
+        const targets = { x: [], y: [] };
+        const excluded = new Set(excludeIds);
+
+        images.forEach((img) => {
+          if (excluded.has(img.id)) return;
+          const left = img.x;
+          const right = img.x + img.w;
+          const top = img.y;
+          const bottom = img.y + img.h;
+          const cx = img.x + img.w / 2;
+          const cy = img.y + img.h / 2;
+          targets.x.push(left, right, cx);
+          targets.y.push(top, bottom, cy);
+        });
+
+        drawings.forEach((shape) => {
+          if (excluded.has(shape.id)) return;
+          const b = getShapeBounds(shape);
+          targets.x.push(b.x, b.x + b.w, b.x + b.w / 2);
+          targets.y.push(b.y, b.y + b.h, b.y + b.h / 2);
+        });
+
+        return targets;
+      }
+
+      function snapToElements(bounds, targets, threshold) {
+        // bounds: {x, y, w, h} of the dragged element(s)
+        // Returns {dx, dy, guides}
+        let dx = 0, dy = 0;
+        const guides = [];
+
+        const myEdgesX = [bounds.x, bounds.x + bounds.w / 2, bounds.x + bounds.w];
+        const myEdgesY = [bounds.y, bounds.y + bounds.h / 2, bounds.y + bounds.h];
+
+        let bestDistX = threshold;
+        for (const myX of myEdgesX) {
+          for (const tX of targets.x) {
+            const dist = Math.abs(myX - tX);
+            if (dist < bestDistX) {
+              bestDistX = dist;
+              dx = tX - myX;
+            }
+          }
+        }
+
+        let bestDistY = threshold;
+        for (const myY of myEdgesY) {
+          for (const tY of targets.y) {
+            const dist = Math.abs(myY - tY);
+            if (dist < bestDistY) {
+              bestDistY = dist;
+              dy = tY - myY;
+            }
+          }
+        }
+
+        // Collect active guide lines after snap applied
+        const snappedEdgesX = myEdgesX.map((v) => v + dx);
+        const snappedEdgesY = myEdgesY.map((v) => v + dy);
+
+        for (const sx of snappedEdgesX) {
+          for (const tX of targets.x) {
+            if (Math.abs(sx - tX) < 0.5) {
+              guides.push({ axis: "x", pos: tX });
+            }
+          }
+        }
+        for (const sy of snappedEdgesY) {
+          for (const tY of targets.y) {
+            if (Math.abs(sy - tY) < 0.5) {
+              guides.push({ axis: "y", pos: tY });
+            }
+          }
+        }
+
+        return { dx, dy, guides };
+      }
+
+      function getProximityGuides(bounds, excludeIds) {
+        // Returns guide lines from the dragged element's edges to nearby elements' edges
+        const PROXIMITY_RANGE = 150 / transform.zoom; // world units range to detect
+        const guides = [];
+        const excluded = new Set(excludeIds);
+
+        const myLeft = bounds.x;
+        const myRight = bounds.x + bounds.w;
+        const myCx = bounds.x + bounds.w / 2;
+        const myTop = bounds.y;
+        const myBottom = bounds.y + bounds.h;
+        const myCy = bounds.y + bounds.h / 2;
+
+        const allElements = [];
+        images.forEach((img) => {
+          if (excluded.has(img.id)) return;
+          allElements.push({ x: img.x, y: img.y, w: img.w, h: img.h });
+        });
+        drawings.forEach((shape) => {
+          if (excluded.has(shape.id)) return;
+          allElements.push(getShapeBounds(shape));
+        });
+
+        for (const el of allElements) {
+          const elLeft = el.x;
+          const elRight = el.x + el.w;
+          const elCx = el.x + el.w / 2;
+          const elTop = el.y;
+          const elBottom = el.y + el.h;
+          const elCy = el.y + el.h / 2;
+
+          // Check vertical alignment (x-axis guides)
+          const xPairs = [
+            [myLeft, elLeft], [myLeft, elRight], [myLeft, elCx],
+            [myRight, elLeft], [myRight, elRight], [myRight, elCx],
+            [myCx, elLeft], [myCx, elRight], [myCx, elCx],
+          ];
+          for (const [myX, elX] of xPairs) {
+            const dist = Math.abs(myX - elX);
+            if (dist < PROXIMITY_RANGE && dist > 0.5) {
+              // Draw a vertical guide at the target's edge, spanning between the two elements
+              const minY = Math.min(myTop, myBottom, elTop, elBottom) - 20 / transform.zoom;
+              const maxY = Math.max(myTop, myBottom, elTop, elBottom) + 20 / transform.zoom;
+              guides.push({ axis: "x", pos: elX, from: minY, to: maxY, dist });
+            }
+          }
+
+          // Check horizontal alignment (y-axis guides)
+          const yPairs = [
+            [myTop, elTop], [myTop, elBottom], [myTop, elCy],
+            [myBottom, elTop], [myBottom, elBottom], [myBottom, elCy],
+            [myCy, elTop], [myCy, elBottom], [myCy, elCy],
+          ];
+          for (const [myY, elY] of yPairs) {
+            const dist = Math.abs(myY - elY);
+            if (dist < PROXIMITY_RANGE && dist > 0.5) {
+              const minX = Math.min(myLeft, myRight, elLeft, elRight) - 20 / transform.zoom;
+              const maxX = Math.max(myLeft, myRight, elLeft, elRight) + 20 / transform.zoom;
+              guides.push({ axis: "y", pos: elY, from: minX, to: maxX, dist });
+            }
+          }
+        }
+
+        // Deduplicate and keep only guides with smallest distance per position
+        const best = new Map();
+        for (const g of guides) {
+          const key = g.axis + "_" + g.pos.toFixed(1);
+          if (!best.has(key) || g.dist < best.get(key).dist) {
+            best.set(key, g);
+          }
+        }
+
+        return Array.from(best.values());
+      }
+
       function render(targetCtx = ctx, isExporting = false) {
         if (!isExporting) {
           targetCtx.fillStyle = bgColor;
@@ -1184,6 +1348,64 @@
             targetCtx.fillRect(rx, ry, rw, rh);
             targetCtx.strokeRect(rx, ry, rw, rh);
           }
+
+          // Draw snap guides
+          if (activeSnapGuides.length > 0) {
+            targetCtx.save();
+            targetCtx.strokeStyle = "rgba(255, 0, 200, 0.8)";
+            targetCtx.lineWidth = 1 / transform.zoom;
+            targetCtx.setLineDash([4 / transform.zoom, 3 / transform.zoom]);
+            const viewBounds = {
+              minX: -transform.x / transform.zoom - 5000,
+              maxX: (-transform.x + canvas.width) / transform.zoom + 5000,
+              minY: -transform.y / transform.zoom - 5000,
+              maxY: (-transform.y + canvas.height) / transform.zoom + 5000,
+            };
+            const drawn = new Set();
+            activeSnapGuides.forEach((g) => {
+              const key = g.axis + "_" + g.pos.toFixed(1);
+              if (drawn.has(key)) return;
+              drawn.add(key);
+              targetCtx.beginPath();
+              if (g.axis === "x") {
+                targetCtx.moveTo(g.pos, viewBounds.minY);
+                targetCtx.lineTo(g.pos, viewBounds.maxY);
+              } else {
+                targetCtx.moveTo(viewBounds.minX, g.pos);
+                targetCtx.lineTo(viewBounds.maxX, g.pos);
+              }
+              targetCtx.stroke();
+            });
+            targetCtx.restore();
+          }
+
+          // Draw proximity guides (shown without shift, softer style)
+          if (activeProximityGuides.length > 0 && activeSnapGuides.length === 0) {
+            targetCtx.save();
+            const drawn = new Set();
+            activeProximityGuides.forEach((g) => {
+              const key = g.axis + "_" + g.pos.toFixed(1);
+              if (drawn.has(key)) return;
+              drawn.add(key);
+              // Fade opacity based on distance
+              const maxRange = 150 / transform.zoom;
+              const opacity = Math.max(0.15, 0.7 * (1 - g.dist / maxRange));
+              targetCtx.strokeStyle = `rgba(0, 180, 255, ${opacity})`;
+              targetCtx.lineWidth = 1 / transform.zoom;
+              targetCtx.setLineDash([3 / transform.zoom, 3 / transform.zoom]);
+              targetCtx.beginPath();
+              if (g.axis === "x") {
+                targetCtx.moveTo(g.pos, g.from);
+                targetCtx.lineTo(g.pos, g.to);
+              } else {
+                targetCtx.moveTo(g.from, g.pos);
+                targetCtx.lineTo(g.to, g.pos);
+              }
+              targetCtx.stroke();
+            });
+            targetCtx.restore();
+          }
+
           targetCtx.restore();
         }
 
@@ -1867,6 +2089,10 @@
             regionEnd = { ...worldPos };
             render();
           } else if (selectedElements.length > 0) {
+            // Compute preliminary positions without snapping
+            const excludeIds = selectedElements.map((el) => el.id);
+            let groupBounds = null;
+
             selectedElements.forEach((el) => {
               const offset = dragOffsets.find((o) => o.id === el.id);
               if (!offset) return;
@@ -1874,54 +2100,86 @@
               const curDy = worldPos.y - offset.startMouse.y;
 
               if (offset.type === "image") {
-                let tx = offset.x + curDx;
-                let ty = offset.y + curDy;
-                if (e.shiftKey) {
-                  tx = snapToGrid(tx);
-                  ty = snapToGrid(ty);
-                }
-                el.x = tx;
-                el.y = ty;
+                el.x = offset.x + curDx;
+                el.y = offset.y + curDy;
               } else if (offset.type === "points") {
-                el.points = offset.points.map((p, idx) => {
-                  let tx = p.x + curDx;
-                  let ty = p.y + curDy;
-                  if (e.shiftKey && idx === 0)
-                    return { x: snapToGrid(tx), y: snapToGrid(ty) };
-                  return { x: tx, y: ty };
-                });
-                if (e.shiftKey && el.points.length > 0) {
-                  const finalDx = el.points[0].x - offset.points[0].x;
-                  const finalDy = el.points[0].y - offset.points[0].y;
-                  for (let k = 1; k < el.points.length; k++) {
-                    el.points[k].x = offset.points[k].x + finalDx;
-                    el.points[k].y = offset.points[k].y + finalDy;
-                  }
-                }
+                el.points = offset.points.map((p) => ({
+                  x: p.x + curDx,
+                  y: p.y + curDy,
+                }));
               } else {
-                let tsx = offset.start.x + curDx;
-                let tsy = offset.start.y + curDy;
-                if (e.shiftKey) {
-                  tsx = snapToGrid(tsx);
-                  tsy = snapToGrid(tsy);
-                }
-                el.start.x = tsx;
-                el.start.y = tsy;
-
+                el.start = { x: offset.start.x + curDx, y: offset.start.y + curDy };
                 if (el.end && offset.end) {
-                  let tex = offset.end.x + curDx;
-                  let tey = offset.end.y + curDy;
-                  if (e.shiftKey) {
-                    const oldWidth = offset.end.x - offset.start.x;
-                    const oldHeight = offset.end.y - offset.start.y;
-                    tex = tsx + oldWidth;
-                    tey = tsy + oldHeight;
-                  }
-                  el.end.x = tex;
-                  el.end.y = tey;
+                  el.end = { x: offset.end.x + curDx, y: offset.end.y + curDy };
                 }
               }
             });
+
+            if (e.shiftKey) {
+              // Calculate bounding box of all dragged elements
+              let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+              selectedElements.forEach((el) => {
+                let b;
+                if (el.elementType === "image") {
+                  b = { x: el.x, y: el.y, w: el.w, h: el.h };
+                } else {
+                  b = getShapeBounds(el);
+                }
+                if (b.x < minX) minX = b.x;
+                if (b.y < minY) minY = b.y;
+                if (b.x + b.w > maxX) maxX = b.x + b.w;
+                if (b.y + b.h > maxY) maxY = b.y + b.h;
+              });
+              groupBounds = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+
+              const targets = getSnapTargets(excludeIds);
+              const threshold = SNAP_THRESHOLD / transform.zoom;
+              const snap = snapToElements(groupBounds, targets, threshold);
+
+              if (snap.dx !== 0 || snap.dy !== 0) {
+                // Apply snap offset to all selected elements
+                selectedElements.forEach((el) => {
+                  if (el.elementType === "image") {
+                    el.x += snap.dx;
+                    el.y += snap.dy;
+                  } else if (el.type === "pen") {
+                    el.points = el.points.map((p) => ({
+                      x: p.x + snap.dx,
+                      y: p.y + snap.dy,
+                    }));
+                  } else {
+                    el.start.x += snap.dx;
+                    el.start.y += snap.dy;
+                    if (el.end) {
+                      el.end.x += snap.dx;
+                      el.end.y += snap.dy;
+                    }
+                  }
+                });
+              }
+
+              activeSnapGuides = snap.guides;
+              activeProximityGuides = [];
+            } else {
+              activeSnapGuides = [];
+              // Compute proximity guides (always visible during drag without shift)
+              let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+              selectedElements.forEach((el) => {
+                let b;
+                if (el.elementType === "image") {
+                  b = { x: el.x, y: el.y, w: el.w, h: el.h };
+                } else {
+                  b = getShapeBounds(el);
+                }
+                if (b.x < minX) minX = b.x;
+                if (b.y < minY) minY = b.y;
+                if (b.x + b.w > maxX) maxX = b.x + b.w;
+                if (b.y + b.h > maxY) maxY = b.y + b.h;
+              });
+              groupBounds = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+              activeProximityGuides = getProximityGuides(groupBounds, excludeIds);
+            }
+
             render();
           }
         } else if (activeShape) {
@@ -1943,6 +2201,8 @@
         isInteracting = false;
         panLockDirection = null;
         resizingElement = null;
+        activeSnapGuides = [];
+        activeProximityGuides = [];
 
         if (currentTool === "select" && isRegionSelecting) {
           isRegionSelecting = false;
