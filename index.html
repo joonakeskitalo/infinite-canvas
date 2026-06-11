@@ -654,6 +654,7 @@
       let elementIdCounter = 0;
       let activeSnapGuides = []; // {axis: 'x'|'y', pos: number} for rendering
       let activeProximityGuides = []; // {axis: 'x'|'y', pos: number, from: number, to: number} for proximity lines
+      let activeSpacingGuides = []; // {axis: 'x'|'y', from: number, to: number, pos: number, dist: number, isEqual: boolean}
 
       container.addEventListener("contextmenu", (e) => {
         e.preventDefault();
@@ -816,6 +817,7 @@
           if (activeSnapGuides.length > 0) {
             activeSnapGuides = [];
             activeProximityGuides = [];
+            activeSpacingGuides = [];
             render();
           }
         }
@@ -1169,6 +1171,118 @@
         return { dx, dy, guides };
       }
 
+      function snapToSpacing(bounds, excludeIds, threshold) {
+        // Snaps the dragged element to positions where its gap to a neighbor
+        // matches an existing gap between other elements on the canvas.
+        const excluded = new Set(excludeIds);
+        const allElements = [];
+        images.forEach((img) => {
+          if (excluded.has(img.id)) return;
+          allElements.push({ x: img.x, y: img.y, w: img.w, h: img.h });
+        });
+        drawings.forEach((shape) => {
+          if (excluded.has(shape.id)) return;
+          allElements.push(getShapeBounds(shape));
+        });
+
+        if (allElements.length < 2) return { dx: 0, dy: 0 };
+
+        const myLeft = bounds.x;
+        const myRight = bounds.x + bounds.w;
+        const myTop = bounds.y;
+        const myBottom = bounds.y + bounds.h;
+
+        // Collect reference gaps between non-dragged elements
+        const refGapsX = []; // horizontal gaps (between elements side by side)
+        const refGapsY = []; // vertical gaps (between elements stacked)
+
+        for (let i = 0; i < allElements.length; i++) {
+          for (let j = i + 1; j < allElements.length; j++) {
+            const a = allElements[i];
+            const b = allElements[j];
+            const aL = a.x, aR = a.x + a.w, aT = a.y, aB = a.y + a.h;
+            const bL = b.x, bR = b.x + b.w, bT = b.y, bB = b.y + b.h;
+
+            // Horizontal gap (vertical overlap required)
+            if (aB > bT && aT < bB) {
+              if (aR <= bL && bL - aR > 0) refGapsX.push(bL - aR);
+              if (bR <= aL && aL - bR > 0) refGapsX.push(aL - bR);
+            }
+            // Vertical gap (horizontal overlap required)
+            if (aR > bL && aL < bR) {
+              if (aB <= bT && bT - aB > 0) refGapsY.push(bT - aB);
+              if (bB <= aT && aT - bB > 0) refGapsY.push(aT - bB);
+            }
+          }
+        }
+
+        // Deduplicate reference gaps
+        const uniqueGapsX = [...new Set(refGapsX.map(g => Math.round(g * 10) / 10))];
+        const uniqueGapsY = [...new Set(refGapsY.map(g => Math.round(g * 10) / 10))];
+
+        let bestDx = 0, bestDistX = threshold;
+        let bestDy = 0, bestDistY = threshold;
+
+        // For each nearby element, check if we can position ourselves so the gap matches a reference gap
+        for (const el of allElements) {
+          const elL = el.x, elR = el.x + el.w, elT = el.y, elB = el.y + el.h;
+
+          // Check vertical overlap for horizontal spacing snap
+          if (myBottom > elT && myTop < elB) {
+            // Element to the left: snap so myLeft - elR = refGap
+            if (elR <= myLeft + threshold * 2) {
+              for (const gap of uniqueGapsX) {
+                const targetMyLeft = elR + gap;
+                const dist = Math.abs(myLeft - targetMyLeft);
+                if (dist < bestDistX) {
+                  bestDistX = dist;
+                  bestDx = targetMyLeft - myLeft;
+                }
+              }
+            }
+            // Element to the right: snap so elL - myRight = refGap
+            if (elL >= myRight - threshold * 2) {
+              for (const gap of uniqueGapsX) {
+                const targetMyRight = elL - gap;
+                const dist = Math.abs(myRight - targetMyRight);
+                if (dist < bestDistX) {
+                  bestDistX = dist;
+                  bestDx = targetMyRight - myRight;
+                }
+              }
+            }
+          }
+
+          // Check horizontal overlap for vertical spacing snap
+          if (myRight > elL && myLeft < elR) {
+            // Element above: snap so myTop - elB = refGap
+            if (elB <= myTop + threshold * 2) {
+              for (const gap of uniqueGapsY) {
+                const targetMyTop = elB + gap;
+                const dist = Math.abs(myTop - targetMyTop);
+                if (dist < bestDistY) {
+                  bestDistY = dist;
+                  bestDy = targetMyTop - myTop;
+                }
+              }
+            }
+            // Element below: snap so elT - myBottom = refGap
+            if (elT >= myBottom - threshold * 2) {
+              for (const gap of uniqueGapsY) {
+                const targetMyBottom = elT - gap;
+                const dist = Math.abs(myBottom - targetMyBottom);
+                if (dist < bestDistY) {
+                  bestDistY = dist;
+                  bestDy = targetMyBottom - myBottom;
+                }
+              }
+            }
+          }
+        }
+
+        return { dx: bestDx, dy: bestDy };
+      }
+
       function getProximityGuides(bounds, excludeIds) {
         // Returns guide lines from the dragged element's edges to nearby elements' edges
         const PROXIMITY_RANGE = 150 / transform.zoom; // world units range to detect
@@ -1242,6 +1356,199 @@
         }
 
         return Array.from(best.values());
+      }
+
+      function getSpacingGuides(bounds, excludeIds) {
+        // Returns spacing measurement lines between the dragged element and nearby elements
+        const guides = [];
+        const excluded = new Set(excludeIds);
+        const SPACING_RANGE = 300 / transform.zoom; // max distance to show spacing
+
+        const myLeft = bounds.x;
+        const myRight = bounds.x + bounds.w;
+        const myTop = bounds.y;
+        const myBottom = bounds.y + bounds.h;
+        const myCx = bounds.x + bounds.w / 2;
+        const myCy = bounds.y + bounds.h / 2;
+
+        // Collect all nearby element bounds
+        const allElements = [];
+        images.forEach((img) => {
+          if (excluded.has(img.id)) return;
+          allElements.push({ x: img.x, y: img.y, w: img.w, h: img.h });
+        });
+        drawings.forEach((shape) => {
+          if (excluded.has(shape.id)) return;
+          allElements.push(getShapeBounds(shape));
+        });
+
+        // For each nearby element, compute horizontal and vertical gaps
+        for (const el of allElements) {
+          const elLeft = el.x;
+          const elRight = el.x + el.w;
+          const elTop = el.y;
+          const elBottom = el.y + el.h;
+
+          // Check vertical overlap (needed for horizontal spacing)
+          const vOverlap = myBottom > elTop && myTop < elBottom;
+          // Check horizontal overlap (needed for vertical spacing)
+          const hOverlap = myRight > elLeft && myLeft < elRight;
+
+          if (vOverlap) {
+            // Element is to the left of dragged element
+            if (elRight <= myLeft) {
+              const gap = myLeft - elRight;
+              if (gap > 0 && gap < SPACING_RANGE) {
+                const overlapTop = Math.max(myTop, elTop);
+                const overlapBottom = Math.min(myBottom, elBottom);
+                const midY = (overlapTop + overlapBottom) / 2;
+                guides.push({
+                  axis: 'x',
+                  from: elRight,
+                  to: myLeft,
+                  pos: midY,
+                  dist: gap,
+                  isEqual: false,
+                });
+              }
+            }
+            // Element is to the right of dragged element
+            if (elLeft >= myRight) {
+              const gap = elLeft - myRight;
+              if (gap > 0 && gap < SPACING_RANGE) {
+                const overlapTop = Math.max(myTop, elTop);
+                const overlapBottom = Math.min(myBottom, elBottom);
+                const midY = (overlapTop + overlapBottom) / 2;
+                guides.push({
+                  axis: 'x',
+                  from: myRight,
+                  to: elLeft,
+                  pos: midY,
+                  dist: gap,
+                  isEqual: false,
+                });
+              }
+            }
+          }
+
+          if (hOverlap) {
+            // Element is above the dragged element
+            if (elBottom <= myTop) {
+              const gap = myTop - elBottom;
+              if (gap > 0 && gap < SPACING_RANGE) {
+                const overlapLeft = Math.max(myLeft, elLeft);
+                const overlapRight = Math.min(myRight, elRight);
+                const midX = (overlapLeft + overlapRight) / 2;
+                guides.push({
+                  axis: 'y',
+                  from: elBottom,
+                  to: myTop,
+                  pos: midX,
+                  dist: gap,
+                  isEqual: false,
+                });
+              }
+            }
+            // Element is below the dragged element
+            if (elTop >= myBottom) {
+              const gap = elTop - myBottom;
+              if (gap > 0 && gap < SPACING_RANGE) {
+                const overlapLeft = Math.max(myLeft, elLeft);
+                const overlapRight = Math.min(myRight, elRight);
+                const midX = (overlapLeft + overlapRight) / 2;
+                guides.push({
+                  axis: 'y',
+                  from: myBottom,
+                  to: elTop,
+                  pos: midX,
+                  dist: gap,
+                  isEqual: false,
+                });
+              }
+            }
+          }
+        }
+
+        // Detect equal spacing: find gaps between other elements that match our gaps
+        // Collect gaps between all non-dragged elements
+        const otherGapsX = [];
+        const otherGapsY = [];
+        for (let i = 0; i < allElements.length; i++) {
+          for (let j = i + 1; j < allElements.length; j++) {
+            const a = allElements[i];
+            const b = allElements[j];
+            const aLeft = a.x, aRight = a.x + a.w, aTop = a.y, aBottom = a.y + a.h;
+            const bLeft = b.x, bRight = b.x + b.w, bTop = b.y, bBottom = b.y + b.h;
+
+            // Vertical overlap for horizontal gaps
+            if (aBottom > bTop && aTop < bBottom) {
+              if (aRight <= bLeft) {
+                const gap = bLeft - aRight;
+                if (gap > 0 && gap < SPACING_RANGE) {
+                  const overlapTop = Math.max(aTop, bTop);
+                  const overlapBottom = Math.min(aBottom, bBottom);
+                  otherGapsX.push({ from: aRight, to: bLeft, pos: (overlapTop + overlapBottom) / 2, dist: gap });
+                }
+              } else if (bRight <= aLeft) {
+                const gap = aLeft - bRight;
+                if (gap > 0 && gap < SPACING_RANGE) {
+                  const overlapTop = Math.max(aTop, bTop);
+                  const overlapBottom = Math.min(aBottom, bBottom);
+                  otherGapsX.push({ from: bRight, to: aLeft, pos: (overlapTop + overlapBottom) / 2, dist: gap });
+                }
+              }
+            }
+
+            // Horizontal overlap for vertical gaps
+            if (aRight > bLeft && aLeft < bRight) {
+              if (aBottom <= bTop) {
+                const gap = bTop - aBottom;
+                if (gap > 0 && gap < SPACING_RANGE) {
+                  const overlapLeft = Math.max(aLeft, bLeft);
+                  const overlapRight = Math.min(aRight, bRight);
+                  otherGapsY.push({ from: aBottom, to: bTop, pos: (overlapLeft + overlapRight) / 2, dist: gap });
+                }
+              } else if (bBottom <= aTop) {
+                const gap = aTop - bBottom;
+                if (gap > 0 && gap < SPACING_RANGE) {
+                  const overlapLeft = Math.max(aLeft, bLeft);
+                  const overlapRight = Math.min(aRight, bRight);
+                  otherGapsY.push({ from: bBottom, to: aTop, pos: (overlapLeft + overlapRight) / 2, dist: gap });
+                }
+              }
+            }
+          }
+        }
+
+        // Mark our guides as equal if they match any other gap (within tolerance)
+        const EQUAL_TOLERANCE = 2 / transform.zoom;
+        for (const guide of guides) {
+          const otherGaps = guide.axis === 'x' ? otherGapsX : otherGapsY;
+          for (const other of otherGaps) {
+            if (Math.abs(guide.dist - other.dist) < EQUAL_TOLERANCE) {
+              guide.isEqual = true;
+              // Also add the matching gap as a guide so user sees both
+              const exists = guides.some(g =>
+                g.axis === guide.axis &&
+                Math.abs(g.from - other.from) < 1 &&
+                Math.abs(g.to - other.to) < 1
+              );
+              if (!exists) {
+                guides.push({
+                  axis: guide.axis,
+                  from: other.from,
+                  to: other.to,
+                  pos: other.pos,
+                  dist: other.dist,
+                  isEqual: true,
+                });
+              }
+              break;
+            }
+          }
+        }
+
+        return guides;
       }
 
       function render(targetCtx = ctx, isExporting = false) {
@@ -1402,6 +1709,118 @@
                 targetCtx.lineTo(g.to, g.pos);
               }
               targetCtx.stroke();
+            });
+            targetCtx.restore();
+          }
+
+          // Draw spacing guides (distance measurements between elements)
+          if (activeSpacingGuides.length > 0) {
+            targetCtx.save();
+            activeSpacingGuides.forEach((g) => {
+              const isEqual = g.isEqual;
+              const color = isEqual ? 'rgba(40, 200, 80, 0.9)' : 'rgba(255, 90, 90, 0.85)';
+              const lineWidth = (isEqual ? 1.5 : 1) / transform.zoom;
+
+              targetCtx.strokeStyle = color;
+              targetCtx.fillStyle = color;
+              targetCtx.lineWidth = lineWidth;
+              targetCtx.setLineDash([]);
+
+              const capSize = 4 / transform.zoom;
+
+              if (g.axis === 'x') {
+                // Horizontal spacing line at vertical position g.pos
+                const y = g.pos;
+                const x1 = g.from;
+                const x2 = g.to;
+
+                // Main measurement line
+                targetCtx.beginPath();
+                targetCtx.moveTo(x1, y);
+                targetCtx.lineTo(x2, y);
+                targetCtx.stroke();
+
+                // End caps (vertical ticks)
+                targetCtx.beginPath();
+                targetCtx.moveTo(x1, y - capSize);
+                targetCtx.lineTo(x1, y + capSize);
+                targetCtx.stroke();
+                targetCtx.beginPath();
+                targetCtx.moveTo(x2, y - capSize);
+                targetCtx.lineTo(x2, y + capSize);
+                targetCtx.stroke();
+
+                // Distance label
+                const dist = Math.round(g.dist);
+                const fontSize = Math.max(9, 11 / transform.zoom);
+                targetCtx.font = `bold ${fontSize}px sans-serif`;
+                targetCtx.textAlign = 'center';
+                targetCtx.textBaseline = 'bottom';
+
+                // Label background
+                const labelText = `${dist}`;
+                const labelMetrics = targetCtx.measureText(labelText);
+                const labelW = labelMetrics.width + 4 / transform.zoom;
+                const labelH = fontSize + 2 / transform.zoom;
+                const labelX = (x1 + x2) / 2;
+                const labelY = y - capSize - 2 / transform.zoom;
+
+                targetCtx.fillStyle = isEqual ? 'rgba(30, 60, 30, 0.85)' : 'rgba(60, 20, 20, 0.85)';
+                targetCtx.fillRect(
+                  labelX - labelW / 2,
+                  labelY - labelH,
+                  labelW,
+                  labelH
+                );
+                targetCtx.fillStyle = '#fff';
+                targetCtx.fillText(labelText, labelX, labelY - 1 / transform.zoom);
+              } else {
+                // Vertical spacing line at horizontal position g.pos
+                const x = g.pos;
+                const y1 = g.from;
+                const y2 = g.to;
+
+                // Main measurement line
+                targetCtx.beginPath();
+                targetCtx.moveTo(x, y1);
+                targetCtx.lineTo(x, y2);
+                targetCtx.stroke();
+
+                // End caps (horizontal ticks)
+                targetCtx.beginPath();
+                targetCtx.moveTo(x - capSize, y1);
+                targetCtx.lineTo(x + capSize, y1);
+                targetCtx.stroke();
+                targetCtx.beginPath();
+                targetCtx.moveTo(x - capSize, y2);
+                targetCtx.lineTo(x + capSize, y2);
+                targetCtx.stroke();
+
+                // Distance label
+                const dist = Math.round(g.dist);
+                const fontSize = Math.max(9, 11 / transform.zoom);
+                targetCtx.font = `bold ${fontSize}px sans-serif`;
+                targetCtx.textAlign = 'left';
+                targetCtx.textBaseline = 'middle';
+
+                // Label background
+                const labelText = `${dist}`;
+                const labelMetrics = targetCtx.measureText(labelText);
+                const labelW = labelMetrics.width + 4 / transform.zoom;
+                const labelH = fontSize + 2 / transform.zoom;
+                const labelX = x + capSize + 2 / transform.zoom;
+                const labelY = (y1 + y2) / 2;
+
+                targetCtx.fillStyle = isEqual ? 'rgba(30, 60, 30, 0.85)' : 'rgba(60, 20, 20, 0.85)';
+                targetCtx.fillRect(
+                  labelX,
+                  labelY - labelH / 2,
+                  labelW,
+                  labelH
+                );
+                targetCtx.fillStyle = '#fff';
+                targetCtx.fillText(labelText, labelX + 2 / transform.zoom, labelY);
+              }
             });
             targetCtx.restore();
           }
@@ -2135,31 +2554,59 @@
               const targets = getSnapTargets(excludeIds);
               const threshold = SNAP_THRESHOLD / transform.zoom;
               const snap = snapToElements(groupBounds, targets, threshold);
+              const spacingSnap = snapToSpacing(groupBounds, excludeIds, threshold);
 
-              if (snap.dx !== 0 || snap.dy !== 0) {
+              // Combine: use spacing snap if it's closer than edge snap per axis
+              let finalDx = snap.dx;
+              let finalDy = snap.dy;
+              if (Math.abs(spacingSnap.dx) > 0 && (Math.abs(snap.dx) === 0 || Math.abs(spacingSnap.dx) < Math.abs(snap.dx))) {
+                finalDx = spacingSnap.dx;
+              }
+              if (Math.abs(spacingSnap.dy) > 0 && (Math.abs(snap.dy) === 0 || Math.abs(spacingSnap.dy) < Math.abs(snap.dy))) {
+                finalDy = spacingSnap.dy;
+              }
+
+              if (finalDx !== 0 || finalDy !== 0) {
                 // Apply snap offset to all selected elements
                 selectedElements.forEach((el) => {
                   if (el.elementType === "image") {
-                    el.x += snap.dx;
-                    el.y += snap.dy;
+                    el.x += finalDx;
+                    el.y += finalDy;
                   } else if (el.type === "pen") {
                     el.points = el.points.map((p) => ({
-                      x: p.x + snap.dx,
-                      y: p.y + snap.dy,
+                      x: p.x + finalDx,
+                      y: p.y + finalDy,
                     }));
                   } else {
-                    el.start.x += snap.dx;
-                    el.start.y += snap.dy;
+                    el.start.x += finalDx;
+                    el.start.y += finalDy;
                     if (el.end) {
-                      el.end.x += snap.dx;
-                      el.end.y += snap.dy;
+                      el.end.x += finalDx;
+                      el.end.y += finalDy;
                     }
                   }
                 });
               }
 
+              // Recompute group bounds after snap for accurate spacing guides
+              minX = Infinity; minY = Infinity; maxX = -Infinity; maxY = -Infinity;
+              selectedElements.forEach((el) => {
+                let b;
+                if (el.elementType === "image") {
+                  b = { x: el.x, y: el.y, w: el.w, h: el.h };
+                } else {
+                  b = getShapeBounds(el);
+                }
+                if (b.x < minX) minX = b.x;
+                if (b.y < minY) minY = b.y;
+                if (b.x + b.w > maxX) maxX = b.x + b.w;
+                if (b.y + b.h > maxY) maxY = b.y + b.h;
+              });
+              groupBounds = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+
               activeSnapGuides = snap.guides;
               activeProximityGuides = [];
+              activeSpacingGuides = getSpacingGuides(groupBounds, excludeIds);
             } else {
               activeSnapGuides = [];
               // Compute proximity guides (always visible during drag without shift)
@@ -2178,6 +2625,7 @@
               });
               groupBounds = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
               activeProximityGuides = getProximityGuides(groupBounds, excludeIds);
+              activeSpacingGuides = getSpacingGuides(groupBounds, excludeIds);
             }
 
             render();
@@ -2203,6 +2651,7 @@
         resizingElement = null;
         activeSnapGuides = [];
         activeProximityGuides = [];
+        activeSpacingGuides = [];
 
         if (currentTool === "select" && isRegionSelecting) {
           isRegionSelecting = false;
