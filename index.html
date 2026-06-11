@@ -455,8 +455,8 @@
             ></div>
             <div
               class="preset-btn"
-              style="background: #1e2938"
-              data-color="#1e2938"
+              style="background: #1e1e1e"
+              data-color="#1e1e1e"
             ></div>
           </div>
         </div>
@@ -687,8 +687,15 @@
       const presetBtns = document.querySelectorAll(".preset-btn");
       presetBtns.forEach((btn) => {
         btn.addEventListener("click", (e) => {
-          drawColor = e.target.dataset.color;
-          colorPicker.value = drawColor;
+          const color = e.target.dataset.color;
+          if (e.shiftKey) {
+            bgColor = color;
+            bgColorPicker.value = color;
+            render();
+          } else {
+            drawColor = color;
+            colorPicker.value = drawColor;
+          }
         });
       });
 
