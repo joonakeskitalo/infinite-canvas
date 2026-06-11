@@ -755,28 +755,37 @@
         ) {
           const el = selectedElements[0];
           const mouseWorld = screenToWorld(e.clientX, e.clientY);
-          let handleX = 0,
-            handleY = 0;
+          const threshold = RESIZE_HANDLE_SIZE / transform.zoom;
+          let handleHit = false;
 
           if (el.elementType === "image") {
-            handleX = el.x + el.w;
-            handleY = el.y + el.h;
-          } else if (el.type === "text") {
-            handleX = el.start.x + (el.w || 50);
-            handleY = el.start.y + (el.h || el.fontSize);
-          }
-
-          if (handleX !== 0) {
-            const threshold = RESIZE_HANDLE_SIZE / transform.zoom;
-            if (
-              Math.abs(mouseWorld.x - handleX) <= threshold &&
-              Math.abs(mouseWorld.y - handleY) <= threshold
-            ) {
-              container.style.cursor = "nwse-resize";
-              return;
+            const handles = getElementResizeHandles(el);
+            for (const h of handles) {
+              if (
+                Math.abs(mouseWorld.x - h.x) <= threshold &&
+                Math.abs(mouseWorld.y - h.y) <= threshold
+              ) {
+                container.style.cursor = h.cursor;
+                handleHit = true;
+                break;
+              }
+            }
+          } else {
+            const handles = getElementResizeHandles(el);
+            for (const h of handles) {
+              if (
+                Math.abs(mouseWorld.x - h.x) <= threshold &&
+                Math.abs(mouseWorld.y - h.y) <= threshold
+              ) {
+                container.style.cursor = h.cursor;
+                handleHit = true;
+                break;
+              }
             }
           }
-          container.style.cursor = "default";
+
+          if (!handleHit) container.style.cursor = "default";
+          if (handleHit) return;
         }
       });
 
@@ -1000,6 +1009,29 @@
         return false;
       }
 
+      function getElementResizeHandles(el) {
+        // Returns array of {x, y, cursor, position} for each handle
+        let b;
+        if (el.elementType === "image") {
+          b = {
+            x: el.x,
+            y: el.y,
+            w: el.w,
+            h: el.h,
+            maxX: el.x + el.w,
+            maxY: el.y + el.h,
+          };
+        } else {
+          b = getShapeBounds(el);
+        }
+        return [
+          { x: b.x, y: b.y, cursor: "nwse-resize", position: "tl" },
+          { x: b.x + b.w, y: b.y, cursor: "nesw-resize", position: "tr" },
+          { x: b.x, y: b.y + b.h, cursor: "nesw-resize", position: "bl" },
+          { x: b.x + b.w, y: b.y + b.h, cursor: "nwse-resize", position: "br" },
+        ];
+      }
+
       function handleImageFile(file, worldX, worldY) {
         const reader = new FileReader();
         reader.onload = (event) => {
@@ -1081,12 +1113,15 @@
             if (isSelected && selectedElements.length === 1) {
               targetCtx.fillStyle = "#ff4444";
               const hSize = RESIZE_HANDLE_SIZE / transform.zoom;
-              targetCtx.fillRect(
-                imgData.x + imgData.w - hSize / 2,
-                imgData.y + imgData.h - hSize / 2,
-                hSize,
-                hSize,
-              );
+              const handles = getElementResizeHandles(imgData);
+              handles.forEach((h) => {
+                targetCtx.fillRect(
+                  h.x - hSize / 2,
+                  h.y - hSize / 2,
+                  hSize,
+                  hSize,
+                );
+              });
             }
             targetCtx.restore();
           }
@@ -1107,15 +1142,18 @@
               targetCtx.setLineDash([4 / transform.zoom, 4 / transform.zoom]);
               targetCtx.strokeRect(b.x - 4, b.y - 4, b.w + 8, b.h + 8);
 
-              if (shape.type === "text" && selectedElements.length === 1) {
+              if (selectedElements.length === 1) {
                 targetCtx.fillStyle = "#ff4444";
                 const hSize = RESIZE_HANDLE_SIZE / transform.zoom;
-                targetCtx.fillRect(
-                  b.maxX - hSize / 2,
-                  b.maxY - hSize / 2,
-                  hSize,
-                  hSize,
-                );
+                const handles = getElementResizeHandles(shape);
+                handles.forEach((h) => {
+                  targetCtx.fillRect(
+                    h.x - hSize / 2,
+                    h.y - hSize / 2,
+                    hSize,
+                    hSize,
+                  );
+                });
               }
               targetCtx.restore();
             }
@@ -1331,41 +1369,39 @@
           // 1. Check resize handle hits first
           if (selectedElements.length === 1) {
             const el = selectedElements[0];
-            let handleX = 0,
-              handleY = 0;
-            if (el.elementType === "image") {
-              handleX = el.x + el.w;
-              handleY = el.y + el.h;
-            } else if (el.type === "text") {
-              handleX = el.start.x + (el.w || 50);
-              handleY = el.start.y + (el.h || el.fontSize);
-            }
+            const threshold = RESIZE_HANDLE_SIZE / transform.zoom;
+            const handles = getElementResizeHandles(el);
 
-            if (handleX !== 0) {
-              const threshold = RESIZE_HANDLE_SIZE / transform.zoom;
+            for (const h of handles) {
               if (
-                Math.abs(worldPos.x - handleX) <= threshold &&
-                Math.abs(worldPos.y - handleY) <= threshold
+                Math.abs(worldPos.x - h.x) <= threshold &&
+                Math.abs(worldPos.y - h.y) <= threshold
               ) {
                 resizingElement = el;
-                if (el.elementType === "image") {
-                  resizeStartBounds = {
-                    x: el.x,
-                    y: el.y,
-                    w: el.w,
-                    h: el.h,
-                    ratio: el.w / el.h,
-                    startMouse: { ...worldPos },
-                  };
-                } else {
-                  resizeStartBounds = {
-                    startX: el.start.x,
-                    startY: el.start.y,
-                    startFontSize: el.fontSize,
-                    initialW: el.w,
-                    startMouse: { ...worldPos },
-                  };
-                }
+                const b =
+                  el.elementType === "image"
+                    ? { x: el.x, y: el.y, w: el.w, h: el.h }
+                    : getShapeBounds(el);
+                resizeStartBounds = {
+                  x: b.x,
+                  y: b.y,
+                  w: b.w,
+                  h: b.h,
+                  ratio: b.w / b.h || 1,
+                  handlePosition: h.position,
+                  startMouse: { ...worldPos },
+                  // Store original element data for drawing shapes
+                  origStart: el.start ? { ...el.start } : null,
+                  origEnd: el.end ? { ...el.end } : null,
+                  origPoints: el.points
+                    ? el.points.map((p) => ({ ...p }))
+                    : null,
+                  origFontSize: el.fontSize || null,
+                  origW: el.w || null,
+                  origH: el.h || null,
+                  origX: el.x !== undefined ? el.x : null,
+                  origY: el.y !== undefined ? el.y : null,
+                };
                 return;
               }
             }
@@ -1554,21 +1590,198 @@
 
         if (currentTool === "select") {
           if (resizingElement) {
-            const mouseDx = worldPos.x - resizeStartBounds.startMouse.x;
-            if (resizingElement.elementType === "image") {
-              let newW = resizeStartBounds.w + mouseDx;
-              if (newW < 20) newW = 20;
-              resizingElement.w = newW;
-              resizingElement.h = newW / resizeStartBounds.ratio;
-            } else if (resizingElement.type === "text") {
-              let scaleFactor =
-                (resizeStartBounds.initialW + mouseDx) /
-                resizeStartBounds.initialW;
-              let newFontSize = Math.max(
+            const el = resizingElement;
+            const sb = resizeStartBounds;
+            const hp = sb.handlePosition;
+            const mouseDx = worldPos.x - sb.startMouse.x;
+            const mouseDy = worldPos.y - sb.startMouse.y;
+
+            if (el.elementType === "image") {
+              // Proportional resize for images from any corner
+              let newW, newH, newX, newY;
+              if (hp === "br") {
+                newW = Math.max(20, sb.w + mouseDx);
+                newH = newW / sb.ratio;
+                newX = sb.x;
+                newY = sb.y;
+              } else if (hp === "bl") {
+                newW = Math.max(20, sb.w - mouseDx);
+                newH = newW / sb.ratio;
+                newX = sb.x + sb.w - newW;
+                newY = sb.y;
+              } else if (hp === "tr") {
+                newW = Math.max(20, sb.w + mouseDx);
+                newH = newW / sb.ratio;
+                newX = sb.x;
+                newY = sb.y + sb.h - newH;
+              } else {
+                // tl
+                newW = Math.max(20, sb.w - mouseDx);
+                newH = newW / sb.ratio;
+                newX = sb.x + sb.w - newW;
+                newY = sb.y + sb.h - newH;
+              }
+              el.x = newX;
+              el.y = newY;
+              el.w = newW;
+              el.h = newH;
+            } else if (el.type === "text") {
+              // Scale font size based on width drag
+              let scaleFactor;
+              const initialW = sb.w || 50;
+              if (hp === "br" || hp === "tr") {
+                scaleFactor = (initialW + mouseDx) / initialW;
+              } else {
+                scaleFactor = (initialW - mouseDx) / initialW;
+              }
+              scaleFactor = Math.max(0.2, scaleFactor);
+              el.fontSize = Math.max(
                 8,
-                Math.round(resizeStartBounds.startFontSize * scaleFactor),
+                Math.round(sb.origFontSize * scaleFactor),
               );
-              resizingElement.fontSize = newFontSize;
+            } else if (el.type === "pen") {
+              // Scale all pen points relative to the bounding box
+              const origBounds = { x: sb.x, y: sb.y, w: sb.w, h: sb.h };
+              let scaleX = 1,
+                scaleY = 1;
+              let anchorX, anchorY;
+
+              if (hp === "br") {
+                anchorX = origBounds.x;
+                anchorY = origBounds.y;
+                scaleX =
+                  origBounds.w > 0
+                    ? (origBounds.w + mouseDx) / origBounds.w
+                    : 1;
+                scaleY =
+                  origBounds.h > 0
+                    ? (origBounds.h + mouseDy) / origBounds.h
+                    : 1;
+              } else if (hp === "bl") {
+                anchorX = origBounds.x + origBounds.w;
+                anchorY = origBounds.y;
+                scaleX =
+                  origBounds.w > 0
+                    ? (origBounds.w - mouseDx) / origBounds.w
+                    : 1;
+                scaleY =
+                  origBounds.h > 0
+                    ? (origBounds.h + mouseDy) / origBounds.h
+                    : 1;
+              } else if (hp === "tr") {
+                anchorX = origBounds.x;
+                anchorY = origBounds.y + origBounds.h;
+                scaleX =
+                  origBounds.w > 0
+                    ? (origBounds.w + mouseDx) / origBounds.w
+                    : 1;
+                scaleY =
+                  origBounds.h > 0
+                    ? (origBounds.h - mouseDy) / origBounds.h
+                    : 1;
+              } else {
+                // tl
+                anchorX = origBounds.x + origBounds.w;
+                anchorY = origBounds.y + origBounds.h;
+                scaleX =
+                  origBounds.w > 0
+                    ? (origBounds.w - mouseDx) / origBounds.w
+                    : 1;
+                scaleY =
+                  origBounds.h > 0
+                    ? (origBounds.h - mouseDy) / origBounds.h
+                    : 1;
+              }
+
+              if (e.shiftKey) {
+                const uniformScale = Math.max(scaleX, scaleY);
+                scaleX = uniformScale;
+                scaleY = uniformScale;
+              }
+
+              scaleX = Math.max(0.1, scaleX);
+              scaleY = Math.max(0.1, scaleY);
+
+              el.points = sb.origPoints.map((p) => ({
+                x: anchorX + (p.x - anchorX) * scaleX,
+                y: anchorY + (p.y - anchorY) * scaleY,
+              }));
+            } else {
+              // Line, arrow, rect-border, rect-fill: resize via start/end
+              const origStart = sb.origStart;
+              const origEnd = sb.origEnd;
+              const origBounds = { x: sb.x, y: sb.y, w: sb.w, h: sb.h };
+
+              let scaleX = 1,
+                scaleY = 1;
+              let anchorX, anchorY;
+
+              if (hp === "br") {
+                anchorX = origBounds.x;
+                anchorY = origBounds.y;
+                scaleX =
+                  origBounds.w > 0
+                    ? (origBounds.w + mouseDx) / origBounds.w
+                    : 1;
+                scaleY =
+                  origBounds.h > 0
+                    ? (origBounds.h + mouseDy) / origBounds.h
+                    : 1;
+              } else if (hp === "bl") {
+                anchorX = origBounds.x + origBounds.w;
+                anchorY = origBounds.y;
+                scaleX =
+                  origBounds.w > 0
+                    ? (origBounds.w - mouseDx) / origBounds.w
+                    : 1;
+                scaleY =
+                  origBounds.h > 0
+                    ? (origBounds.h + mouseDy) / origBounds.h
+                    : 1;
+              } else if (hp === "tr") {
+                anchorX = origBounds.x;
+                anchorY = origBounds.y + origBounds.h;
+                scaleX =
+                  origBounds.w > 0
+                    ? (origBounds.w + mouseDx) / origBounds.w
+                    : 1;
+                scaleY =
+                  origBounds.h > 0
+                    ? (origBounds.h - mouseDy) / origBounds.h
+                    : 1;
+              } else {
+                // tl
+                anchorX = origBounds.x + origBounds.w;
+                anchorY = origBounds.y + origBounds.h;
+                scaleX =
+                  origBounds.w > 0
+                    ? (origBounds.w - mouseDx) / origBounds.w
+                    : 1;
+                scaleY =
+                  origBounds.h > 0
+                    ? (origBounds.h - mouseDy) / origBounds.h
+                    : 1;
+              }
+
+              if (e.shiftKey) {
+                const uniformScale = Math.max(scaleX, scaleY);
+                scaleX = uniformScale;
+                scaleY = uniformScale;
+              }
+
+              scaleX = Math.max(0.1, scaleX);
+              scaleY = Math.max(0.1, scaleY);
+
+              el.start = {
+                x: anchorX + (origStart.x - anchorX) * scaleX,
+                y: anchorY + (origStart.y - anchorY) * scaleY,
+              };
+              if (origEnd) {
+                el.end = {
+                  x: anchorX + (origEnd.x - anchorX) * scaleX,
+                  y: anchorY + (origEnd.y - anchorY) * scaleY,
+                };
+              }
             }
             render();
             return;
