@@ -141,6 +141,7 @@
         width: 168px;
         accent-color: #007acc;
         cursor: pointer;
+        color: white;
       }
       .control-group select {
         background: #2d2d2d;
@@ -489,7 +490,14 @@
       <div class="separator"></div>
 
       <div class="control-group" title="Zoom Slider">
-        <input type="range" id="zoom-slider" min="5" max="200" value="100" />
+        <input type="range" id="zoom-slider" min="10" max="200" value="100" step="10" list="range-snap-points" />
+        <datalist id="range-snap-points">
+          <option value="10"></option>
+          <option value="50"></option>
+          <option value="100"></option>
+          <option value="150"></option>
+          <option value="200"></option>
+        </datalist>
         <span id="zoom-val">100%</span>
       </div>
 
