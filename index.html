@@ -490,7 +490,15 @@
       <div class="separator"></div>
 
       <div class="control-group" title="Zoom Slider">
-        <input type="range" id="zoom-slider" min="10" max="200" value="100" step="10" list="range-snap-points" />
+        <input
+          type="range"
+          id="zoom-slider"
+          min="10"
+          max="200"
+          value="100"
+          step="10"
+          list="range-snap-points"
+        />
         <datalist id="range-snap-points">
           <option value="10"></option>
           <option value="50"></option>
@@ -1511,12 +1519,15 @@
       container.addEventListener("mousemove", (e) => {
         if (!isInteracting) return;
 
+        // Sync shift state from the live event to avoid stale keydown/keyup tracking
+        isShiftPressed = e.shiftKey;
+
         let dx = e.clientX - startX;
         let dy = e.clientY - startY;
         let worldPos = screenToWorld(e.clientX, e.clientY);
 
         if (isMiddleClick || isRightClickHand || currentTool === "pan") {
-          if (isShiftPressed) {
+          if (e.shiftKey) {
             if (!panLockDirection) {
               if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
                 panLockDirection = Math.abs(dx) >= Math.abs(dy) ? "x" : "y";
@@ -1576,7 +1587,7 @@
               if (offset.type === "image") {
                 let tx = offset.x + curDx;
                 let ty = offset.y + curDy;
-                if (isShiftPressed) {
+                if (e.shiftKey) {
                   tx = snapToGrid(tx);
                   ty = snapToGrid(ty);
                 }
@@ -1586,11 +1597,11 @@
                 el.points = offset.points.map((p, idx) => {
                   let tx = p.x + curDx;
                   let ty = p.y + curDy;
-                  if (isShiftPressed && idx === 0)
+                  if (e.shiftKey && idx === 0)
                     return { x: snapToGrid(tx), y: snapToGrid(ty) };
                   return { x: tx, y: ty };
                 });
-                if (isShiftPressed && el.points.length > 0) {
+                if (e.shiftKey && el.points.length > 0) {
                   const finalDx = el.points[0].x - offset.points[0].x;
                   const finalDy = el.points[0].y - offset.points[0].y;
                   for (let k = 1; k < el.points.length; k++) {
@@ -1601,7 +1612,7 @@
               } else {
                 let tsx = offset.start.x + curDx;
                 let tsy = offset.start.y + curDy;
-                if (isShiftPressed) {
+                if (e.shiftKey) {
                   tsx = snapToGrid(tsx);
                   tsy = snapToGrid(tsy);
                 }
@@ -1611,7 +1622,7 @@
                 if (el.end && offset.end) {
                   let tex = offset.end.x + curDx;
                   let tey = offset.end.y + curDy;
-                  if (isShiftPressed) {
+                  if (e.shiftKey) {
                     const oldWidth = offset.end.x - offset.start.x;
                     const oldHeight = offset.end.y - offset.start.y;
                     tex = tsx + oldWidth;
@@ -1626,11 +1637,11 @@
           }
         } else if (activeShape) {
           if (activeShape.type === "pen") {
-            if (isShiftPressed && activeShape.points.length > 0)
+            if (e.shiftKey && activeShape.points.length > 0)
               worldPos = constraintToAngle(activeShape.points[0], worldPos);
             activeShape.points.push(worldPos);
           } else {
-            if (isShiftPressed)
+            if (e.shiftKey)
               worldPos = constraintToAngle(activeShape.start, worldPos);
             activeShape.end = worldPos;
           }
