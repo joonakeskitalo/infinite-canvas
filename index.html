@@ -1696,15 +1696,23 @@
             window.innerWidth / 2,
             window.innerHeight / 2,
           );
-          const pastedElements = [];
+          // Sort blobs by filename for consistent ordering
+          const sortedBlobs = [...imageBlobs].sort((a, b) => {
+            const nameA = (a.name || "").toLowerCase();
+            const nameB = (b.name || "").toLowerCase();
+            return nameA.localeCompare(nameB, undefined, { numeric: true });
+          });
+          const pastedElements = new Array(sortedBlobs.length);
           let loadedCount = 0;
-          imageBlobs.forEach((blob, index) => {
+          const STAGGER_X = 150;
+          const STAGGER_Y = 80;
+          sortedBlobs.forEach((blob, index) => {
             const reader = new FileReader();
             reader.onload = (event) => {
               const img = new Image();
               img.onload = () => {
-                const offsetX = index * 20;
-                const offsetY = index * 20;
+                const offsetX = index * STAGGER_X;
+                const offsetY = index * STAGGER_Y;
                 const element = {
                   id: "img_" + elementIdCounter++,
                   elementType: "image",
@@ -1714,10 +1722,13 @@
                   w: img.width,
                   h: img.height,
                 };
-                images.push(element);
-                pastedElements.push(element);
+                pastedElements[index] = element;
                 loadedCount++;
-                if (loadedCount === imageBlobs.length) {
+                if (loadedCount === sortedBlobs.length) {
+                  // Add to images array in sorted order for correct z-order
+                  for (const el of pastedElements) {
+                    images.push(el);
+                  }
                   selectedElements = pastedElements;
                   currentTool = "select";
                   updateToolbarUI();
