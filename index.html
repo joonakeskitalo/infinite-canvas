@@ -1998,22 +1998,47 @@
       const MAX_GUIDE_NEIGHBORS = 6; // only consider the N closest elements for guides
 
       function getClosestElements(bounds, excludeIds, maxCount) {
-        // Returns the closest maxCount elements (by center-to-center distance) to bounds
+        // Returns the closest maxCount elements (by center-to-center distance) to bounds.
+        // Grouped elements are consolidated into a single bounding box per group.
         const excluded = new Set(excludeIds);
         const myCx = bounds.x + bounds.w / 2;
         const myCy = bounds.y + bounds.h / 2;
 
+        // Collect individual (ungrouped) elements and accumulate group bounding boxes
+        const groupBoundsMap = new Map(); // groupId -> {minX, minY, maxX, maxY}
         const candidates = [];
+
+        function addElement(b, groupId) {
+          if (groupId) {
+            if (!groupBoundsMap.has(groupId)) {
+              groupBoundsMap.set(groupId, { minX: b.x, minY: b.y, maxX: b.x + b.w, maxY: b.y + b.h });
+            } else {
+              const gb = groupBoundsMap.get(groupId);
+              gb.minX = Math.min(gb.minX, b.x);
+              gb.minY = Math.min(gb.minY, b.y);
+              gb.maxX = Math.max(gb.maxX, b.x + b.w);
+              gb.maxY = Math.max(gb.maxY, b.y + b.h);
+            }
+          } else {
+            const cx = b.x + b.w / 2;
+            const cy = b.y + b.h / 2;
+            const dist = Math.hypot(cx - myCx, cy - myCy);
+            candidates.push({ bounds: b, dist });
+          }
+        }
+
         images.forEach((img) => {
           if (excluded.has(img.id)) return;
-          const cx = img.x + img.w / 2;
-          const cy = img.y + img.h / 2;
-          const dist = Math.hypot(cx - myCx, cy - myCy);
-          candidates.push({ bounds: { x: img.x, y: img.y, w: img.w, h: img.h }, dist });
+          addElement({ x: img.x, y: img.y, w: img.w, h: img.h }, img.groupId);
         });
         drawings.forEach((shape) => {
           if (excluded.has(shape.id)) return;
-          const b = getShapeBounds(shape);
+          addElement(getShapeBounds(shape), shape.groupId);
+        });
+
+        // Convert consolidated group bounds into candidates
+        groupBoundsMap.forEach((gb) => {
+          const b = { x: gb.minX, y: gb.minY, w: gb.maxX - gb.minX, h: gb.maxY - gb.minY };
           const cx = b.x + b.w / 2;
           const cy = b.y + b.h / 2;
           const dist = Math.hypot(cx - myCx, cy - myCy);
@@ -2025,23 +2050,47 @@
       }
 
       function getSnapTargets(excludeIds, bounds) {
-        // Collect edges and centers of closest elements not being dragged
+        // Collect edges and centers of closest elements not being dragged.
+        // Grouped elements are consolidated into a single bounding box per group.
         const targets = { x: [], y: [] };
         const excluded = new Set(excludeIds);
 
-        // If bounds provided, limit to closest neighbors
+        // If bounds provided, limit to closest neighbors (already group-aware)
         let elementBounds;
         if (bounds) {
           elementBounds = getClosestElements(bounds, excludeIds, MAX_GUIDE_NEIGHBORS);
         } else {
+          // Fallback: collect all elements, consolidating groups
+          const groupBoundsMap = new Map();
           elementBounds = [];
+
+          function addEl(b, groupId) {
+            if (groupId) {
+              if (!groupBoundsMap.has(groupId)) {
+                groupBoundsMap.set(groupId, { minX: b.x, minY: b.y, maxX: b.x + b.w, maxY: b.y + b.h });
+              } else {
+                const gb = groupBoundsMap.get(groupId);
+                gb.minX = Math.min(gb.minX, b.x);
+                gb.minY = Math.min(gb.minY, b.y);
+                gb.maxX = Math.max(gb.maxX, b.x + b.w);
+                gb.maxY = Math.max(gb.maxY, b.y + b.h);
+              }
+            } else {
+              elementBounds.push(b);
+            }
+          }
+
           images.forEach((img) => {
             if (excluded.has(img.id)) return;
-            elementBounds.push({ x: img.x, y: img.y, w: img.w, h: img.h });
+            addEl({ x: img.x, y: img.y, w: img.w, h: img.h }, img.groupId);
           });
           drawings.forEach((shape) => {
             if (excluded.has(shape.id)) return;
-            elementBounds.push(getShapeBounds(shape));
+            addEl(getShapeBounds(shape), shape.groupId);
+          });
+
+          groupBoundsMap.forEach((gb) => {
+            elementBounds.push({ x: gb.minX, y: gb.minY, w: gb.maxX - gb.minX, h: gb.maxY - gb.minY });
           });
         }
 
