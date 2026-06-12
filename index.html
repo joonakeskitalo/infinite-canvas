@@ -1121,9 +1121,15 @@
         if (key === "t") targetTool = "text";
         if (key === "e") targetTool = "eraser";
 
-        if (key === "g" && currentTool === "select" && selectedElements.length >= 2) {
+        if (key === "g" && !e.shiftKey && currentTool === "select" && selectedElements.length >= 2) {
           const gridBtn = document.querySelector('[data-align="gridLayout"]');
           if (gridBtn) gridBtn.click();
+          return;
+        }
+
+        if (key === "g" && e.shiftKey && currentTool === "select" && selectedElements.length >= 2) {
+          const rowBtn = document.querySelector('[data-align="rowLayout"]');
+          if (rowBtn) rowBtn.click();
           return;
         }
 
