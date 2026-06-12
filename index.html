@@ -1412,6 +1412,20 @@
           }
           return;
         }
+        if (isMod && e.key.toLowerCase() === "x") {
+          if (selectedElements.length > 0) {
+            e.preventDefault();
+            copySelectionToClipboard();
+            const idsToRemove = selectedElements.map((el) => el.id);
+            images = images.filter((img) => !idsToRemove.includes(img.id));
+            drawings = drawings.filter((d) => !idsToRemove.includes(d.id));
+            showToast(`Cut ${selectedElements.length} element(s)`);
+            selectedElements = [];
+            toggleAlignmentPanelVisibility();
+            render();
+          }
+          return;
+        }
         if (isMod && e.key.toLowerCase() === "v") {
           if (clipboardElements.length > 0) {
             e.preventDefault();
