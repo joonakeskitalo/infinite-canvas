@@ -796,6 +796,12 @@
         <button class="scale-btn" data-scale="1" title="Scale to original size">1x</button>
         <button class="scale-btn" data-scale="2" title="Scale to 200% of original size">2x</button>
       </div>
+      <div id="opacity-group" style="display:none;align-items:center;gap:4px;">
+        <div style="width: 1px; height: 18px; background: #444; margin: 0 4px"></div>
+        <span class="align-title">Opacity</span>
+        <input type="range" id="opacity-slider" min="0" max="100" value="100" step="1" title="Element Opacity" style="width:80px;accent-color:#007acc;cursor:pointer;" />
+        <span id="opacity-val" style="font-size:11px;color:#aaa;min-width:32px;text-align:right;">100%</span>
+      </div>
     </div>
 
     <div id="toast">Canvas copied to clipboard as PNG!</div>
@@ -880,9 +886,9 @@
 
       function serializeElement(el) {
         if (el.elementType === "image") {
-          return { id: el.id, elementType: "image", img: el.img, x: el.x, y: el.y, w: el.w, h: el.h, groupId: el.groupId || null };
+          return { id: el.id, elementType: "image", img: el.img, x: el.x, y: el.y, w: el.w, h: el.h, groupId: el.groupId || null, opacity: el.opacity != null ? el.opacity : 1 };
         }
-        const clone = { id: el.id, elementType: el.elementType, type: el.type, color: el.color, width: el.width, groupId: el.groupId || null };
+        const clone = { id: el.id, elementType: el.elementType, type: el.type, color: el.color, width: el.width, groupId: el.groupId || null, opacity: el.opacity != null ? el.opacity : 1 };
         if (el.type === "pen") {
           clone.points = el.points.map(p => ({ x: p.x, y: p.y }));
         } else if (el.type === "text") {
@@ -1050,6 +1056,9 @@
         } else if (currentTool === "select" && selectedElements.length === 1 && hasImages) {
           alignmentPanel.style.display = "flex";
           alignmentGroup.style.display = "none";
+        } else if (currentTool === "select" && selectedElements.length === 1) {
+          alignmentPanel.style.display = "flex";
+          alignmentGroup.style.display = "none";
         } else {
           alignmentPanel.style.display = "none";
           alignmentGroup.style.display = "none";
@@ -1065,6 +1074,7 @@
           scaleGroup.style.display = "none";
         }
         syncFontSizeFromSelection();
+        syncOpacityFromSelection();
         updateGroupButtons();
       }
 
@@ -1314,6 +1324,48 @@
           showToast(`Scaled to ${scale * 100}%`);
         });
       });
+
+      // --- OPACITY SLIDER ---
+      const opacitySlider = document.getElementById("opacity-slider");
+      const opacityValDisplay = document.getElementById("opacity-val");
+      const opacityGroup = document.getElementById("opacity-group");
+
+      let opacityUndoPushed = false;
+
+      opacitySlider.addEventListener("input", (e) => {
+        const val = parseInt(e.target.value);
+        opacityValDisplay.textContent = val + "%";
+        if (selectedElements.length === 0) return;
+        if (!opacityUndoPushed) {
+          pushUndo();
+          opacityUndoPushed = true;
+        }
+        selectedElements.forEach((el) => {
+          el.opacity = val / 100;
+        });
+        render();
+      });
+
+      opacitySlider.addEventListener("mousedown", (e) => {
+        e.stopPropagation();
+        opacityUndoPushed = false;
+      });
+      opacitySlider.addEventListener("change", () => {
+        opacityUndoPushed = false;
+      });
+
+      function syncOpacityFromSelection() {
+        if (selectedElements.length === 0) {
+          opacityGroup.style.display = "none";
+          return;
+        }
+        opacityGroup.style.display = "flex";
+        // Use the opacity of the first selected element
+        const opacity = selectedElements[0].opacity != null ? selectedElements[0].opacity : 1;
+        const val = Math.round(opacity * 100);
+        opacitySlider.value = val;
+        opacityValDisplay.textContent = val + "%";
+      }
 
       function updateCursor() {
         if (currentTool === "pan" || isRightClickHand)
@@ -1889,6 +1941,7 @@
             y: el.y,
             w: el.w,
             h: el.h,
+            opacity: el.opacity != null ? el.opacity : 1,
           };
           if (el.groupId) c.groupId = el.groupId;
           return c;
@@ -1900,6 +1953,7 @@
           type: el.type,
           color: el.color,
           width: el.width,
+          opacity: el.opacity != null ? el.opacity : 1,
         };
         if (el.groupId) clone.groupId = el.groupId;
         if (el.type === "pen") {
@@ -2523,6 +2577,8 @@
 
         // 1. Render Background Assets
         images.forEach((imgData) => {
+          targetCtx.save();
+          targetCtx.globalAlpha = imgData.opacity != null ? imgData.opacity : 1;
           targetCtx.drawImage(
             imgData.img,
             imgData.x,
@@ -2530,6 +2586,7 @@
             imgData.w,
             imgData.h,
           );
+          targetCtx.restore();
           if (!isExporting && currentTool === "select") {
             const isSelected = selectedElements.some(
               (el) => el.id === imgData.id,
@@ -2842,6 +2899,7 @@
         }
 
         targetCtx.save();
+        targetCtx.globalAlpha = shape.opacity != null ? shape.opacity : 1;
         targetCtx.strokeStyle = shape.color;
         targetCtx.fillStyle = shape.color;
         targetCtx.lineWidth = calculatedWidth;
@@ -4455,9 +4513,12 @@
         finalCtx.scale(scaleFactor, scaleFactor);
         finalCtx.translate(-bounds.minX, -bounds.minY);
 
-        exportImages.forEach((imgData) =>
-          finalCtx.drawImage(imgData.img, imgData.x, imgData.y, imgData.w, imgData.h)
-        );
+        exportImages.forEach((imgData) => {
+          finalCtx.save();
+          finalCtx.globalAlpha = imgData.opacity != null ? imgData.opacity : 1;
+          finalCtx.drawImage(imgData.img, imgData.x, imgData.y, imgData.w, imgData.h);
+          finalCtx.restore();
+        });
         exportDrawings.forEach((shape) => drawShape(finalCtx, shape, true));
         finalCtx.restore();
 
