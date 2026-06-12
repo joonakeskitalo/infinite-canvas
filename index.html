@@ -528,8 +528,8 @@
         <button class="action-btn dark-action" id="center-canvas-btn" title="Center view on selection or origin">
           Center
         </button>
-        <button class="action-btn" id="export-btn">Export</button>
-        <button class="action-btn secondary-action" id="export-50-btn">
+        <button class="action-btn" id="export-btn" title="Export canvas (or selection) as PNG">Export</button>
+        <button class="action-btn secondary-action" id="export-50-btn" title="Export canvas (or selection) at 50% scale">
           Copy 50%
         </button>
         <button class="action-btn blue-action" id="download-images-btn">
@@ -3697,11 +3697,49 @@
       }
 
       async function executePNGExport(scaleFactor = 1.0) {
-        if (images.length === 0 && drawings.length === 0) {
+        const exportingSelection = selectedElements.length > 0;
+
+        if (!exportingSelection && images.length === 0 && drawings.length === 0) {
           showToast("Canvas is completely empty!");
           return;
         }
-        const bounds = getCanvasContentBounds();
+
+        let bounds;
+        let exportImages, exportDrawings;
+
+        if (exportingSelection) {
+          // Export only selected elements
+          let minX = Infinity, minY = Infinity;
+          let maxX = -Infinity, maxY = -Infinity;
+          exportImages = [];
+          exportDrawings = [];
+
+          selectedElements.forEach((el) => {
+            if (el.elementType === "image") {
+              if (el.x < minX) minX = el.x;
+              if (el.y < minY) minY = el.y;
+              if (el.x + el.w > maxX) maxX = el.x + el.w;
+              if (el.y + el.h > maxY) maxY = el.y + el.h;
+              exportImages.push(el);
+            } else {
+              const b = getShapeBounds(el);
+              if (b.x < minX) minX = b.x;
+              if (b.y < minY) minY = b.y;
+              if (b.x + b.w > maxX) maxX = b.x + b.w;
+              if (b.y + b.h > maxY) maxY = b.y + b.h;
+              exportDrawings.push(el);
+            }
+          });
+
+          const padding = 50;
+          bounds = { minX: minX - padding, minY: minY - padding, maxX: maxX + padding, maxY: maxY + padding };
+        } else {
+          // Export entire canvas
+          bounds = getCanvasContentBounds();
+          exportImages = images;
+          exportDrawings = drawings;
+        }
+
         const exportW = (bounds.maxX - bounds.minX) * scaleFactor;
         const exportH = (bounds.maxY - bounds.minY) * scaleFactor;
 
@@ -3717,16 +3755,10 @@
         finalCtx.scale(scaleFactor, scaleFactor);
         finalCtx.translate(-bounds.minX, -bounds.minY);
 
-        images.forEach((imgData) =>
-          finalCtx.drawImage(
-            imgData.img,
-            imgData.x,
-            imgData.y,
-            imgData.w,
-            imgData.h,
-          ),
+        exportImages.forEach((imgData) =>
+          finalCtx.drawImage(imgData.img, imgData.x, imgData.y, imgData.w, imgData.h)
         );
-        drawings.forEach((shape) => drawShape(finalCtx, shape, true));
+        exportDrawings.forEach((shape) => drawShape(finalCtx, shape, true));
         finalCtx.restore();
 
         finalCanvas.toBlob(async (blob) => {
@@ -3738,12 +3770,20 @@
             await navigator.clipboard.write([
               new ClipboardItem({ "image/png": blob }),
             ]);
-            internalCopyPerformed = false; // system clipboard now has export data
-            showToast(
-              scaleFactor === 0.5
-                ? "50% scale PNG copied!"
-                : "Full scale PNG copied!",
-            );
+            internalCopyPerformed = false;
+            if (exportingSelection) {
+              showToast(
+                scaleFactor === 0.5
+                  ? `Selection (${selectedElements.length}) copied at 50%!`
+                  : `Selection (${selectedElements.length}) copied as PNG!`,
+              );
+            } else {
+              showToast(
+                scaleFactor === 0.5
+                  ? "50% scale PNG copied!"
+                  : "Full scale PNG copied!",
+              );
+            }
           } catch (err) {
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
