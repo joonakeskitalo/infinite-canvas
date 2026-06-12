@@ -14,6 +14,19 @@
         box-sizing: border-box;
         user-select: none;
       }
+      #spacing-input-x,
+      #spacing-input-y {
+        user-select: text;
+        -webkit-user-select: text;
+        -moz-appearance: textfield;
+      }
+      #spacing-input-x::-webkit-inner-spin-button,
+      #spacing-input-x::-webkit-outer-spin-button,
+      #spacing-input-y::-webkit-inner-spin-button,
+      #spacing-input-y::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
       body,
       html {
         margin: 0;
@@ -590,6 +603,89 @@
           />
         </svg>
       </button>
+      <div
+        style="width: 1px; height: 18px; background: #444; margin: 0 4px"
+      ></div>
+      <span class="align-title">Spacing</span>
+      <button
+        class="align-btn"
+        data-align="spacingXMinus"
+        title="Decrease Horizontal Spacing"
+      >
+        <svg viewBox="0 0 24 24">
+          <path d="M9 12l2-1.5v3L9 12zM15 12l-2-1.5v3l2-1.5z" fill="currentColor"/>
+        </svg>
+      </button>
+      <input
+        type="number"
+        id="spacing-input-x"
+        value="10"
+        min="0"
+        max="500"
+        step="10"
+        title="Horizontal spacing (px) — Enter to apply"
+        style="
+          width: 48px;
+          background: #2d2d2d;
+          color: #fff;
+          border: 1px solid #555;
+          border-radius: 4px;
+          padding: 2px 4px;
+          font-size: 11px;
+          text-align: center;
+          outline: none;
+        "
+      />
+      <button
+        class="align-btn"
+        data-align="spacingXPlus"
+        title="Increase Horizontal Spacing"
+      >
+        <svg viewBox="0 0 24 24">
+          <path d="M8 12l2 1.5v-3L8 12zM16 12l-2 1.5v-3l2 1.5z" fill="currentColor"/>
+        </svg>
+      </button>
+      <button
+        class="align-btn"
+        data-align="spacingYMinus"
+        title="Decrease Vertical Spacing"
+      >
+        <svg viewBox="0 0 24 24">
+          <path d="M12 9l1.5 2h-3L12 9zM12 15l1.5-2h-3l1.5 2z" fill="currentColor"/>
+        </svg>
+      </button>
+      <input
+        type="number"
+        id="spacing-input-y"
+        value="10"
+        min="0"
+        max="500"
+        step="10"
+        title="Vertical spacing (px) — Enter to apply"
+        style="
+          width: 48px;
+          background: #2d2d2d;
+          color: #fff;
+          border: 1px solid #555;
+          border-radius: 4px;
+          padding: 2px 4px;
+          font-size: 11px;
+          text-align: center;
+          outline: none;
+        "
+      />
+      <button
+        class="align-btn"
+        data-align="spacingYPlus"
+        title="Increase Vertical Spacing"
+      >
+        <svg viewBox="0 0 24 24">
+          <rect x="4" y="3" width="16" height="4" fill="currentColor" opacity="0.6"/>
+          <rect x="4" y="17" width="16" height="4" fill="currentColor" opacity="0.6"/>
+          <path d="M10 12v-1h4v1h-4z" fill="currentColor"/>
+          <path d="M12 8l-1.5 2h3L12 8zM12 16l-1.5-2h3l1.5 2z" fill="currentColor"/>
+        </svg>
+      </button>
     </div>
 
     <div id="toast">Canvas copied to clipboard as PNG!</div>
@@ -684,9 +780,49 @@
       function toggleAlignmentPanelVisibility() {
         if (currentTool === "select" && selectedElements.length > 1) {
           alignmentPanel.style.display = "flex";
+          updateSpacingInputs();
         } else {
           alignmentPanel.style.display = "none";
         }
+      }
+
+      function updateSpacingInputs() {
+        if (selectedElements.length < 2) return;
+
+        const boundsMap = selectedElements.map((el) => {
+          let b =
+            el.elementType === "image"
+              ? { x: el.x, y: el.y, w: el.w, h: el.h }
+              : getShapeBounds(el);
+          return { el, b };
+        });
+
+        // Calculate average horizontal gap
+        const sortedX = [...boundsMap].sort((a, b) => a.b.x - b.b.x);
+        let totalGapX = 0;
+        let gapCountX = 0;
+        for (let i = 1; i < sortedX.length; i++) {
+          const gap = sortedX[i].b.x - (sortedX[i - 1].b.x + sortedX[i - 1].b.w);
+          totalGapX += gap;
+          gapCountX++;
+        }
+        const avgGapX = gapCountX > 0 ? Math.round(totalGapX / gapCountX) : 0;
+
+        // Calculate average vertical gap
+        const sortedY = [...boundsMap].sort((a, b) => a.b.y - b.b.y);
+        let totalGapY = 0;
+        let gapCountY = 0;
+        for (let i = 1; i < sortedY.length; i++) {
+          const gap = sortedY[i].b.y - (sortedY[i - 1].b.y + sortedY[i - 1].b.h);
+          totalGapY += gap;
+          gapCountY++;
+        }
+        const avgGapY = gapCountY > 0 ? Math.round(totalGapY / gapCountY) : 0;
+
+        const spacingInputX = document.getElementById("spacing-input-x");
+        const spacingInputY = document.getElementById("spacing-input-y");
+        spacingInputX.value = avgGapX;
+        spacingInputY.value = avgGapY;
       }
 
       const buttons = document.querySelectorAll(".tool-btn");
@@ -735,6 +871,58 @@
           ghostInput.style.fontSize = `${currentFontSize * transform.zoom}px`;
         }
       });
+
+      // Prevent spacing inputs from losing selection or triggering canvas interactions
+      const spacingInputX = document.getElementById("spacing-input-x");
+      const spacingInputY = document.getElementById("spacing-input-y");
+      [spacingInputX, spacingInputY].forEach((input) => {
+        input.addEventListener("mousedown", (e) => e.stopPropagation());
+        input.addEventListener("click", (e) => e.stopPropagation());
+        input.addEventListener("focus", (e) => e.stopPropagation());
+        input.addEventListener("keydown", (e) => e.stopPropagation());
+        input.addEventListener("input", () => {
+          if (input === spacingInputX) {
+            applyExactSpacing("x");
+          } else {
+            applyExactSpacing("y");
+          }
+        });
+      });
+
+      function applyExactSpacing(axis) {
+        if (selectedElements.length < 2) return;
+        const gap = Math.max(0, parseInt(axis === "x" ? spacingInputX.value : spacingInputY.value) || 10);
+
+        // Compute bounds for each element
+        const boundsMap = selectedElements.map((el) => {
+          let b =
+            el.elementType === "image"
+              ? { x: el.x, y: el.y, w: el.w, h: el.h }
+              : getShapeBounds(el);
+          return { el, b };
+        });
+
+        if (axis === "x") {
+          boundsMap.sort((a, b) => a.b.x - b.b.x);
+          let currentX = boundsMap[0].b.x;
+          for (let i = 0; i < boundsMap.length; i++) {
+            const shiftX = currentX - boundsMap[i].b.x;
+            if (shiftX !== 0) translateElement(boundsMap[i].el, shiftX, 0);
+            currentX += boundsMap[i].b.w + gap;
+          }
+        } else {
+          boundsMap.sort((a, b) => a.b.y - b.b.y);
+          let currentY = boundsMap[0].b.y;
+          for (let i = 0; i < boundsMap.length; i++) {
+            const shiftY = currentY - boundsMap[i].b.y;
+            if (shiftY !== 0) translateElement(boundsMap[i].el, 0, shiftY);
+            currentY += boundsMap[i].b.h + gap;
+          }
+        }
+
+        render();
+        showToast(`${axis === "x" ? "Horizontal" : "Vertical"} spacing set to ${gap}px`);
+      }
 
       function updateCursor() {
         if (currentTool === "pan" || isRightClickHand)
@@ -2877,6 +3065,51 @@
                 currentY += item.b.h + gap;
               });
             }
+          } else if (alignType.startsWith("spacing")) {
+            // Increase or decrease spacing between selected elements by 50px
+            const isX = alignType.includes("X");
+            const isPlus = alignType.includes("Plus");
+            const SPACING_STEP = 50;
+
+            if (isX) {
+              boundsMap.sort((a, b) => a.b.x - b.b.x);
+              // Calculate current average horizontal gap
+              let totalGap = 0;
+              for (let i = 1; i < boundsMap.length; i++) {
+                totalGap += boundsMap[i].b.x - (boundsMap[i - 1].b.x + boundsMap[i - 1].b.w);
+              }
+              const avgGap = totalGap / (boundsMap.length - 1);
+              const newGap = Math.max(0, avgGap + (isPlus ? SPACING_STEP : -SPACING_STEP));
+
+              // Reposition elements with new gap
+              let currentX = boundsMap[0].b.x;
+              for (let i = 0; i < boundsMap.length; i++) {
+                const shiftX = currentX - boundsMap[i].b.x;
+                if (shiftX !== 0) translateElement(boundsMap[i].el, shiftX, 0);
+                currentX += boundsMap[i].b.w + newGap;
+              }
+            } else {
+              boundsMap.sort((a, b) => a.b.y - b.b.y);
+              // Calculate current average vertical gap
+              let totalGap = 0;
+              for (let i = 1; i < boundsMap.length; i++) {
+                totalGap += boundsMap[i].b.y - (boundsMap[i - 1].b.y + boundsMap[i - 1].b.h);
+              }
+              const avgGap = totalGap / (boundsMap.length - 1);
+              const newGap = Math.max(0, avgGap + (isPlus ? SPACING_STEP : -SPACING_STEP));
+
+              // Reposition elements with new gap
+              let currentY = boundsMap[0].b.y;
+              for (let i = 0; i < boundsMap.length; i++) {
+                const shiftY = currentY - boundsMap[i].b.y;
+                if (shiftY !== 0) translateElement(boundsMap[i].el, 0, shiftY);
+                currentY += boundsMap[i].b.h + newGap;
+              }
+            }
+
+            const direction = isPlus ? "increased" : "decreased";
+            const axis = isX ? "horizontal" : "vertical";
+            showToast(`${axis.charAt(0).toUpperCase() + axis.slice(1)} spacing ${direction}`);
           } else {
             boundsMap.forEach(({ el, b }) => {
               let shiftX = 0,
@@ -2893,6 +3126,7 @@
             });
           }
           render();
+          updateSpacingInputs();
           showToast(`Executed selection ${alignType}`);
         });
       });
