@@ -3386,14 +3386,14 @@
 
         const gap = 50;
 
-        // Sort by current x position (left to right) to maintain visual order
+        // Order by initial spatial position (left to right)
         boundsMap.sort((a, b) => a.b.x - b.b.x);
 
-        // Use the first element's position as anchor
+        // Use the leftmost element's position as anchor
         const anchorX = boundsMap[0].b.x;
         const anchorY = boundsMap[0].b.y;
 
-        // Place each element sequentially: left-aligned, top-aligned to first element
+        // Place each element sequentially without changing their relative order
         let currentX = anchorX;
         for (let i = 0; i < boundsMap.length; i++) {
           const { el, b } = boundsMap[i];
@@ -3414,14 +3414,14 @@
 
         const gap = 50;
 
-        // Sort by current y position (top to bottom) to maintain visual order
+        // Order by initial spatial position (top to bottom)
         boundsMap.sort((a, b) => a.b.y - b.b.y);
 
-        // Use the first element's position as anchor
+        // Use the topmost element's position as anchor
         const anchorX = boundsMap[0].b.x;
         const anchorY = boundsMap[0].b.y;
 
-        // Place each element sequentially: top-aligned, left-aligned to first element
+        // Place each element sequentially without changing their relative order
         let currentY = anchorY;
         for (let i = 0; i < boundsMap.length; i++) {
           const { el, b } = boundsMap[i];
@@ -3558,8 +3558,17 @@
           origH: item.b.h,
         }));
 
-        // Sort by height descending (tall items first = better packing)
-        const sortedItems = [...items].sort((a, b) => b.h - a.h || b.w - a.w);
+        // Order by initial spatial position (reading order: top-to-bottom, left-to-right)
+        const sortedItems = [...items].sort((a, b) => {
+          const ay = boundsMap[a.idx].b.y;
+          const by = boundsMap[b.idx].b.y;
+          const ax = boundsMap[a.idx].b.x;
+          const bx = boundsMap[b.idx].b.x;
+          // Group by row (items within similar Y range), then by X
+          const rowThreshold = Math.max(a.h, b.h) * 0.5;
+          if (Math.abs(ay - by) < rowThreshold) return ax - bx;
+          return ay - by;
+        });
 
         // Try multiple container widths and pick the smallest resulting area
         const maxItemW = Math.max(...items.map(i => i.w));
