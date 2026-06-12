@@ -297,6 +297,11 @@
         display: none;
         z-index: 100;
         padding: 2px;
+        resize: none;
+        overflow: hidden;
+        line-height: 1.2;
+        white-space: pre;
+        min-width: 2ch;
       }
       /* Dynamic temporary toast notifications */
       #toast {
@@ -769,7 +774,7 @@
     </div>
 
     <div id="toast">Canvas copied to clipboard as PNG!</div>
-    <input type="text" id="text-ghost-input" />
+    <textarea id="text-ghost-input" rows="1"></textarea>
 
     <div id="canvas-container">
       <canvas id="canvas"></canvas>
@@ -1202,7 +1207,7 @@
       window.addEventListener("keydown", (e) => {
         if (e.key === "Shift") isShiftPressed = true;
         if (e.key === " " || e.code === "Space") {
-          if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT")
+          if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA")
             return;
           e.preventDefault();
           if (!isSpacePressed) {
@@ -1256,7 +1261,7 @@
       });
 
       window.addEventListener("keydown", (e) => {
-        if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT")
+        if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA")
           return;
         const key = e.key.toLowerCase();
         if (e.key === "+" || e.key === "=") {
@@ -1376,9 +1381,15 @@
           if (!shape.w || !shape.h) {
             ctx.save();
             ctx.font = `${shape.fontSize}px sans-serif`;
-            const metrics = ctx.measureText(shape.text);
-            shape.w = metrics.width;
-            shape.h = shape.fontSize;
+            const lines = shape.text.split("\n");
+            const lineHeight = shape.fontSize * 1.2;
+            let maxWidth = 0;
+            lines.forEach((line) => {
+              const metrics = ctx.measureText(line);
+              if (metrics.width > maxWidth) maxWidth = metrics.width;
+            });
+            shape.w = maxWidth;
+            shape.h = lineHeight * lines.length;
             ctx.restore();
           }
           minX = shape.start.x;
@@ -1711,7 +1722,7 @@
 
       // Cmd/Ctrl+C, Cmd/Ctrl+V, Cmd/Ctrl+A keyboard shortcuts
       window.addEventListener("keydown", (e) => {
-        if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+        if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA") return;
         const isMod = e.metaKey || e.ctrlKey;
 
         if (isMod && e.key.toLowerCase() === "c") {
@@ -2588,11 +2599,20 @@
         } else if (shape.type === "text") {
           targetCtx.font = `${shape.fontSize}px sans-serif`;
           targetCtx.textBaseline = "top";
-          targetCtx.fillText(shape.text, shape.start.x, shape.start.y);
+          const lineHeight = shape.fontSize * 1.2;
+          const lines = shape.text.split("\n");
 
-          const metrics = targetCtx.measureText(shape.text);
-          shape.w = metrics.width;
-          shape.h = shape.fontSize;
+          lines.forEach((line, i) => {
+            targetCtx.fillText(line, shape.start.x, shape.start.y + i * lineHeight);
+          });
+
+          let maxWidth = 0;
+          lines.forEach((line) => {
+            const metrics = targetCtx.measureText(line);
+            if (metrics.width > maxWidth) maxWidth = metrics.width;
+          });
+          shape.w = maxWidth;
+          shape.h = lineHeight * lines.length;
 
           if (!isExporting && currentTool === "select") {
             const isSelected = selectedElements.some(
@@ -2664,7 +2684,12 @@
           ghostInput.style.left = `${screenPos.x}px`;
           ghostInput.style.top = `${screenPos.y - currentFontSize * transform.zoom * 0.2}px`;
           ghostInput.style.fontSize = `${currentFontSize * transform.zoom}px`;
-          setTimeout(() => ghostInput.focus(), 20);
+          ghostInput.style.lineHeight = "1.2";
+          ghostInput.style.height = "auto";
+          setTimeout(() => {
+            ghostInput.focus();
+            autoResizeGhostInput();
+          }, 20);
           return;
         }
 
@@ -2900,11 +2925,14 @@
             ghostInput.style.left = `${screenPos.x}px`;
             ghostInput.style.top = `${screenPos.y - currentFontSize * transform.zoom * 0.2}px`;
             ghostInput.style.fontSize = `${currentFontSize * transform.zoom}px`;
+            ghostInput.style.lineHeight = "1.2";
+            ghostInput.style.height = "auto";
 
             // 3. Focus and highlight the text for quick changing
             setTimeout(() => {
               ghostInput.focus();
               ghostInput.select();
+              autoResizeGhostInput();
             }, 20);
 
             render();
@@ -3385,7 +3413,8 @@
       }
 
       ghostInput.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
           bakeText();
           container.focus();
         } else if (e.key === "Escape") {
@@ -3395,6 +3424,15 @@
           render();
         }
       });
+
+      ghostInput.addEventListener("input", () => {
+        autoResizeGhostInput();
+      });
+
+      function autoResizeGhostInput() {
+        ghostInput.style.height = "auto";
+        ghostInput.style.height = ghostInput.scrollHeight + "px";
+      }
 
       function applyZoom(newZoom, centerX, centerY) {
         if (newZoom < 0.05 || newZoom > 2.0) return;
