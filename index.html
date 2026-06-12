@@ -1537,6 +1537,18 @@
           preSpaceTool = null;
           const btn = document.querySelector(`[data-tool="${targetTool}"]`);
           if (btn) btn.click();
+          return;
+        }
+
+        // Number keys 0-9 set opacity on selected elements
+        if (key >= "0" && key <= "9" && currentTool === "select" && selectedElements.length > 0) {
+          const opacity = key === "0" ? 1 : parseInt(key) / 10;
+          pushUndo();
+          selectedElements.forEach((el) => { el.opacity = opacity; });
+          syncOpacityFromSelection();
+          render();
+          showToast(`Opacity ${Math.round(opacity * 100)}%`);
+          return;
         }
       });
 
