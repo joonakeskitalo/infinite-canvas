@@ -563,6 +563,12 @@
       <div class="separator"></div>
 
       <div class="action-container">
+        <button class="tool-btn" id="undo-btn" title="Undo [Mod+Z]" style="opacity:0.4;pointer-events:none;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M9 14l-4 -4l4 -4" /><path d="M5 10h11a4 4 0 1 1 0 8h-1" /></svg>
+        </button>
+        <button class="tool-btn" id="redo-btn" title="Redo [Mod+Shift+Z]" style="opacity:0.4;pointer-events:none;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M15 14l4 -4l-4 -4" /><path d="M19 10h-11a4 4 0 1 0 0 8h1" /></svg>
+        </button>
         <button class="action-btn dark-action" id="center-canvas-btn" title="Center view on selection or origin">
           Center
         </button>
@@ -839,6 +845,90 @@
       let clipboardElements = []; // internal clipboard for copy/paste
       let pasteOffset = 0; // increments each paste to offset duplicates
       let internalCopyPerformed = false; // true when last copy was from canvas selection
+
+      // --- UNDO / REDO SYSTEM ---
+      const MAX_HISTORY = 50;
+      let undoStack = [];
+      let redoStack = [];
+
+      function captureState() {
+        // Serialize current canvas state (images + drawings) into a snapshot
+        return {
+          images: images.map(el => serializeElement(el)),
+          drawings: drawings.map(el => serializeElement(el)),
+        };
+      }
+
+      function serializeElement(el) {
+        if (el.elementType === "image") {
+          return { id: el.id, elementType: "image", img: el.img, x: el.x, y: el.y, w: el.w, h: el.h, groupId: el.groupId || null };
+        }
+        const clone = { id: el.id, elementType: el.elementType, type: el.type, color: el.color, width: el.width, groupId: el.groupId || null };
+        if (el.type === "pen") {
+          clone.points = el.points.map(p => ({ x: p.x, y: p.y }));
+        } else if (el.type === "text") {
+          clone.text = el.text;
+          clone.fontSize = el.fontSize;
+          clone.start = { x: el.start.x, y: el.start.y };
+          if (el.w) clone.w = el.w;
+          if (el.h) clone.h = el.h;
+        } else {
+          clone.start = { x: el.start.x, y: el.start.y };
+          if (el.end) clone.end = { x: el.end.x, y: el.end.y };
+        }
+        return clone;
+      }
+
+      function restoreState(state) {
+        images = state.images.map(el => ({ ...el }));
+        drawings = state.drawings.map(el => {
+          const d = { ...el };
+          if (d.type === "pen") d.points = el.points.map(p => ({ ...p }));
+          else if (d.start) d.start = { ...el.start };
+          if (d.end) d.end = { ...el.end };
+          return d;
+        });
+        selectedElements = [];
+        toggleAlignmentPanelVisibility();
+        render();
+      }
+
+      function pushUndo() {
+        undoStack.push(captureState());
+        if (undoStack.length > MAX_HISTORY) undoStack.shift();
+        redoStack = [];
+        updateUndoRedoButtons();
+      }
+
+      function undo() {
+        if (undoStack.length === 0) return;
+        redoStack.push(captureState());
+        const state = undoStack.pop();
+        restoreState(state);
+        updateUndoRedoButtons();
+        showToast("Undo");
+      }
+
+      function redo() {
+        if (redoStack.length === 0) return;
+        undoStack.push(captureState());
+        const state = redoStack.pop();
+        restoreState(state);
+        updateUndoRedoButtons();
+        showToast("Redo");
+      }
+
+      function updateUndoRedoButtons() {
+        const undoBtn = document.getElementById("undo-btn");
+        const redoBtn = document.getElementById("redo-btn");
+        undoBtn.style.opacity = undoStack.length > 0 ? "1" : "0.4";
+        undoBtn.style.pointerEvents = undoStack.length > 0 ? "auto" : "none";
+        redoBtn.style.opacity = redoStack.length > 0 ? "1" : "0.4";
+        redoBtn.style.pointerEvents = redoStack.length > 0 ? "auto" : "none";
+      }
+
+      document.getElementById("undo-btn").addEventListener("click", undo);
+      document.getElementById("redo-btn").addEventListener("click", redo);
 
       container.addEventListener("contextmenu", (e) => {
         e.preventDefault();
@@ -1128,6 +1218,7 @@
         btn.addEventListener("click", (e) => {
           const scale = parseFloat(e.target.dataset.scale);
           if (!scale || selectedElements.length === 0) return;
+          pushUndo();
           selectedElements.forEach((el) => {
             if (el.elementType === "image") {
               const naturalW = el.img.naturalWidth || el.w;
@@ -1282,6 +1373,7 @@
         }
         if (e.key === "Delete" || e.key === "Backspace") {
           if (currentTool === "select" && selectedElements.length > 0) {
+            pushUndo();
             const idsToRemove = selectedElements.map((el) => el.id);
             images = images.filter((img) => !idsToRemove.includes(img.id));
             drawings = drawings.filter((d) => !idsToRemove.includes(d.id));
@@ -1477,6 +1569,7 @@
         reader.onload = (event) => {
           const img = new Image();
           img.onload = () => {
+            pushUndo();
             images.push({
               id: "img_" + elementIdCounter++,
               elementType: "image",
@@ -1525,6 +1618,7 @@
         if (imageBlobs.length > 0) {
           // System clipboard has image(s) from an external source
           e.preventDefault();
+          pushUndo();
           const worldCenter = screenToWorld(
             window.innerWidth / 2,
             window.innerHeight / 2,
@@ -1617,6 +1711,7 @@
 
       function pasteFromClipboard() {
         if (clipboardElements.length === 0) return;
+        pushUndo();
         pasteOffset += 30;
         const newElements = [];
         clipboardElements.forEach((el) => {
@@ -1654,6 +1749,7 @@
       }
 
       function pasteTextToCanvas(text) {
+        pushUndo();
         const worldCenter = screenToWorld(
           window.innerWidth / 2,
           window.innerHeight / 2,
@@ -1743,11 +1839,21 @@
         showToast(`Selected all ${selectedElements.length} element(s)`);
       }
 
-      // Cmd/Ctrl+C, Cmd/Ctrl+V, Cmd/Ctrl+A keyboard shortcuts
+      // Cmd/Ctrl+C, Cmd/Ctrl+V, Cmd/Ctrl+A, Cmd/Ctrl+Z keyboard shortcuts
       window.addEventListener("keydown", (e) => {
         if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA") return;
         const isMod = e.metaKey || e.ctrlKey;
 
+        if (isMod && e.key.toLowerCase() === "z" && !e.shiftKey) {
+          e.preventDefault();
+          undo();
+          return;
+        }
+        if (isMod && e.key.toLowerCase() === "z" && e.shiftKey) {
+          e.preventDefault();
+          redo();
+          return;
+        }
         if (isMod && e.key.toLowerCase() === "c") {
           if (selectedElements.length > 0) {
             e.preventDefault();
@@ -1758,6 +1864,7 @@
         if (isMod && e.key.toLowerCase() === "x") {
           if (selectedElements.length > 0) {
             e.preventDefault();
+            pushUndo();
             copySelectionToClipboard();
             const idsToRemove = selectedElements.map((el) => el.id);
             images = images.filter((img) => !idsToRemove.includes(img.id));
@@ -2660,6 +2767,7 @@
         let erasedSomething = false;
         for (let i = drawings.length - 1; i >= 0; i--) {
           if (isPointHittingShape(worldPos, drawings[i])) {
+            if (!erasedSomething) pushUndo();
             drawings.splice(i, 1);
             erasedSomething = true;
           }
@@ -2745,6 +2853,7 @@
                     };
                   }
                 }
+                pushUndo();
                 resizingElement = el;
                 const b =
                   el.elementType === "image"
@@ -2826,6 +2935,9 @@
                 selectedElements = [clickedElement];
               }
             }
+
+            // Push undo before drag starts
+            pushUndo();
 
             dragOffsets = selectedElements.map((el) => {
               if (el.elementType === "image") {
@@ -3406,6 +3518,7 @@
         }
 
         if (activeShape) {
+          pushUndo();
           drawings.push(activeShape);
           activeShape = null;
         }
@@ -3420,6 +3533,7 @@
       function bakeText() {
         const val = ghostInput.value.trim();
         if (val && activeTextCoord) {
+          pushUndo();
           drawings.push({
             id: "text_" + elementIdCounter++,
             elementType: "text",
@@ -3555,6 +3669,7 @@
           if (!targetBtn) return;
           const alignType = targetBtn.dataset.align;
           if (selectedElements.length < 2) return;
+          pushUndo();
 
           let groupMinX = Infinity,
             groupMinY = Infinity;
