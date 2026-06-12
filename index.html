@@ -1277,15 +1277,51 @@
 
       window.addEventListener("paste", (e) => {
         const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        const imageBlobs = [];
         for (let item of items) {
           if (item.type.indexOf("image") === 0) {
-            const blob = item.getAsFile();
-            const worldCenter = screenToWorld(
-              window.innerWidth / 2,
-              window.innerHeight / 2,
-            );
-            handleImageFile(blob, worldCenter.x, worldCenter.y);
+            imageBlobs.push(item.getAsFile());
           }
+        }
+        if (imageBlobs.length > 0) {
+          const worldCenter = screenToWorld(
+            window.innerWidth / 2,
+            window.innerHeight / 2,
+          );
+          const pastedElements = [];
+          let loadedCount = 0;
+          imageBlobs.forEach((blob, index) => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              const img = new Image();
+              img.onload = () => {
+                const offsetX = index * 20;
+                const offsetY = index * 20;
+                const element = {
+                  id: "img_" + elementIdCounter++,
+                  elementType: "image",
+                  img: img,
+                  x: worldCenter.x - img.width / 2 + offsetX,
+                  y: worldCenter.y - img.height / 2 + offsetY,
+                  w: img.width,
+                  h: img.height,
+                };
+                images.push(element);
+                pastedElements.push(element);
+                loadedCount++;
+                if (loadedCount === imageBlobs.length) {
+                  selectedElements = pastedElements;
+                  currentTool = "select";
+                  updateToolbarUI();
+                  toggleAlignmentPanelVisibility();
+                  render();
+                  showToast(`Pasted ${pastedElements.length} image(s)`);
+                }
+              };
+              img.src = event.target.result;
+            };
+            reader.readAsDataURL(blob);
+          });
         }
       });
 
