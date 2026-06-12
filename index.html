@@ -3404,7 +3404,7 @@
         const n = boundsMap.length;
         if (n < 2) return;
 
-        const gap = 50;
+        const gap = 100;
 
         // Order by initial spatial position (left to right)
         boundsMap.sort((a, b) => a.b.x - b.b.x);
@@ -3432,7 +3432,7 @@
         const n = boundsMap.length;
         if (n < 2) return;
 
-        const gap = 50;
+        const gap = 100;
 
         // Order by initial spatial position (top to bottom)
         boundsMap.sort((a, b) => a.b.y - b.b.y);
@@ -3460,8 +3460,8 @@
         const n = boundsMap.length;
         if (n < 2) return;
 
-        const gapX = 50;
-        const gapY = 50;
+        const gapX = 100;
+        const gapY = 100;
 
         // Compute centroid of current selection to anchor the result
         let centroidX = 0, centroidY = 0;
@@ -3683,7 +3683,7 @@
           expandBounds(b.x, b.y);
           expandBounds(b.x + b.w, b.y + b.h);
         });
-        const padding = 50;
+        const padding = 100;
         return {
           minX: minX - padding,
           minY: minY - padding,
