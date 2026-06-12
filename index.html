@@ -97,6 +97,10 @@
         background: #333;
         color: #fff;
       }
+      .font-size-btn:hover {
+        background: #333;
+        color: #fff;
+      }
       .tool-btn.active {
         background: #007acc;
         color: #fff;
@@ -489,6 +493,9 @@
       <div class="separator"></div>
 
       <div class="control-group">
+        <button class="font-size-btn" id="font-size-minus" title="Decrease font size by 16px" style="width:24px;height:24px;padding:2px;background:transparent;border:1px solid transparent;color:#ccc;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><rect x="5" y="11" width="14" height="2" rx="1"/></svg>
+        </button>
         <select id="font-size-select" title="Text Font Size Configuration">
           <option value="12">12px</option>
           <option value="16">16px</option>
@@ -497,7 +504,14 @@
           <option value="32" selected>32px</option>
           <option value="48">48px</option>
           <option value="64">64px</option>
+          <option value="80">80px</option>
+          <option value="96">96px</option>
+          <option value="112">112px</option>
+          <option value="128">128px</option>
         </select>
+        <button class="font-size-btn" id="font-size-plus" title="Increase font size by 16px" style="width:24px;height:24px;padding:2px;background:transparent;border:1px solid transparent;color:#ccc;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6V5z"/></svg>
+        </button>
       </div>
 
       <div class="separator"></div>
@@ -825,6 +839,33 @@
         } else {
           alignmentPanel.style.display = "none";
         }
+        syncFontSizeFromSelection();
+      }
+
+      function syncFontSizeFromSelection() {
+        // If a single text element is selected, reflect its font size in the toolbar
+        if (selectedElements.length === 1 && selectedElements[0].elementType === "text") {
+          const size = selectedElements[0].fontSize;
+          currentFontSize = size;
+          // Make sure the option exists in the select
+          let option = fontSizeSelect.querySelector(`option[value="${size}"]`);
+          if (!option) {
+            option = document.createElement("option");
+            option.value = size;
+            option.textContent = size + "px";
+            const options = Array.from(fontSizeSelect.options);
+            let inserted = false;
+            for (let i = 0; i < options.length; i++) {
+              if (parseInt(options[i].value) > size) {
+                fontSizeSelect.insertBefore(option, options[i]);
+                inserted = true;
+                break;
+              }
+            }
+            if (!inserted) fontSizeSelect.appendChild(option);
+          }
+          fontSizeSelect.value = size;
+        }
       }
 
       function updateSpacingInputs() {
@@ -911,6 +952,58 @@
         if (ghostInput.style.display === "block") {
           ghostInput.style.fontSize = `${currentFontSize * transform.zoom}px`;
         }
+        // Update selected text elements
+        applyFontSizeToSelectedText(currentFontSize);
+      });
+
+      function applyFontSizeToSelectedText(size) {
+        if (selectedElements.length === 0) return;
+        let changed = false;
+        selectedElements.forEach((el) => {
+          if (el.elementType === "text") {
+            el.fontSize = size;
+            changed = true;
+          }
+        });
+        if (changed) render();
+      }
+
+      function setFontSizeAndSync(size) {
+        size = Math.max(4, size);
+        currentFontSize = size;
+        // Sync the select element — pick matching option or add custom one
+        let option = fontSizeSelect.querySelector(`option[value="${size}"]`);
+        if (!option) {
+          option = document.createElement("option");
+          option.value = size;
+          option.textContent = size + "px";
+          // Insert in sorted order
+          const options = Array.from(fontSizeSelect.options);
+          let inserted = false;
+          for (let i = 0; i < options.length; i++) {
+            if (parseInt(options[i].value) > size) {
+              fontSizeSelect.insertBefore(option, options[i]);
+              inserted = true;
+              break;
+            }
+          }
+          if (!inserted) fontSizeSelect.appendChild(option);
+        }
+        fontSizeSelect.value = size;
+        if (ghostInput.style.display === "block") {
+          ghostInput.style.fontSize = `${currentFontSize * transform.zoom}px`;
+        }
+        applyFontSizeToSelectedText(size);
+      }
+
+      document.getElementById("font-size-minus").addEventListener("click", (e) => {
+        e.stopPropagation();
+        setFontSizeAndSync(currentFontSize - 16);
+      });
+
+      document.getElementById("font-size-plus").addEventListener("click", (e) => {
+        e.stopPropagation();
+        setFontSizeAndSync(currentFontSize + 16);
       });
 
       // Prevent spacing inputs from losing selection or triggering canvas interactions
