@@ -1506,18 +1506,25 @@
           }
         }
 
-        // If the last copy was internal (from canvas selection), prioritize
-        // internal clipboard over stale system clipboard images
         if (internalCopyPerformed && clipboardElements.length > 0) {
-          e.preventDefault();
-          pasteFromClipboard();
-          return;
+          // Check if the system clipboard still holds our internal copy marker.
+          // If it has images or different text, the user copied something externally.
+          const text = clipboardData.getData("text/plain");
+          const isStillInternal = !imageBlobs.length && text === INTERNAL_COPY_MIME;
+
+          if (isStillInternal) {
+            e.preventDefault();
+            pasteFromClipboard();
+            return;
+          }
+          // Clipboard has new external content — reset internal state
+          internalCopyPerformed = false;
+          clipboardElements = [];
         }
 
         if (imageBlobs.length > 0) {
-          // System clipboard has image(s) from external source
+          // System clipboard has image(s) from an external source
           e.preventDefault();
-          internalCopyPerformed = false; // external paste resets internal copy state
           const worldCenter = screenToWorld(
             window.innerWidth / 2,
             window.innerHeight / 2,
@@ -1557,7 +1564,7 @@
             reader.readAsDataURL(blob);
           });
         } else if (clipboardElements.length > 0) {
-          // No image in system clipboard — fall back to internal copy/paste
+          // No external content — fall back to internal clipboard
           e.preventDefault();
           pasteFromClipboard();
         } else {
@@ -1584,13 +1591,29 @@
       });
 
       // --- COPY / PASTE / SELECT ALL ---
+      const INTERNAL_COPY_MIME = "text/x-infinite-canvas";
+      let pendingInternalCopy = false;
+
       function copySelectionToClipboard() {
         if (selectedElements.length === 0) return;
         clipboardElements = selectedElements.map((el) => cloneElement(el));
         pasteOffset = 0;
         internalCopyPerformed = true;
+        // Trigger a real copy event so we can write our marker to the system clipboard.
+        // This ensures that on paste we can detect if the clipboard still has our data.
+        pendingInternalCopy = true;
+        document.execCommand("copy");
+        pendingInternalCopy = false;
         showToast(`Copied ${clipboardElements.length} element(s)`);
       }
+
+      // Write our marker to the system clipboard during internal copy
+      document.addEventListener("copy", (e) => {
+        if (pendingInternalCopy) {
+          e.preventDefault();
+          e.clipboardData.setData("text/plain", INTERNAL_COPY_MIME);
+        }
+      });
 
       function pasteFromClipboard() {
         if (clipboardElements.length === 0) return;
@@ -1748,7 +1771,7 @@
         }
         if (isMod && e.key.toLowerCase() === "v") {
           // Don't preventDefault — let the native paste event fire so system
-          // clipboard content (e.g. images) takes priority over internal copy.
+          // clipboard content (e.g. images) can be detected in the paste handler.
           return;
         }
         if (isMod && e.key.toLowerCase() === "a") {
