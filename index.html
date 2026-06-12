@@ -767,6 +767,8 @@
       let activeSnapGuides = []; // {axis: 'x'|'y', pos: number} for rendering
       let activeProximityGuides = []; // {axis: 'x'|'y', pos: number, from: number, to: number} for proximity lines
       let activeSpacingGuides = []; // {axis: 'x'|'y', from: number, to: number, pos: number, dist: number, isEqual: boolean}
+      let clipboardElements = []; // internal clipboard for copy/paste
+      let pasteOffset = 0; // increments each paste to offset duplicates
 
       container.addEventListener("contextmenu", (e) => {
         e.preventDefault();
@@ -1086,6 +1088,7 @@
         }
 
         let targetTool = null;
+        if (e.metaKey || e.ctrlKey) return; // Let modifier combos be handled elsewhere
         if (key === "h") targetTool = "pan";
         if (key === "v") targetTool = "select";
         if (key === "b") targetTool = "pen";
@@ -1296,6 +1299,130 @@
               handleImageFile(file, dropWorldPos.x, dropWorldPos.y);
             }
           }
+        }
+      });
+
+      // --- COPY / PASTE / SELECT ALL ---
+      function copySelectionToClipboard() {
+        if (selectedElements.length === 0) return;
+        clipboardElements = selectedElements.map((el) => cloneElement(el));
+        pasteOffset = 0;
+        showToast(`Copied ${clipboardElements.length} element(s)`);
+      }
+
+      function pasteFromClipboard() {
+        if (clipboardElements.length === 0) return;
+        pasteOffset += 30;
+        const newElements = [];
+        clipboardElements.forEach((el) => {
+          const clone = cloneElement(el);
+          clone.id = (clone.elementType === "image" ? "img_" : "draw_") + elementIdCounter++;
+          // Offset the pasted element
+          if (clone.elementType === "image") {
+            clone.x += pasteOffset;
+            clone.y += pasteOffset;
+          } else if (clone.type === "pen") {
+            clone.points = clone.points.map((p) => ({
+              x: p.x + pasteOffset,
+              y: p.y + pasteOffset,
+            }));
+          } else {
+            clone.start = { x: clone.start.x + pasteOffset, y: clone.start.y + pasteOffset };
+            if (clone.end) {
+              clone.end = { x: clone.end.x + pasteOffset, y: clone.end.y + pasteOffset };
+            }
+          }
+          if (clone.elementType === "image") {
+            images.push(clone);
+          } else {
+            drawings.push(clone);
+          }
+          newElements.push(clone);
+        });
+        // Select the pasted elements
+        selectedElements = newElements;
+        currentTool = "select";
+        updateToolbarUI();
+        toggleAlignmentPanelVisibility();
+        render();
+        showToast(`Pasted ${newElements.length} element(s)`);
+      }
+
+      function cloneElement(el) {
+        if (el.elementType === "image") {
+          return {
+            id: el.id,
+            elementType: "image",
+            img: el.img, // share the same Image object
+            x: el.x,
+            y: el.y,
+            w: el.w,
+            h: el.h,
+          };
+        }
+        // Drawing/shape clone
+        const clone = {
+          id: el.id,
+          elementType: el.elementType,
+          type: el.type,
+          color: el.color,
+          width: el.width,
+        };
+        if (el.type === "pen") {
+          clone.points = el.points.map((p) => ({ x: p.x, y: p.y }));
+        } else if (el.type === "text") {
+          clone.text = el.text;
+          clone.fontSize = el.fontSize;
+          clone.start = { x: el.start.x, y: el.start.y };
+          if (el.w) clone.w = el.w;
+          if (el.h) clone.h = el.h;
+        } else {
+          clone.start = { x: el.start.x, y: el.start.y };
+          if (el.end) clone.end = { x: el.end.x, y: el.end.y };
+        }
+        return clone;
+      }
+
+      function selectAllElements() {
+        currentTool = "select";
+        selectedElements = [];
+        images.forEach((img) => {
+          img.elementType = "image";
+          selectedElements.push(img);
+        });
+        drawings.forEach((shape) => {
+          if (shape.type !== "text") shape.elementType = "drawing";
+          selectedElements.push(shape);
+        });
+        updateToolbarUI();
+        toggleAlignmentPanelVisibility();
+        render();
+        showToast(`Selected all ${selectedElements.length} element(s)`);
+      }
+
+      // Cmd/Ctrl+C, Cmd/Ctrl+V, Cmd/Ctrl+A keyboard shortcuts
+      window.addEventListener("keydown", (e) => {
+        if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+        const isMod = e.metaKey || e.ctrlKey;
+
+        if (isMod && e.key.toLowerCase() === "c") {
+          if (selectedElements.length > 0) {
+            e.preventDefault();
+            copySelectionToClipboard();
+          }
+          return;
+        }
+        if (isMod && e.key.toLowerCase() === "v") {
+          if (clipboardElements.length > 0) {
+            e.preventDefault();
+            pasteFromClipboard();
+          }
+          return;
+        }
+        if (isMod && e.key.toLowerCase() === "a") {
+          e.preventDefault();
+          selectAllElements();
+          return;
         }
       });
 
