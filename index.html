@@ -3390,12 +3390,12 @@
 
           drawings.forEach((shape) => {
             const b = getShapeBounds(shape);
-            const overlaps =
-              b.x < rx + rw &&
-              b.x + b.w > rx &&
-              b.y < ry + rh &&
-              b.y + b.h > ry;
-            if (overlaps) {
+            const fullyInside =
+              b.x >= rx &&
+              b.x + b.w <= rx + rw &&
+              b.y >= ry &&
+              b.y + b.h <= ry + rh;
+            if (fullyInside) {
               if (shape.type !== "text") shape.elementType = "drawing";
               if (!selectedElements.some((el) => el.id === shape.id))
                 selectedElements.push(shape);
