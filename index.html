@@ -452,6 +452,17 @@
       </button>
       <button
         class="tool-btn"
+        id="tool-text-element"
+        data-tool="text-element"
+        title="Sticky Note Text [N]"
+      >
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <rect x="3" y="3" width="18" height="18" rx="2" fill="#f5e642" opacity="0.85"/>
+          <text x="12" y="16" text-anchor="middle" font-size="12" font-weight="bold" fill="#333">T</text>
+        </svg>
+      </button>
+      <button
+        class="tool-btn"
         id="tool-eraser"
         data-tool="eraser"
         title="Object Eraser Tool [E]"
@@ -880,6 +891,7 @@
           clone.start = { x: el.start.x, y: el.start.y };
           if (el.w) clone.w = el.w;
           if (el.h) clone.h = el.h;
+          if (el.bgColor) clone.bgColor = el.bgColor;
         } else {
           clone.start = { x: el.start.x, y: el.start.y };
           if (el.end) clone.end = { x: el.end.x, y: el.end.y };
@@ -1309,6 +1321,7 @@
         else if (currentTool === "select") container.style.cursor = "default";
         else if (currentTool === "eraser") container.style.cursor = "pointer";
         else if (currentTool === "text") container.style.cursor = "text";
+        else if (currentTool === "text-element") container.style.cursor = "text";
         else container.style.cursor = "crosshair";
       }
       updateCursor();
@@ -1453,6 +1466,7 @@
         if (key === "r") targetTool = "rect-border";
         if (key === "f") targetTool = "rect-fill";
         if (key === "t") targetTool = "text";
+        if (key === "n") targetTool = "text-element";
         if (key === "e") targetTool = "eraser";
 
         if (key === "g" && !e.shiftKey && currentTool === "select" && selectedElements.length >= 2) {
@@ -1539,13 +1553,14 @@
               if (metrics.width > maxWidth) maxWidth = metrics.width;
             });
             shape.w = maxWidth;
-            shape.h = lineHeight * lines.length;
+            shape.h = lineHeight * (lines.length - 1) + shape.fontSize;
             ctx.restore();
           }
-          minX = shape.start.x;
-          minY = shape.start.y;
-          maxX = shape.start.x + shape.w;
-          maxY = shape.start.y + shape.h;
+          const padding = shape.bgColor ? shape.fontSize * 0.4 : 0;
+          minX = shape.start.x - padding;
+          minY = shape.start.y - padding;
+          maxX = shape.start.x + shape.w + padding;
+          maxY = shape.start.y + shape.h + padding;
         } else {
           minX = Math.min(shape.start.x, shape.end.x);
           minY = Math.min(shape.start.y, shape.end.y);
@@ -1884,6 +1899,7 @@
           clone.start = { x: el.start.x, y: el.start.y };
           if (el.w) clone.w = el.w;
           if (el.h) clone.h = el.h;
+          if (el.bgColor) clone.bgColor = el.bgColor;
         } else {
           clone.start = { x: el.start.x, y: el.start.y };
           if (el.end) clone.end = { x: el.end.x, y: el.end.y };
@@ -2845,17 +2861,34 @@
           const lineHeight = shape.fontSize * 1.2;
           const lines = shape.text.split("\n");
 
-          lines.forEach((line, i) => {
-            targetCtx.fillText(line, shape.start.x, shape.start.y + i * lineHeight);
-          });
-
+          // Measure text dimensions first
           let maxWidth = 0;
           lines.forEach((line) => {
             const metrics = targetCtx.measureText(line);
             if (metrics.width > maxWidth) maxWidth = metrics.width;
           });
           shape.w = maxWidth;
-          shape.h = lineHeight * lines.length;
+          shape.h = lineHeight * (lines.length - 1) + shape.fontSize;
+
+          // Draw background if present
+          if (shape.bgColor) {
+            const padding = shape.fontSize * 0.4;
+            targetCtx.fillStyle = shape.bgColor;
+            targetCtx.beginPath();
+            const rx = 4 / (isExporting ? 1 : transform.zoom);
+            const bx = shape.start.x - padding;
+            const by = shape.start.y - padding;
+            const bw = shape.w + padding * 2;
+            const bh = shape.h + padding * 2;
+            targetCtx.roundRect(bx, by, bw, bh, rx);
+            targetCtx.fill();
+          }
+
+          // Draw text
+          targetCtx.fillStyle = shape.color;
+          lines.forEach((line, i) => {
+            targetCtx.fillText(line, shape.start.x, shape.start.y + i * lineHeight);
+          });
 
           if (!isExporting && currentTool === "select") {
             const isSelected = selectedElements.some(
@@ -2865,11 +2898,12 @@
               ? "#ff4444"
               : "rgba(0, 122, 204, 0.4)";
             targetCtx.lineWidth = 1 / (isExporting ? 1 : transform.zoom);
+            const selPadding = shape.bgColor ? shape.fontSize * 0.4 : 2;
             targetCtx.strokeRect(
-              shape.start.x - 2,
-              shape.start.y - 2,
-              shape.w + 4,
-              shape.h + 4,
+              shape.start.x - selPadding,
+              shape.start.y - selPadding,
+              shape.w + selPadding * 2,
+              shape.h + selPadding * 2,
             );
           }
         }
@@ -2924,12 +2958,36 @@
           ghostInput.value = "";
           ghostInput.style.display = "block";
           ghostInput.style.color = drawColor;
+          ghostInput.dataset.bgColor = "";
           const screenPos = worldToScreen(worldPos.x, worldPos.y);
           ghostInput.style.left = `${screenPos.x}px`;
           ghostInput.style.top = `${screenPos.y - currentFontSize * transform.zoom * 0.2}px`;
           ghostInput.style.fontSize = `${currentFontSize * transform.zoom}px`;
           ghostInput.style.lineHeight = "1.2";
           ghostInput.style.height = "auto";
+          ghostInput.style.background = "transparent";
+          setTimeout(() => {
+            ghostInput.focus();
+            autoResizeGhostInput();
+          }, 20);
+          return;
+        }
+
+        if (currentTool === "text-element") {
+          isInteracting = false;
+          activeTextCoord = worldPos;
+          ghostInput.value = "";
+          ghostInput.style.display = "block";
+          ghostInput.style.color = "#333333";
+          ghostInput.dataset.bgColor = "#f5e642";
+          const screenPos = worldToScreen(worldPos.x, worldPos.y);
+          ghostInput.style.left = `${screenPos.x}px`;
+          ghostInput.style.top = `${screenPos.y - currentFontSize * transform.zoom * 0.2}px`;
+          ghostInput.style.fontSize = `${currentFontSize * transform.zoom}px`;
+          ghostInput.style.lineHeight = "1.2";
+          ghostInput.style.height = "auto";
+          ghostInput.style.background = "#f5e642";
+          ghostInput.style.border = "1px dashed #c4b800";
           setTimeout(() => {
             ghostInput.focus();
             autoResizeGhostInput();
@@ -3168,6 +3226,17 @@
             ghostInput.value = editingText.text;
             ghostInput.style.display = "block";
             ghostInput.style.color = editingText.color;
+
+            // Preserve background color for sticky note editing
+            if (editingText.bgColor) {
+              ghostInput.dataset.bgColor = editingText.bgColor;
+              ghostInput.style.background = editingText.bgColor;
+              ghostInput.style.border = "1px dashed #c4b800";
+            } else {
+              ghostInput.dataset.bgColor = "";
+              ghostInput.style.background = "transparent";
+              ghostInput.style.border = "1px dashed #007acc";
+            }
 
             const screenPos = worldToScreen(
               activeTextCoord.x,
@@ -3652,17 +3721,24 @@
         const val = ghostInput.value.trim();
         if (val && activeTextCoord) {
           pushUndo();
-          drawings.push({
+          const textEl = {
             id: "text_" + elementIdCounter++,
             elementType: "text",
             type: "text",
             text: val,
-            color: drawColor,
+            color: ghostInput.style.color || drawColor,
             fontSize: currentFontSize,
             start: { x: activeTextCoord.x, y: activeTextCoord.y },
-          });
+          };
+          if (ghostInput.dataset.bgColor) {
+            textEl.bgColor = ghostInput.dataset.bgColor;
+          }
+          drawings.push(textEl);
         }
         ghostInput.style.display = "none";
+        ghostInput.style.background = "transparent";
+        ghostInput.style.border = "1px dashed #007acc";
+        ghostInput.dataset.bgColor = "";
         activeTextCoord = null;
         render();
       }
