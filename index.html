@@ -968,10 +968,10 @@
       });
 
       const colorPicker = document.getElementById("color-picker");
-      colorPicker.addEventListener(
-        "input",
-        (e) => (drawColor = e.target.value),
-      );
+      colorPicker.addEventListener("input", (e) => {
+        drawColor = e.target.value;
+        applyColorToSelectedElements(drawColor);
+      });
 
       const presetBtns = document.querySelectorAll(".preset-btn");
       presetBtns.forEach((btn) => {
@@ -984,9 +984,22 @@
           } else {
             drawColor = color;
             colorPicker.value = drawColor;
+            applyColorToSelectedElements(drawColor);
           }
         });
       });
+
+      function applyColorToSelectedElements(color) {
+        if (selectedElements.length === 0) return;
+        let changed = false;
+        selectedElements.forEach((el) => {
+          if (el.elementType === "text" || el.elementType === "drawing") {
+            el.color = color;
+            changed = true;
+          }
+        });
+        if (changed) render();
+      }
 
       bgColorPicker.addEventListener("input", (e) => {
         bgColor = e.target.value;
@@ -1470,7 +1483,11 @@
       }
 
       window.addEventListener("paste", (e) => {
-        const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        // Don't intercept paste if user is typing in the ghost text input
+        if (ghostInput.style.display === "block" && document.activeElement === ghostInput) return;
+
+        const clipboardData = e.clipboardData || e.originalEvent.clipboardData;
+        const items = clipboardData.items;
         const imageBlobs = [];
         for (let item of items) {
           if (item.type.indexOf("image") === 0) {
@@ -1532,6 +1549,13 @@
           // No image in system clipboard — fall back to internal copy/paste
           e.preventDefault();
           pasteFromClipboard();
+        } else {
+          // Check for plain text in clipboard
+          const text = clipboardData.getData("text/plain");
+          if (text && text.trim().length > 0) {
+            e.preventDefault();
+            pasteTextToCanvas(text.trim());
+          }
         }
       });
 
@@ -1593,6 +1617,44 @@
         toggleAlignmentPanelVisibility();
         render();
         showToast(`Pasted ${newElements.length} element(s)`);
+      }
+
+      function pasteTextToCanvas(text) {
+        const worldCenter = screenToWorld(
+          window.innerWidth / 2,
+          window.innerHeight / 2,
+        );
+        const lines = text.split("\n");
+        const pastedElements = [];
+        let yOffset = 0;
+
+        lines.forEach((line) => {
+          if (line.trim().length === 0) {
+            yOffset += currentFontSize * 0.5;
+            return;
+          }
+          const textEl = {
+            id: "text_" + elementIdCounter++,
+            elementType: "text",
+            type: "text",
+            text: line,
+            color: drawColor,
+            fontSize: currentFontSize,
+            start: { x: worldCenter.x, y: worldCenter.y + yOffset },
+          };
+          drawings.push(textEl);
+          pastedElements.push(textEl);
+          yOffset += currentFontSize * 1.2;
+        });
+
+        if (pastedElements.length > 0) {
+          selectedElements = pastedElements;
+          currentTool = "select";
+          updateToolbarUI();
+          toggleAlignmentPanelVisibility();
+          render();
+          showToast(`Pasted ${pastedElements.length} text line(s)`);
+        }
       }
 
       function cloneElement(el) {
