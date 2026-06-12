@@ -1436,12 +1436,6 @@
           applyZoom(transform.zoom / 1.1, lastMousePos.x, lastMousePos.y);
           return;
         }
-        if (key === "z") {
-          e.preventDefault();
-          let nextZoom = Math.abs(transform.zoom - 1.0) < 0.01 ? 0.3 : 1.0;
-          applyZoom(nextZoom, lastMousePos.x, lastMousePos.y);
-          return;
-        }
         if (e.key === "Delete" || e.key === "Backspace") {
           if (currentTool === "select" && selectedElements.length > 0) {
             pushUndo();
