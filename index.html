@@ -569,6 +569,12 @@
         <button class="tool-btn" id="redo-btn" title="Redo [Mod+Shift+Z]" style="opacity:0.4;pointer-events:none;">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M15 14l4 -4l-4 -4" /><path d="M19 10h-11a4 4 0 1 0 0 8h1" /></svg>
         </button>
+        <button class="tool-btn" id="group-btn" title="Group [Mod+G]" style="opacity:0.4;pointer-events:none;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5c0-1.1.9-2 2-2h2"/><path d="M17 3h2c1.1 0 2 .9 2 2v2"/><path d="M21 17v2c0 1.1-.9 2-2 2h-2"/><path d="M7 21H5c-1.1 0-2-.9-2-2v-2"/><rect width="7" height="5" x="7" y="7" rx="1"/><rect width="7" height="5" x="10" y="12" rx="1"/></svg>
+        </button>
+        <button class="tool-btn" id="ungroup-btn" title="Ungroup [Mod+Shift+G]" style="opacity:0.4;pointer-events:none;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="6" x="5" y="4" rx="1"/><rect width="8" height="6" x="11" y="14" rx="1"/></svg>
+        </button>
         <button class="action-btn dark-action" id="center-canvas-btn" title="Center view on selection or origin">
           Center
         </button>
@@ -930,6 +936,69 @@
       document.getElementById("undo-btn").addEventListener("click", undo);
       document.getElementById("redo-btn").addEventListener("click", redo);
 
+      // --- GROUPING SYSTEM ---
+      let groupIdCounter = 0;
+
+      function groupSelection() {
+        if (selectedElements.length < 2) return;
+        pushUndo();
+        const groupId = "group_" + groupIdCounter++;
+        selectedElements.forEach(el => { el.groupId = groupId; });
+        toggleAlignmentPanelVisibility();
+        render();
+        showToast(`Grouped ${selectedElements.length} elements`);
+      }
+
+      function ungroupSelection() {
+        const groupIds = new Set();
+        selectedElements.forEach(el => {
+          if (el.groupId) groupIds.add(el.groupId);
+        });
+        if (groupIds.size === 0) return;
+        pushUndo();
+        // Ungroup all elements that share any of the selected group IDs
+        const allElements = [...images, ...drawings];
+        allElements.forEach(el => {
+          if (el.groupId && groupIds.has(el.groupId)) {
+            delete el.groupId;
+          }
+        });
+        toggleAlignmentPanelVisibility();
+        render();
+        showToast("Ungrouped");
+      }
+
+      function expandSelectionToGroups() {
+        // When an element with a groupId is selected, also select all other elements in that group
+        const groupIds = new Set();
+        selectedElements.forEach(el => {
+          if (el.groupId) groupIds.add(el.groupId);
+        });
+        if (groupIds.size === 0) return;
+        const allElements = [...images, ...drawings];
+        allElements.forEach(el => {
+          if (el.groupId && groupIds.has(el.groupId)) {
+            if (!selectedElements.some(s => s.id === el.id)) {
+              selectedElements.push(el);
+            }
+          }
+        });
+      }
+
+      function updateGroupButtons() {
+        const groupBtn = document.getElementById("group-btn");
+        const ungroupBtn = document.getElementById("ungroup-btn");
+        const canGroup = currentTool === "select" && selectedElements.length >= 2;
+        const hasGroup = selectedElements.some(el => el.groupId);
+        groupBtn.style.opacity = canGroup ? "1" : "0.4";
+        groupBtn.style.pointerEvents = canGroup ? "auto" : "none";
+        ungroupBtn.style.opacity = hasGroup ? "1" : "0.4";
+        ungroupBtn.style.pointerEvents = hasGroup ? "auto" : "none";
+      }
+
+      document.getElementById("group-btn").addEventListener("click", groupSelection);
+      document.getElementById("ungroup-btn").addEventListener("click", ungroupSelection);
+
       container.addEventListener("contextmenu", (e) => {
         e.preventDefault();
       });
@@ -982,6 +1051,7 @@
           scaleGroup.style.display = "none";
         }
         syncFontSizeFromSelection();
+        updateGroupButtons();
       }
 
       function syncFontSizeFromSelection() {
@@ -1052,8 +1122,9 @@
       const buttons = document.querySelectorAll(".tool-btn");
       buttons.forEach((btn) => {
         btn.addEventListener("click", (e) => {
-          if (ghostInput.style.display === "block") bakeText();
           const targetBtn = e.target.closest(".tool-btn");
+          if (!targetBtn.dataset.tool) return; // Skip non-tool buttons (undo, redo, group, ungroup)
+          if (ghostInput.style.display === "block") bakeText();
           currentTool = targetBtn.dataset.tool;
           if (currentTool !== "select") selectedElements = [];
           updateToolbarUI();
@@ -1714,9 +1785,17 @@
         pushUndo();
         pasteOffset += 30;
         const newElements = [];
+        // Remap group IDs so pasted groups are independent from originals
+        const groupIdMap = new Map();
         clipboardElements.forEach((el) => {
           const clone = cloneElement(el);
           clone.id = (clone.elementType === "image" ? "img_" : "draw_") + elementIdCounter++;
+          if (clone.groupId) {
+            if (!groupIdMap.has(clone.groupId)) {
+              groupIdMap.set(clone.groupId, "group_" + groupIdCounter++);
+            }
+            clone.groupId = groupIdMap.get(clone.groupId);
+          }
           // Offset the pasted element
           if (clone.elementType === "image") {
             clone.x += pasteOffset;
@@ -1789,7 +1868,7 @@
 
       function cloneElement(el) {
         if (el.elementType === "image") {
-          return {
+          const c = {
             id: el.id,
             elementType: "image",
             img: el.img, // share the same Image object
@@ -1798,6 +1877,8 @@
             w: el.w,
             h: el.h,
           };
+          if (el.groupId) c.groupId = el.groupId;
+          return c;
         }
         // Drawing/shape clone
         const clone = {
@@ -1807,6 +1888,7 @@
           color: el.color,
           width: el.width,
         };
+        if (el.groupId) clone.groupId = el.groupId;
         if (el.type === "pen") {
           clone.points = el.points.map((p) => ({ x: p.x, y: p.y }));
         } else if (el.type === "text") {
@@ -1852,6 +1934,16 @@
         if (isMod && e.key.toLowerCase() === "z" && e.shiftKey) {
           e.preventDefault();
           redo();
+          return;
+        }
+        if (isMod && e.key.toLowerCase() === "g" && !e.shiftKey) {
+          e.preventDefault();
+          groupSelection();
+          return;
+        }
+        if (isMod && e.key.toLowerCase() === "g" && e.shiftKey) {
+          e.preventDefault();
+          ungroupSelection();
           return;
         }
         if (isMod && e.key.toLowerCase() === "c") {
@@ -2379,9 +2471,13 @@
             const isSelected = selectedElements.some(
               (el) => el.id === imgData.id,
             );
+            const isGrouped = !!imgData.groupId;
             targetCtx.save();
-            targetCtx.strokeStyle = isSelected ? "#ff4444" : "#007acc";
+            targetCtx.strokeStyle = isSelected ? (isGrouped ? "#28a745" : "#ff4444") : "#007acc";
             targetCtx.lineWidth = (isSelected ? 3 : 1.5) / transform.zoom;
+            if (isGrouped && isSelected) {
+              targetCtx.setLineDash([6 / transform.zoom, 3 / transform.zoom]);
+            }
             targetCtx.strokeRect(imgData.x, imgData.y, imgData.w, imgData.h);
 
             if (isSelected && selectedElements.length === 1) {
@@ -2410,8 +2506,9 @@
             );
             if (isSelected) {
               const b = getShapeBounds(shape);
+              const isGrouped = !!shape.groupId;
               targetCtx.save();
-              targetCtx.strokeStyle = "#ff4444";
+              targetCtx.strokeStyle = isGrouped ? "#28a745" : "#ff4444";
               targetCtx.lineWidth = 1.5 / transform.zoom;
               targetCtx.setLineDash([4 / transform.zoom, 4 / transform.zoom]);
               targetCtx.strokeRect(b.x - 4, b.y - 4, b.w + 8, b.h + 8);
@@ -2440,6 +2537,35 @@
         }
 
         targetCtx.restore();
+
+        // 2.5 Draw group bounding boxes (green dashed outline around entire group)
+        if (!isExporting && currentTool === "select" && selectedElements.length > 1) {
+          targetCtx.save();
+          targetCtx.translate(transform.x, transform.y);
+          targetCtx.scale(transform.zoom, transform.zoom);
+          const groupIds = new Set();
+          selectedElements.forEach(el => { if (el.groupId) groupIds.add(el.groupId); });
+          groupIds.forEach(gid => {
+            const groupEls = selectedElements.filter(el => el.groupId === gid);
+            if (groupEls.length < 2) return;
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            groupEls.forEach(el => {
+              const b = el.elementType === "image"
+                ? { x: el.x, y: el.y, w: el.w, h: el.h }
+                : getShapeBounds(el);
+              if (b.x < minX) minX = b.x;
+              if (b.y < minY) minY = b.y;
+              if (b.x + b.w > maxX) maxX = b.x + b.w;
+              if (b.y + b.h > maxY) maxY = b.y + b.h;
+            });
+            const pad = 8;
+            targetCtx.strokeStyle = "rgba(40, 167, 69, 0.7)";
+            targetCtx.lineWidth = 2 / transform.zoom;
+            targetCtx.setLineDash([8 / transform.zoom, 4 / transform.zoom]);
+            targetCtx.strokeRect(minX - pad, minY - pad, (maxX - minX) + pad * 2, (maxY - minY) + pad * 2);
+          });
+          targetCtx.restore();
+        }
 
         // 3. Draw Selection Boxes
         if (!isExporting) {
@@ -2935,6 +3061,9 @@
                 selectedElements = [clickedElement];
               }
             }
+
+            // Expand selection to include all elements in the same group(s)
+            expandSelectionToGroups();
 
             // Push undo before drag starts
             pushUndo();
@@ -3513,6 +3642,8 @@
                 selectedElements.push(shape);
             }
           });
+          // Expand selection to include all elements in the same group(s)
+          expandSelectionToGroups();
           if (selectedElements.length > 0)
             showToast(`Selected group of ${selectedElements.length} assets`);
         }
