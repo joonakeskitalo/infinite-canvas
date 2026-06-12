@@ -1521,30 +1521,60 @@
       });
 
       const SNAP_THRESHOLD = 8; // pixels in world space (adjusted by zoom)
+      const MAX_GUIDE_NEIGHBORS = 6; // only consider the N closest elements for guides
 
-      function getSnapTargets(excludeIds) {
-        // Collect edges and centers of all elements not being dragged
-        const targets = { x: [], y: [] };
+      function getClosestElements(bounds, excludeIds, maxCount) {
+        // Returns the closest maxCount elements (by center-to-center distance) to bounds
         const excluded = new Set(excludeIds);
+        const myCx = bounds.x + bounds.w / 2;
+        const myCy = bounds.y + bounds.h / 2;
 
+        const candidates = [];
         images.forEach((img) => {
           if (excluded.has(img.id)) return;
-          const left = img.x;
-          const right = img.x + img.w;
-          const top = img.y;
-          const bottom = img.y + img.h;
           const cx = img.x + img.w / 2;
           const cy = img.y + img.h / 2;
-          targets.x.push(left, right, cx);
-          targets.y.push(top, bottom, cy);
+          const dist = Math.hypot(cx - myCx, cy - myCy);
+          candidates.push({ bounds: { x: img.x, y: img.y, w: img.w, h: img.h }, dist });
         });
-
         drawings.forEach((shape) => {
           if (excluded.has(shape.id)) return;
           const b = getShapeBounds(shape);
+          const cx = b.x + b.w / 2;
+          const cy = b.y + b.h / 2;
+          const dist = Math.hypot(cx - myCx, cy - myCy);
+          candidates.push({ bounds: b, dist });
+        });
+
+        candidates.sort((a, b) => a.dist - b.dist);
+        return candidates.slice(0, maxCount).map((c) => c.bounds);
+      }
+
+      function getSnapTargets(excludeIds, bounds) {
+        // Collect edges and centers of closest elements not being dragged
+        const targets = { x: [], y: [] };
+        const excluded = new Set(excludeIds);
+
+        // If bounds provided, limit to closest neighbors
+        let elementBounds;
+        if (bounds) {
+          elementBounds = getClosestElements(bounds, excludeIds, MAX_GUIDE_NEIGHBORS);
+        } else {
+          elementBounds = [];
+          images.forEach((img) => {
+            if (excluded.has(img.id)) return;
+            elementBounds.push({ x: img.x, y: img.y, w: img.w, h: img.h });
+          });
+          drawings.forEach((shape) => {
+            if (excluded.has(shape.id)) return;
+            elementBounds.push(getShapeBounds(shape));
+          });
+        }
+
+        for (const b of elementBounds) {
           targets.x.push(b.x, b.x + b.w, b.x + b.w / 2);
           targets.y.push(b.y, b.y + b.h, b.y + b.h / 2);
-        });
+        }
 
         return targets;
       }
@@ -1605,16 +1635,7 @@
       function snapToSpacing(bounds, excludeIds, threshold) {
         // Snaps the dragged element to positions where its gap to a neighbor
         // matches an existing gap between other elements on the canvas.
-        const excluded = new Set(excludeIds);
-        const allElements = [];
-        images.forEach((img) => {
-          if (excluded.has(img.id)) return;
-          allElements.push({ x: img.x, y: img.y, w: img.w, h: img.h });
-        });
-        drawings.forEach((shape) => {
-          if (excluded.has(shape.id)) return;
-          allElements.push(getShapeBounds(shape));
-        });
+        const allElements = getClosestElements(bounds, excludeIds, MAX_GUIDE_NEIGHBORS);
 
         if (allElements.length < 2) return { dx: 0, dy: 0 };
 
@@ -1718,7 +1739,6 @@
         // Returns guide lines from the dragged element's edges to nearby elements' edges
         const PROXIMITY_RANGE = 150 / transform.zoom; // world units range to detect
         const guides = [];
-        const excluded = new Set(excludeIds);
 
         const myLeft = bounds.x;
         const myRight = bounds.x + bounds.w;
@@ -1727,15 +1747,8 @@
         const myBottom = bounds.y + bounds.h;
         const myCy = bounds.y + bounds.h / 2;
 
-        const allElements = [];
-        images.forEach((img) => {
-          if (excluded.has(img.id)) return;
-          allElements.push({ x: img.x, y: img.y, w: img.w, h: img.h });
-        });
-        drawings.forEach((shape) => {
-          if (excluded.has(shape.id)) return;
-          allElements.push(getShapeBounds(shape));
-        });
+        // Only consider the closest elements to reduce clutter
+        const allElements = getClosestElements(bounds, excludeIds, MAX_GUIDE_NEIGHBORS);
 
         for (const el of allElements) {
           const elLeft = el.x;
@@ -1792,7 +1805,6 @@
       function getSpacingGuides(bounds, excludeIds) {
         // Returns spacing measurement lines between the dragged element and nearby elements
         const guides = [];
-        const excluded = new Set(excludeIds);
         const SPACING_RANGE = 300 / transform.zoom; // max distance to show spacing
 
         const myLeft = bounds.x;
@@ -1802,16 +1814,8 @@
         const myCx = bounds.x + bounds.w / 2;
         const myCy = bounds.y + bounds.h / 2;
 
-        // Collect all nearby element bounds
-        const allElements = [];
-        images.forEach((img) => {
-          if (excluded.has(img.id)) return;
-          allElements.push({ x: img.x, y: img.y, w: img.w, h: img.h });
-        });
-        drawings.forEach((shape) => {
-          if (excluded.has(shape.id)) return;
-          allElements.push(getShapeBounds(shape));
-        });
+        // Only consider the closest elements to reduce clutter
+        const allElements = getClosestElements(bounds, excludeIds, MAX_GUIDE_NEIGHBORS);
 
         // For each nearby element, compute horizontal and vertical gaps
         for (const el of allElements) {
@@ -2982,7 +2986,7 @@
               });
               groupBounds = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 
-              const targets = getSnapTargets(excludeIds);
+              const targets = getSnapTargets(excludeIds, groupBounds);
               const threshold = SNAP_THRESHOLD / transform.zoom;
               const snap = snapToElements(groupBounds, targets, threshold);
               const spacingSnap = snapToSpacing(groupBounds, excludeIds, threshold);
