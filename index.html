@@ -213,6 +213,12 @@
       .action-btn.dark-action:hover {
         background: #23272b;
       }
+      .action-btn.danger-action {
+        background: #dc3545;
+      }
+      .action-btn.danger-action:hover {
+        background: #c82333;
+      }
 
       /* Alignment Panel */
       #alignment-panel {
@@ -598,6 +604,9 @@
         <button class="action-btn blue-action" id="download-images-btn">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17V3"/><path d="m6 11 6 6 6-6"/><path d="M19 21H5"/></svg>
         </button>
+        <button class="action-btn danger-action" id="clear-canvas-btn" title="Clear canvas and stored data">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+        </button>
       </div>
     </div>
 
@@ -924,6 +933,7 @@
         if (undoStack.length > MAX_HISTORY) undoStack.shift();
         redoStack = [];
         updateUndoRedoButtons();
+        scheduleSave();
       }
 
       function undo() {
@@ -932,6 +942,7 @@
         const state = undoStack.pop();
         restoreState(state);
         updateUndoRedoButtons();
+        scheduleSave();
         showToast("Undo");
       }
 
@@ -941,6 +952,7 @@
         const state = redoStack.pop();
         restoreState(state);
         updateUndoRedoButtons();
+        scheduleSave();
         showToast("Redo");
       }
 
@@ -955,6 +967,146 @@
 
       document.getElementById("undo-btn").addEventListener("click", undo);
       document.getElementById("redo-btn").addEventListener("click", redo);
+
+      // --- LOCAL STORAGE PERSISTENCE ---
+      const STORAGE_KEY = "infinite-canvas-state";
+      let saveTimeout = null;
+
+      function scheduleSave() {
+        // Debounce saves to avoid thrashing localStorage during rapid drawing
+        if (saveTimeout) clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(saveToLocalStorage, 300);
+      }
+
+      function serializeForStorage(el) {
+        if (el.elementType === "image") {
+          return {
+            id: el.id,
+            elementType: "image",
+            src: el.img.src,
+            x: el.x,
+            y: el.y,
+            w: el.w,
+            h: el.h,
+            groupId: el.groupId || null,
+            opacity: el.opacity != null ? el.opacity : 1,
+          };
+        }
+        return serializeElement(el);
+      }
+
+      function saveToLocalStorage() {
+        try {
+          const state = {
+            images: images.map(serializeForStorage),
+            drawings: drawings.map(serializeForStorage),
+            transform: transform,
+            bgColor: bgColor,
+            drawColor: drawColor,
+          };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        } catch (e) {
+          console.warn("Failed to save to localStorage:", e.message);
+        }
+      }
+
+      function loadFromLocalStorage() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return false;
+          const state = JSON.parse(raw);
+
+          // Restore drawings (non-image elements)
+          drawings = (state.drawings || []).map(el => {
+            const d = { ...el };
+            if (d.type === "pen") d.points = el.points.map(p => ({ ...p }));
+            else if (d.start) d.start = { ...el.start };
+            if (d.end) d.end = { ...el.end };
+            return d;
+          });
+
+          // Restore images asynchronously (need to create Image objects)
+          const imageData = state.images || [];
+          images = [];
+          let loadedCount = 0;
+          if (imageData.length === 0) {
+            render();
+          } else {
+            imageData.forEach(data => {
+              const img = new Image();
+              img.onload = () => {
+                images.push({
+                  id: data.id,
+                  elementType: "image",
+                  img: img,
+                  x: data.x,
+                  y: data.y,
+                  w: data.w,
+                  h: data.h,
+                  groupId: data.groupId || null,
+                  opacity: data.opacity != null ? data.opacity : 1,
+                });
+                loadedCount++;
+                if (loadedCount === imageData.length) render();
+              };
+              img.onerror = () => {
+                loadedCount++;
+                if (loadedCount === imageData.length) render();
+              };
+              img.src = data.src;
+            });
+          }
+
+          // Restore view state
+          if (state.transform) {
+            transform = state.transform;
+            zoomSlider.value = Math.round(transform.zoom * 100);
+            zoomValDisplay.textContent = Math.round(transform.zoom * 100) + "%";
+          }
+          if (state.bgColor) {
+            bgColor = state.bgColor;
+            bgColorPicker.value = bgColor;
+            document.body.style.backgroundColor = bgColor;
+          }
+          if (state.drawColor) {
+            drawColor = state.drawColor;
+            colorPicker.value = drawColor;
+          }
+
+          // Update elementIdCounter to avoid ID collisions
+          const allIds = [...drawings, ...imageData].map(el => {
+            const match = el.id && el.id.match(/_(\d+)$/);
+            return match ? parseInt(match[1]) : 0;
+          });
+          if (allIds.length > 0) {
+            elementIdCounter = Math.max(...allIds) + 1;
+          }
+
+          return true;
+        } catch (e) {
+          console.warn("Failed to load from localStorage:", e.message);
+          return false;
+        }
+      }
+
+      function clearLocalStorage() {
+        if (!confirm("Clear all canvas content and saved data? This cannot be undone.")) return;
+        localStorage.removeItem(STORAGE_KEY);
+        images = [];
+        drawings = [];
+        selectedElements = [];
+        undoStack = [];
+        redoStack = [];
+        transform = { x: 0, y: 0, zoom: 1 };
+        zoomSlider.value = 100;
+        zoomValDisplay.textContent = "100%";
+        updateUndoRedoButtons();
+        toggleAlignmentPanelVisibility();
+        render();
+        showToast("Canvas cleared");
+      }
+
+      document.getElementById("clear-canvas-btn").addEventListener("click", clearLocalStorage);
 
       // --- GROUPING SYSTEM ---
       let groupIdCounter = 0;
@@ -1191,6 +1343,7 @@
         bgColor = e.target.value;
         document.body.style.backgroundColor = bgColor;
         render();
+        scheduleSave();
       });
 
       fontSizeSelect.addEventListener("change", (e) => {
@@ -3845,6 +3998,7 @@
         isMiddleClick = false;
         isRightClickHand = false;
         updateCursor();
+        scheduleSave();
       });
 
       function bakeText() {
@@ -3928,6 +4082,7 @@
             updateZoomSliderValue();
             render();
           }
+          scheduleSave();
         },
         { passive: false },
       );
@@ -3935,6 +4090,7 @@
       zoomSlider.addEventListener("input", (e) => {
         const targetZoom = parseFloat(e.target.value) / 100;
         applyZoom(targetZoom, window.innerWidth / 2, window.innerHeight / 2);
+        scheduleSave();
       });
 
       zoomSlider.addEventListener("change", () => zoomSlider.blur());
@@ -4594,6 +4750,7 @@
         showToast(`Downloading ${images.length} separate asset files...`);
       });
 
+      loadFromLocalStorage();
       resize();
     </script>
   </body>
