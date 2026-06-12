@@ -1312,6 +1312,8 @@
           }
         }
         if (imageBlobs.length > 0) {
+          // System clipboard has image(s) — always prioritize these
+          e.preventDefault();
           const worldCenter = screenToWorld(
             window.innerWidth / 2,
             window.innerHeight / 2,
@@ -1350,6 +1352,10 @@
             };
             reader.readAsDataURL(blob);
           });
+        } else if (clipboardElements.length > 0) {
+          // No image in system clipboard — fall back to internal copy/paste
+          e.preventDefault();
+          pasteFromClipboard();
         }
       });
 
@@ -1491,10 +1497,8 @@
           return;
         }
         if (isMod && e.key.toLowerCase() === "v") {
-          if (clipboardElements.length > 0) {
-            e.preventDefault();
-            pasteFromClipboard();
-          }
+          // Don't preventDefault — let the native paste event fire so system
+          // clipboard content (e.g. images) takes priority over internal copy.
           return;
         }
         if (isMod && e.key.toLowerCase() === "a") {
