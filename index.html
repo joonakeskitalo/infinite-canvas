@@ -791,6 +791,7 @@
       let activeSpacingGuides = []; // {axis: 'x'|'y', from: number, to: number, pos: number, dist: number, isEqual: boolean}
       let clipboardElements = []; // internal clipboard for copy/paste
       let pasteOffset = 0; // increments each paste to offset duplicates
+      let internalCopyPerformed = false; // true when last copy was from canvas selection
 
       container.addEventListener("contextmenu", (e) => {
         e.preventDefault();
@@ -1311,9 +1312,19 @@
             imageBlobs.push(item.getAsFile());
           }
         }
-        if (imageBlobs.length > 0) {
-          // System clipboard has image(s) — always prioritize these
+
+        // If the last copy was internal (from canvas selection), prioritize
+        // internal clipboard over stale system clipboard images
+        if (internalCopyPerformed && clipboardElements.length > 0) {
           e.preventDefault();
+          pasteFromClipboard();
+          return;
+        }
+
+        if (imageBlobs.length > 0) {
+          // System clipboard has image(s) from external source
+          e.preventDefault();
+          internalCopyPerformed = false; // external paste resets internal copy state
           const worldCenter = screenToWorld(
             window.innerWidth / 2,
             window.innerHeight / 2,
@@ -1377,6 +1388,7 @@
         if (selectedElements.length === 0) return;
         clipboardElements = selectedElements.map((el) => cloneElement(el));
         pasteOffset = 0;
+        internalCopyPerformed = true;
         showToast(`Copied ${clipboardElements.length} element(s)`);
       }
 
@@ -3693,6 +3705,7 @@
             await navigator.clipboard.write([
               new ClipboardItem({ "image/png": blob }),
             ]);
+            internalCopyPerformed = false; // system clipboard now has export data
             showToast(
               scaleFactor === 0.5
                 ? "50% scale PNG copied!"
