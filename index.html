@@ -3573,14 +3573,17 @@
 
         let bestResult = null;
         let bestArea = Infinity;
+        let bestAspectRatio = Infinity;
 
         for (const candidateW of candidates) {
           if (candidateW < maxItemW) continue;
           const result = packWithMaxRects(sortedItems, candidateW);
           if (result) {
             const area = result.usedW * result.usedH;
-            if (area < bestArea) {
+            const aspectRatio = Math.max(result.usedW, result.usedH) / Math.min(result.usedW, result.usedH);
+            if (area < bestArea || (area === bestArea && aspectRatio < bestAspectRatio)) {
               bestArea = area;
+              bestAspectRatio = aspectRatio;
               bestResult = result;
             }
           }
