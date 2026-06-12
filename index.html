@@ -686,6 +686,22 @@
           <path d="M12 8l-1.5 2h3L12 8zM12 16l-1.5-2h3l1.5 2z" fill="currentColor"/>
         </svg>
       </button>
+      <div
+        style="width: 1px; height: 18px; background: #444; margin: 0 4px"
+      ></div>
+      <span class="align-title">Layout</span>
+      <button
+        class="align-btn"
+        data-align="gridLayout"
+        title="Arrange in Grid [G]"
+      >
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <rect x="3" y="3" width="7" height="7" rx="1"/>
+          <rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/>
+          <rect x="14" y="14" width="7" height="7" rx="1"/>
+        </svg>
+      </button>
     </div>
 
     <div id="toast">Canvas copied to clipboard as PNG!</div>
@@ -3110,6 +3126,8 @@
             const direction = isPlus ? "increased" : "decreased";
             const axis = isX ? "horizontal" : "vertical";
             showToast(`${axis.charAt(0).toUpperCase() + axis.slice(1)} spacing ${direction}`);
+          } else if (alignType === "gridLayout") {
+            applyGridLayout(boundsMap);
           } else {
             boundsMap.forEach(({ el, b }) => {
               let shiftX = 0,
@@ -3130,6 +3148,101 @@
           showToast(`Executed selection ${alignType}`);
         });
       });
+
+      function applyGridLayout(boundsMap) {
+        const n = boundsMap.length;
+        if (n < 2) return;
+
+        // Determine grid dimensions: aim for roughly square grid
+        const cols = Math.round(Math.sqrt(n));
+        const rows = Math.ceil(n / cols);
+
+        // Calculate the max element width per column and max height per row
+        // to build a uniform cell size
+        const maxW = Math.max(...boundsMap.map((item) => item.b.w));
+        const maxH = Math.max(...boundsMap.map((item) => item.b.h));
+
+        // Use spacing from the spacing inputs, or default to 20px
+        const gapX = Math.max(0, parseInt(spacingInputX.value) || 20);
+        const gapY = Math.max(0, parseInt(spacingInputY.value) || 20);
+
+        // Cell size = max element size + gap
+        const cellW = maxW + gapX;
+        const cellH = maxH + gapY;
+
+        // Compute the centroid of the current selection to anchor the grid there
+        let centroidX = 0, centroidY = 0;
+        boundsMap.forEach(({ b }) => {
+          centroidX += b.x + b.w / 2;
+          centroidY += b.y + b.h / 2;
+        });
+        centroidX /= n;
+        centroidY /= n;
+
+        // Grid origin: center the grid around the centroid
+        const gridW = cols * cellW - gapX;
+        const gridH = rows * cellH - gapY;
+        const gridOriginX = centroidX - gridW / 2;
+        const gridOriginY = centroidY - gridH / 2;
+
+        // Build target positions for each grid slot (center of each cell)
+        const slots = [];
+        for (let row = 0; row < rows; row++) {
+          for (let col = 0; col < cols; col++) {
+            if (slots.length >= n) break;
+            slots.push({
+              cx: gridOriginX + col * cellW + maxW / 2,
+              cy: gridOriginY + row * cellH + maxH / 2,
+            });
+          }
+        }
+
+        // Assign elements to slots using a greedy approach that minimizes
+        // total movement: sort by distance from each element's center to each
+        // slot and assign greedily (Hungarian algorithm is ideal but greedy is
+        // good enough and fast for typical selection sizes).
+        // 
+        // We use a cost matrix + greedy assignment sorted by cost.
+        const assignments = [];
+        for (let i = 0; i < n; i++) {
+          const b = boundsMap[i].b;
+          const elCx = b.x + b.w / 2;
+          const elCy = b.y + b.h / 2;
+          for (let j = 0; j < slots.length; j++) {
+            const dx = elCx - slots[j].cx;
+            const dy = elCy - slots[j].cy;
+            assignments.push({ elIdx: i, slotIdx: j, cost: dx * dx + dy * dy });
+          }
+        }
+        assignments.sort((a, b) => a.cost - b.cost);
+
+        const assignedEls = new Set();
+        const assignedSlots = new Set();
+        const result = new Array(n); // result[elIdx] = slotIdx
+
+        for (const { elIdx, slotIdx } of assignments) {
+          if (assignedEls.has(elIdx) || assignedSlots.has(slotIdx)) continue;
+          result[elIdx] = slotIdx;
+          assignedEls.add(elIdx);
+          assignedSlots.add(slotIdx);
+          if (assignedEls.size === n) break;
+        }
+
+        // Apply positions: center each element in its assigned slot
+        for (let i = 0; i < n; i++) {
+          const slot = slots[result[i]];
+          const { el, b } = boundsMap[i];
+          const targetX = slot.cx - b.w / 2;
+          const targetY = slot.cy - b.h / 2;
+          const shiftX = targetX - b.x;
+          const shiftY = targetY - b.y;
+          if (shiftX !== 0 || shiftY !== 0) {
+            translateElement(el, shiftX, shiftY);
+          }
+        }
+
+        showToast(`Arranged ${n} items in a ${cols}×${rows} grid`);
+      }
 
       function getCanvasContentBounds() {
         let minX = Infinity,
