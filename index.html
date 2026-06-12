@@ -692,6 +692,28 @@
       <span class="align-title">Layout</span>
       <button
         class="align-btn"
+        data-align="rowLayout"
+        title="Row Layout (Horizontal)"
+      >
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <rect x="2" y="7" width="5" height="10" rx="1"/>
+          <rect x="9" y="7" width="5" height="10" rx="1"/>
+          <rect x="16" y="7" width="5" height="10" rx="1"/>
+        </svg>
+      </button>
+      <button
+        class="align-btn"
+        data-align="columnLayout"
+        title="Column Layout (Vertical)"
+      >
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <rect x="7" y="2" width="10" height="5" rx="1"/>
+          <rect x="7" y="9" width="10" height="5" rx="1"/>
+          <rect x="7" y="16" width="10" height="5" rx="1"/>
+        </svg>
+      </button>
+      <button
+        class="align-btn"
         data-align="gridLayout"
         title="Mosaic Layout"
       >
@@ -3311,6 +3333,10 @@
             showToast(`${axis.charAt(0).toUpperCase() + axis.slice(1)} spacing ${direction}`);
           } else if (alignType === "gridLayout") {
             applyGridLayout(boundsMap);
+          } else if (alignType === "rowLayout") {
+            applyRowLayout(boundsMap);
+          } else if (alignType === "columnLayout") {
+            applyColumnLayout(boundsMap);
           } else {
             boundsMap.forEach(({ el, b }) => {
               let shiftX = 0,
@@ -3331,6 +3357,62 @@
           showToast(`Executed selection ${alignType}`);
         });
       });
+
+      function applyRowLayout(boundsMap) {
+        const n = boundsMap.length;
+        if (n < 2) return;
+
+        const gap = 50;
+
+        // Sort by current x position (left to right) to maintain visual order
+        boundsMap.sort((a, b) => a.b.x - b.b.x);
+
+        // Use the first element's position as anchor
+        const anchorX = boundsMap[0].b.x;
+        const anchorY = boundsMap[0].b.y;
+
+        // Place each element sequentially: left-aligned, top-aligned to first element
+        let currentX = anchorX;
+        for (let i = 0; i < boundsMap.length; i++) {
+          const { el, b } = boundsMap[i];
+          const shiftX = currentX - b.x;
+          const shiftY = anchorY - b.y;
+          if (shiftX !== 0 || shiftY !== 0) {
+            translateElement(el, shiftX, shiftY);
+          }
+          currentX += b.w + gap;
+        }
+
+        showToast(`Row: ${n} items laid out horizontally`);
+      }
+
+      function applyColumnLayout(boundsMap) {
+        const n = boundsMap.length;
+        if (n < 2) return;
+
+        const gap = 50;
+
+        // Sort by current y position (top to bottom) to maintain visual order
+        boundsMap.sort((a, b) => a.b.y - b.b.y);
+
+        // Use the first element's position as anchor
+        const anchorX = boundsMap[0].b.x;
+        const anchorY = boundsMap[0].b.y;
+
+        // Place each element sequentially: top-aligned, left-aligned to first element
+        let currentY = anchorY;
+        for (let i = 0; i < boundsMap.length; i++) {
+          const { el, b } = boundsMap[i];
+          const shiftX = anchorX - b.x;
+          const shiftY = currentY - b.y;
+          if (shiftX !== 0 || shiftY !== 0) {
+            translateElement(el, shiftX, shiftY);
+          }
+          currentY += b.h + gap;
+        }
+
+        showToast(`Column: ${n} items laid out vertically`);
+      }
 
       function applyGridLayout(boundsMap) {
         const n = boundsMap.length;
