@@ -1085,16 +1085,12 @@
       function updateSpacingInputs() {
         if (selectedElements.length < 2) return;
 
-        const boundsMap = selectedElements.map((el) => {
-          let b =
-            el.elementType === "image"
-              ? { x: el.x, y: el.y, w: el.w, h: el.h }
-              : getShapeBounds(el);
-          return { el, b };
-        });
+        // Use alignment units so groups are treated as single items for spacing calculation
+        const units = buildAlignmentUnits(selectedElements);
+        if (units.length < 2) return;
 
-        // Calculate average horizontal gap
-        const sortedX = [...boundsMap].sort((a, b) => a.b.x - b.b.x);
+        // Calculate average horizontal gap between units
+        const sortedX = [...units].sort((a, b) => a.b.x - b.b.x);
         let totalGapX = 0;
         let gapCountX = 0;
         for (let i = 1; i < sortedX.length; i++) {
@@ -1104,8 +1100,8 @@
         }
         const avgGapX = gapCountX > 0 ? Math.round(totalGapX / gapCountX) : 0;
 
-        // Calculate average vertical gap
-        const sortedY = [...boundsMap].sort((a, b) => a.b.y - b.b.y);
+        // Calculate average vertical gap between units
+        const sortedY = [...units].sort((a, b) => a.b.y - b.b.y);
         let totalGapY = 0;
         let gapCountY = 0;
         for (let i = 1; i < sortedY.length; i++) {
@@ -1255,30 +1251,25 @@
         if (selectedElements.length < 2) return;
         const gap = Math.max(0, parseInt(axis === "x" ? spacingInputX.value : spacingInputY.value) || 10);
 
-        // Compute bounds for each element
-        const boundsMap = selectedElements.map((el) => {
-          let b =
-            el.elementType === "image"
-              ? { x: el.x, y: el.y, w: el.w, h: el.h }
-              : getShapeBounds(el);
-          return { el, b };
-        });
+        // Use alignment units so groups are treated as single items
+        const units = buildAlignmentUnits(selectedElements);
+        if (units.length < 2) return;
 
         if (axis === "x") {
-          boundsMap.sort((a, b) => a.b.x - b.b.x);
-          let currentX = boundsMap[0].b.x;
-          for (let i = 0; i < boundsMap.length; i++) {
-            const shiftX = currentX - boundsMap[i].b.x;
-            if (shiftX !== 0) translateElement(boundsMap[i].el, shiftX, 0);
-            currentX += boundsMap[i].b.w + gap;
+          units.sort((a, b) => a.b.x - b.b.x);
+          let currentX = units[0].b.x;
+          for (let i = 0; i < units.length; i++) {
+            const shiftX = currentX - units[i].b.x;
+            if (shiftX !== 0) translateUnit(units[i], shiftX, 0);
+            currentX += units[i].b.w + gap;
           }
         } else {
-          boundsMap.sort((a, b) => a.b.y - b.b.y);
-          let currentY = boundsMap[0].b.y;
-          for (let i = 0; i < boundsMap.length; i++) {
-            const shiftY = currentY - boundsMap[i].b.y;
-            if (shiftY !== 0) translateElement(boundsMap[i].el, 0, shiftY);
-            currentY += boundsMap[i].b.h + gap;
+          units.sort((a, b) => a.b.y - b.b.y);
+          let currentY = units[0].b.y;
+          for (let i = 0; i < units.length; i++) {
+            const shiftY = currentY - units[i].b.y;
+            if (shiftY !== 0) translateUnit(units[i], 0, shiftY);
+            currentY += units[i].b.h + gap;
           }
         }
 
@@ -3789,6 +3780,63 @@
       }
 
       // --- ALIGNMENT PANEL COMPUTATION LOGIC ---
+
+      // Build alignment units: groups are treated as single atomic units,
+      // ungrouped elements are individual units.
+      function buildAlignmentUnits(elements) {
+        const groupMap = new Map(); // groupId -> [elements]
+        const ungrouped = [];
+
+        elements.forEach(el => {
+          if (el.groupId) {
+            if (!groupMap.has(el.groupId)) groupMap.set(el.groupId, []);
+            groupMap.get(el.groupId).push(el);
+          } else {
+            ungrouped.push(el);
+          }
+        });
+
+        const units = [];
+
+        // Each group becomes one unit
+        groupMap.forEach((groupEls, gid) => {
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          groupEls.forEach(el => {
+            const b = el.elementType === "image"
+              ? { x: el.x, y: el.y, w: el.w, h: el.h, maxX: el.x + el.w, maxY: el.y + el.h }
+              : getShapeBounds(el);
+            if (b.x < minX) minX = b.x;
+            if (b.y < minY) minY = b.y;
+            if ((b.maxX || b.x + b.w) > maxX) maxX = b.maxX || b.x + b.w;
+            if ((b.maxY || b.y + b.h) > maxY) maxY = b.maxY || b.y + b.h;
+          });
+          units.push({
+            elements: groupEls,
+            b: { x: minX, y: minY, w: maxX - minX, h: maxY - minY, maxX, maxY },
+            isGroup: true,
+            groupId: gid,
+          });
+        });
+
+        // Each ungrouped element is its own unit
+        ungrouped.forEach(el => {
+          const b = el.elementType === "image"
+            ? { x: el.x, y: el.y, w: el.w, h: el.h, maxX: el.x + el.w, maxY: el.y + el.h }
+            : getShapeBounds(el);
+          units.push({
+            elements: [el],
+            b,
+            isGroup: false,
+          });
+        });
+
+        return units;
+      }
+
+      function translateUnit(unit, shiftX, shiftY) {
+        unit.elements.forEach(el => translateElement(el, shiftX, shiftY));
+      }
+
       const alignButtons = document.querySelectorAll(".align-btn");
       alignButtons.forEach((btn) => {
         btn.addEventListener("click", (e) => {
@@ -3798,109 +3846,94 @@
           if (selectedElements.length < 2) return;
           pushUndo();
 
+          // Build alignment units treating groups as atomic
+          const units = buildAlignmentUnits(selectedElements);
+          if (units.length < 2 && !alignType.startsWith("spacing") && alignType !== "gridLayout" && alignType !== "rowLayout" && alignType !== "columnLayout") {
+            // If there's only one unit (e.g. all selected items are in the same group), fall back to per-element alignment
+            // so alignment within a group still works
+          }
+
+          // Use units for alignment (groups move as one)
           let groupMinX = Infinity,
             groupMinY = Infinity;
           let groupMaxX = -Infinity,
             groupMaxY = -Infinity;
 
-          const boundsMap = selectedElements.map((el) => {
-            let b =
-              el.elementType === "image"
-                ? {
-                    x: el.x,
-                    y: el.y,
-                    w: el.w,
-                    h: el.h,
-                    maxX: el.x + el.w,
-                    maxY: el.y + el.h,
-                  }
-                : getShapeBounds(el);
+          units.forEach(unit => {
+            const b = unit.b;
             if (b.x < groupMinX) groupMinX = b.x;
             if (b.y < groupMinY) groupMinY = b.y;
             if (b.maxX > groupMaxX) groupMaxX = b.maxX;
             if (b.maxY > groupMaxY) groupMaxY = b.maxY;
-            return { el, b };
           });
 
           const groupCenterX = (groupMinX + groupMaxX) / 2;
           const groupCenterY = (groupMinY + groupMaxY) / 2;
 
           if (alignType === "distributeX" || alignType === "distributeY") {
-            if (selectedElements.length < 3) {
-              showToast("Requires at least 3 elements to distribute spacing");
+            if (units.length < 3) {
+              showToast("Requires at least 3 units to distribute spacing");
               return;
             }
             if (alignType === "distributeX") {
-              boundsMap.sort((a, b) => a.b.x + a.b.w / 2 - (b.b.x + b.b.w / 2));
-              const totalElementsWidth = boundsMap.reduce(
-                (sum, item) => sum + item.b.w,
-                0,
-              );
-              const availableSpace = groupMaxX - groupMinX - totalElementsWidth;
-              const gap = availableSpace / (boundsMap.length - 1);
+              units.sort((a, b) => a.b.x + a.b.w / 2 - (b.b.x + b.b.w / 2));
+              const totalWidth = units.reduce((sum, u) => sum + u.b.w, 0);
+              const availableSpace = groupMaxX - groupMinX - totalWidth;
+              const gap = availableSpace / (units.length - 1);
               let currentX = groupMinX;
-              boundsMap.forEach((item, index) => {
-                if (index > 0 && index < boundsMap.length - 1) {
-                  translateElement(item.el, currentX - item.b.x, 0);
+              units.forEach((unit, index) => {
+                if (index > 0 && index < units.length - 1) {
+                  translateUnit(unit, currentX - unit.b.x, 0);
                 }
-                currentX += item.b.w + gap;
+                currentX += unit.b.w + gap;
               });
             } else {
-              boundsMap.sort((a, b) => a.b.y + a.b.h / 2 - (b.b.y + b.b.h / 2));
-              const totalElementsHeight = boundsMap.reduce(
-                (sum, item) => sum + item.b.h,
-                0,
-              );
-              const availableSpace =
-                groupMaxY - groupMinY - totalElementsHeight;
-              const gap = availableSpace / (boundsMap.length - 1);
+              units.sort((a, b) => a.b.y + a.b.h / 2 - (b.b.y + b.b.h / 2));
+              const totalHeight = units.reduce((sum, u) => sum + u.b.h, 0);
+              const availableSpace = groupMaxY - groupMinY - totalHeight;
+              const gap = availableSpace / (units.length - 1);
               let currentY = groupMinY;
-              boundsMap.forEach((item, index) => {
-                if (index > 0 && index < boundsMap.length - 1) {
-                  translateElement(item.el, 0, currentY - item.b.y);
+              units.forEach((unit, index) => {
+                if (index > 0 && index < units.length - 1) {
+                  translateUnit(unit, 0, currentY - unit.b.y);
                 }
-                currentY += item.b.h + gap;
+                currentY += unit.b.h + gap;
               });
             }
           } else if (alignType.startsWith("spacing")) {
-            // Increase or decrease spacing between selected elements by 50px
             const isX = alignType.includes("X");
             const isPlus = alignType.includes("Plus");
             const SPACING_STEP = 50;
 
             if (isX) {
-              boundsMap.sort((a, b) => a.b.x - b.b.x);
-              // Calculate current average horizontal gap
+              units.sort((a, b) => a.b.x - b.b.x);
               let totalGap = 0;
-              for (let i = 1; i < boundsMap.length; i++) {
-                totalGap += boundsMap[i].b.x - (boundsMap[i - 1].b.x + boundsMap[i - 1].b.w);
+              for (let i = 1; i < units.length; i++) {
+                totalGap += units[i].b.x - (units[i - 1].b.x + units[i - 1].b.w);
               }
-              const avgGap = totalGap / (boundsMap.length - 1);
+              const avgGap = totalGap / (units.length - 1);
               const newGap = Math.max(0, avgGap + (isPlus ? SPACING_STEP : -SPACING_STEP));
 
-              // Reposition elements with new gap
-              let currentX = boundsMap[0].b.x;
-              for (let i = 0; i < boundsMap.length; i++) {
-                const shiftX = currentX - boundsMap[i].b.x;
-                if (shiftX !== 0) translateElement(boundsMap[i].el, shiftX, 0);
-                currentX += boundsMap[i].b.w + newGap;
+              let currentX = units[0].b.x;
+              for (let i = 0; i < units.length; i++) {
+                const shiftX = currentX - units[i].b.x;
+                if (shiftX !== 0) translateUnit(units[i], shiftX, 0);
+                currentX += units[i].b.w + newGap;
               }
             } else {
-              boundsMap.sort((a, b) => a.b.y - b.b.y);
-              // Calculate current average vertical gap
+              units.sort((a, b) => a.b.y - b.b.y);
               let totalGap = 0;
-              for (let i = 1; i < boundsMap.length; i++) {
-                totalGap += boundsMap[i].b.y - (boundsMap[i - 1].b.y + boundsMap[i - 1].b.h);
+              for (let i = 1; i < units.length; i++) {
+                totalGap += units[i].b.y - (units[i - 1].b.y + units[i - 1].b.h);
               }
-              const avgGap = totalGap / (boundsMap.length - 1);
+              const avgGap = totalGap / (units.length - 1);
               const newGap = Math.max(0, avgGap + (isPlus ? SPACING_STEP : -SPACING_STEP));
 
-              // Reposition elements with new gap
-              let currentY = boundsMap[0].b.y;
-              for (let i = 0; i < boundsMap.length; i++) {
-                const shiftY = currentY - boundsMap[i].b.y;
-                if (shiftY !== 0) translateElement(boundsMap[i].el, 0, shiftY);
-                currentY += boundsMap[i].b.h + newGap;
+              let currentY = units[0].b.y;
+              for (let i = 0; i < units.length; i++) {
+                const shiftY = currentY - units[i].b.y;
+                if (shiftY !== 0) translateUnit(units[i], 0, shiftY);
+                currentY += units[i].b.h + newGap;
               }
             }
 
@@ -3908,13 +3941,14 @@
             const axis = isX ? "horizontal" : "vertical";
             showToast(`${axis.charAt(0).toUpperCase() + axis.slice(1)} spacing ${direction}`);
           } else if (alignType === "gridLayout") {
-            applyGridLayout(boundsMap);
+            applyGridLayout(units);
           } else if (alignType === "rowLayout") {
-            applyRowLayout(boundsMap);
+            applyRowLayout(units);
           } else if (alignType === "columnLayout") {
-            applyColumnLayout(boundsMap);
+            applyColumnLayout(units);
           } else {
-            boundsMap.forEach(({ el, b }) => {
+            units.forEach((unit) => {
+              const b = unit.b;
               let shiftX = 0,
                 shiftY = 0;
               if (alignType === "left") shiftX = groupMinX - b.x;
@@ -3925,7 +3959,7 @@
               else if (alignType === "centerY")
                 shiftY = groupCenterY - (b.y + b.h / 2);
               else if (alignType === "bottom") shiftY = groupMaxY - b.maxY;
-              translateElement(el, shiftX, shiftY);
+              translateUnit(unit, shiftX, shiftY);
             });
           }
           render();
@@ -3934,64 +3968,64 @@
         });
       });
 
-      function applyRowLayout(boundsMap) {
-        const n = boundsMap.length;
+      function applyRowLayout(units) {
+        const n = units.length;
         if (n < 2) return;
 
         const gap = 100;
 
         // Order by initial spatial position (left to right)
-        boundsMap.sort((a, b) => a.b.x - b.b.x);
+        units.sort((a, b) => a.b.x - b.b.x);
 
-        // Use the leftmost element's position as anchor
-        const anchorX = boundsMap[0].b.x;
-        const anchorY = boundsMap[0].b.y;
+        // Use the leftmost unit's position as anchor
+        const anchorX = units[0].b.x;
+        const anchorY = units[0].b.y;
 
-        // Place each element sequentially without changing their relative order
+        // Place each unit sequentially without changing their relative order
         let currentX = anchorX;
-        for (let i = 0; i < boundsMap.length; i++) {
-          const { el, b } = boundsMap[i];
-          const shiftX = currentX - b.x;
-          const shiftY = anchorY - b.y;
+        for (let i = 0; i < units.length; i++) {
+          const unit = units[i];
+          const shiftX = currentX - unit.b.x;
+          const shiftY = anchorY - unit.b.y;
           if (shiftX !== 0 || shiftY !== 0) {
-            translateElement(el, shiftX, shiftY);
+            translateUnit(unit, shiftX, shiftY);
           }
-          currentX += b.w + gap;
+          currentX += unit.b.w + gap;
         }
 
         showToast(`Row: ${n} items laid out horizontally`);
       }
 
-      function applyColumnLayout(boundsMap) {
-        const n = boundsMap.length;
+      function applyColumnLayout(units) {
+        const n = units.length;
         if (n < 2) return;
 
         const gap = 100;
 
         // Order by initial spatial position (top to bottom)
-        boundsMap.sort((a, b) => a.b.y - b.b.y);
+        units.sort((a, b) => a.b.y - b.b.y);
 
-        // Use the topmost element's position as anchor
-        const anchorX = boundsMap[0].b.x;
-        const anchorY = boundsMap[0].b.y;
+        // Use the topmost unit's position as anchor
+        const anchorX = units[0].b.x;
+        const anchorY = units[0].b.y;
 
-        // Place each element sequentially without changing their relative order
+        // Place each unit sequentially without changing their relative order
         let currentY = anchorY;
-        for (let i = 0; i < boundsMap.length; i++) {
-          const { el, b } = boundsMap[i];
-          const shiftX = anchorX - b.x;
-          const shiftY = currentY - b.y;
+        for (let i = 0; i < units.length; i++) {
+          const unit = units[i];
+          const shiftX = anchorX - unit.b.x;
+          const shiftY = currentY - unit.b.y;
           if (shiftX !== 0 || shiftY !== 0) {
-            translateElement(el, shiftX, shiftY);
+            translateUnit(unit, shiftX, shiftY);
           }
-          currentY += b.h + gap;
+          currentY += unit.b.h + gap;
         }
 
         showToast(`Column: ${n} items laid out vertically`);
       }
 
-      function applyGridLayout(boundsMap) {
-        const n = boundsMap.length;
+      function applyGridLayout(units) {
+        const n = units.length;
         if (n < 2) return;
 
         const gapX = 100;
@@ -3999,9 +4033,9 @@
 
         // Compute centroid of current selection to anchor the result
         let centroidX = 0, centroidY = 0;
-        boundsMap.forEach(({ b }) => {
-          centroidX += b.x + b.w / 2;
-          centroidY += b.y + b.h / 2;
+        units.forEach((unit) => {
+          centroidX += unit.b.x + unit.b.w / 2;
+          centroidY += unit.b.y + unit.b.h / 2;
         });
         centroidX /= n;
         centroidY /= n;
@@ -4104,20 +4138,20 @@
         }
 
         // Prepare items with gap baked in (we add gap to dimensions, then offset at the end)
-        const items = boundsMap.map((item, idx) => ({
+        const items = units.map((unit, idx) => ({
           idx,
-          w: item.b.w + gapX,
-          h: item.b.h + gapY,
-          origW: item.b.w,
-          origH: item.b.h,
+          w: unit.b.w + gapX,
+          h: unit.b.h + gapY,
+          origW: unit.b.w,
+          origH: unit.b.h,
         }));
 
         // Order by initial spatial position (reading order: top-to-bottom, left-to-right)
         const sortedItems = [...items].sort((a, b) => {
-          const ay = boundsMap[a.idx].b.y;
-          const by = boundsMap[b.idx].b.y;
-          const ax = boundsMap[a.idx].b.x;
-          const bx = boundsMap[b.idx].b.x;
+          const ay = units[a.idx].b.y;
+          const by = units[b.idx].b.y;
+          const ax = units[a.idx].b.x;
+          const bx = units[b.idx].b.x;
           // Group by row (items within similar Y range), then by X
           const rowThreshold = Math.max(a.h, b.h) * 0.5;
           if (Math.abs(ay - by) < rowThreshold) return ax - bx;
@@ -4183,13 +4217,13 @@
 
         // Apply positions
         for (const { idx, x, y } of bestResult.placements) {
-          const item = boundsMap[idx];
+          const unit = units[idx];
           const targetX = x + offsetX;
           const targetY = y + offsetY;
-          const shiftX = targetX - item.b.x;
-          const shiftY = targetY - item.b.y;
+          const shiftX = targetX - unit.b.x;
+          const shiftY = targetY - unit.b.y;
           if (shiftX !== 0 || shiftY !== 0) {
-            translateElement(item.el, shiftX, shiftY);
+            translateUnit(unit, shiftX, shiftY);
           }
         }
 
