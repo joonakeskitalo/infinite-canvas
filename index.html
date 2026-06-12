@@ -693,7 +693,7 @@
       <button
         class="align-btn"
         data-align="gridLayout"
-        title="Arrange in Grid [G]"
+        title="Mosaic Layout"
       >
         <svg viewBox="0 0 24 24" fill="currentColor">
           <rect x="3" y="3" width="7" height="7" rx="1"/>
@@ -1095,6 +1095,12 @@
         if (key === "f") targetTool = "rect-fill";
         if (key === "t") targetTool = "text";
         if (key === "e") targetTool = "eraser";
+
+        if (key === "g" && currentTool === "select" && selectedElements.length >= 2) {
+          const gridBtn = document.querySelector('[data-align="gridLayout"]');
+          if (gridBtn) gridBtn.click();
+          return;
+        }
 
         if (targetTool) {
           preSpaceTool = null;
@@ -3153,24 +3159,10 @@
         const n = boundsMap.length;
         if (n < 2) return;
 
-        // Determine grid dimensions: aim for roughly square grid
-        const cols = Math.round(Math.sqrt(n));
-        const rows = Math.ceil(n / cols);
+        const gapX = Math.max(0, parseInt(spacingInputX.value) || 4);
+        const gapY = Math.max(0, parseInt(spacingInputY.value) || 4);
 
-        // Calculate the max element width per column and max height per row
-        // to build a uniform cell size
-        const maxW = Math.max(...boundsMap.map((item) => item.b.w));
-        const maxH = Math.max(...boundsMap.map((item) => item.b.h));
-
-        // Use spacing from the spacing inputs, or default to 20px
-        const gapX = Math.max(0, parseInt(spacingInputX.value) || 20);
-        const gapY = Math.max(0, parseInt(spacingInputY.value) || 20);
-
-        // Cell size = max element size + gap
-        const cellW = maxW + gapX;
-        const cellH = maxH + gapY;
-
-        // Compute the centroid of the current selection to anchor the grid there
+        // Compute centroid of current selection to anchor the result
         let centroidX = 0, centroidY = 0;
         boundsMap.forEach(({ b }) => {
           centroidX += b.x + b.w / 2;
@@ -3179,69 +3171,183 @@
         centroidX /= n;
         centroidY /= n;
 
-        // Grid origin: center the grid around the centroid
-        const gridW = cols * cellW - gapX;
-        const gridH = rows * cellH - gapY;
-        const gridOriginX = centroidX - gridW / 2;
-        const gridOriginY = centroidY - gridH / 2;
+        // MaxRects bin packing for smallest bounding area.
+        // We try several container widths and pick the one yielding smallest area.
+        function packWithMaxRects(items, containerW) {
+          // Each item: {idx, w, h}
+          // Returns {placements: [{idx, x, y}], usedW, usedH} or null if failed
+          const freeRects = [{ x: 0, y: 0, w: containerW, h: Infinity }];
+          const placements = [];
+          let usedW = 0, usedH = 0;
 
-        // Build target positions for each grid slot (center of each cell)
-        const slots = [];
-        for (let row = 0; row < rows; row++) {
-          for (let col = 0; col < cols; col++) {
-            if (slots.length >= n) break;
-            slots.push({
-              cx: gridOriginX + col * cellW + maxW / 2,
-              cy: gridOriginY + row * cellH + maxH / 2,
-            });
+          for (const item of items) {
+            // Find the best free rect (Best Short Side Fit)
+            let bestIdx = -1;
+            let bestShortSide = Infinity;
+            let bestLongSide = Infinity;
+
+            for (let i = 0; i < freeRects.length; i++) {
+              const r = freeRects[i];
+              if (item.w <= r.w && item.h <= r.h) {
+                const leftoverX = r.w - item.w;
+                const leftoverY = r.h - item.h;
+                const shortSide = Math.min(leftoverX, leftoverY);
+                const longSide = Math.max(leftoverX, leftoverY);
+                if (shortSide < bestShortSide || (shortSide === bestShortSide && longSide < bestLongSide)) {
+                  bestIdx = i;
+                  bestShortSide = shortSide;
+                  bestLongSide = longSide;
+                }
+              }
+            }
+
+            if (bestIdx === -1) return null; // doesn't fit
+
+            const rect = freeRects[bestIdx];
+            const px = rect.x;
+            const py = rect.y;
+            placements.push({ idx: item.idx, x: px, y: py });
+            usedW = Math.max(usedW, px + item.w);
+            usedH = Math.max(usedH, py + item.h);
+
+            // Split the free rect around the placed item
+            // Right remainder
+            if (rect.w - item.w > 0) {
+              freeRects.push({ x: px + item.w, y: py, w: rect.w - item.w, h: item.h });
+            }
+            // Bottom remainder
+            if (rect.h - item.h > 0) {
+              freeRects.push({ x: px, y: py + item.h, w: rect.w, h: rect.h - item.h });
+            }
+            // Remove the used rect
+            freeRects.splice(bestIdx, 1);
+
+            // Remove any free rects fully contained by others (dedup)
+            // and clip overlapping rects against the placed item
+            const placed = { x: px, y: py, w: item.w, h: item.h };
+            for (let i = freeRects.length - 1; i >= 0; i--) {
+              const fr = freeRects[i];
+              // Check overlap with placed item
+              if (fr.x < placed.x + placed.w && fr.x + fr.w > placed.x &&
+                  fr.y < placed.y + placed.h && fr.y + fr.h > placed.y) {
+                // Split this free rect to exclude the placed area
+                const newRects = [];
+                // Left part
+                if (fr.x < placed.x) {
+                  newRects.push({ x: fr.x, y: fr.y, w: placed.x - fr.x, h: fr.h });
+                }
+                // Right part
+                if (fr.x + fr.w > placed.x + placed.w) {
+                  newRects.push({ x: placed.x + placed.w, y: fr.y, w: (fr.x + fr.w) - (placed.x + placed.w), h: fr.h });
+                }
+                // Top part
+                if (fr.y < placed.y) {
+                  newRects.push({ x: fr.x, y: fr.y, w: fr.w, h: placed.y - fr.y });
+                }
+                // Bottom part
+                if (fr.y + fr.h > placed.y + placed.h) {
+                  newRects.push({ x: fr.x, y: placed.y + placed.h, w: fr.w, h: (fr.y + fr.h) - (placed.y + placed.h) });
+                }
+                freeRects.splice(i, 1, ...newRects);
+              }
+            }
+
+            // Prune contained rectangles
+            for (let i = freeRects.length - 1; i >= 0; i--) {
+              for (let j = freeRects.length - 1; j >= 0; j--) {
+                if (i === j) continue;
+                const a = freeRects[i], b = freeRects[j];
+                if (a.x >= b.x && a.y >= b.y && a.x + a.w <= b.x + b.w && a.y + a.h <= b.y + b.h) {
+                  freeRects.splice(i, 1);
+                  break;
+                }
+              }
+            }
+          }
+
+          return { placements, usedW, usedH };
+        }
+
+        // Prepare items with gap baked in (we add gap to dimensions, then offset at the end)
+        const items = boundsMap.map((item, idx) => ({
+          idx,
+          w: item.b.w + gapX,
+          h: item.b.h + gapY,
+          origW: item.b.w,
+          origH: item.b.h,
+        }));
+
+        // Sort by height descending (tall items first = better packing)
+        const sortedItems = [...items].sort((a, b) => b.h - a.h || b.w - a.w);
+
+        // Try multiple container widths and pick the smallest resulting area
+        const maxItemW = Math.max(...items.map(i => i.w));
+        const totalW = items.reduce((s, i) => s + i.w, 0);
+        const totalArea = items.reduce((s, i) => s + i.w * i.h, 0);
+        const sqrtArea = Math.sqrt(totalArea);
+
+        // Candidate widths: from max single item width up to total width
+        const candidates = new Set();
+        candidates.add(maxItemW);
+        candidates.add(totalW);
+        candidates.add(sqrtArea * 0.8);
+        candidates.add(sqrtArea);
+        candidates.add(sqrtArea * 1.2);
+        candidates.add(sqrtArea * 1.5);
+        candidates.add(sqrtArea * 2.0);
+        // Also add cumulative widths of sorted items as candidates
+        let cumW = 0;
+        for (const item of sortedItems) {
+          cumW += item.w;
+          if (cumW >= maxItemW) candidates.add(cumW);
+        }
+
+        let bestResult = null;
+        let bestArea = Infinity;
+
+        for (const candidateW of candidates) {
+          if (candidateW < maxItemW) continue;
+          const result = packWithMaxRects(sortedItems, candidateW);
+          if (result) {
+            const area = result.usedW * result.usedH;
+            if (area < bestArea) {
+              bestArea = area;
+              bestResult = result;
+            }
           }
         }
 
-        // Assign elements to slots using a greedy approach that minimizes
-        // total movement: sort by distance from each element's center to each
-        // slot and assign greedily (Hungarian algorithm is ideal but greedy is
-        // good enough and fast for typical selection sizes).
-        // 
-        // We use a cost matrix + greedy assignment sorted by cost.
-        const assignments = [];
-        for (let i = 0; i < n; i++) {
-          const b = boundsMap[i].b;
-          const elCx = b.x + b.w / 2;
-          const elCy = b.y + b.h / 2;
-          for (let j = 0; j < slots.length; j++) {
-            const dx = elCx - slots[j].cx;
-            const dy = elCy - slots[j].cy;
-            assignments.push({ elIdx: i, slotIdx: j, cost: dx * dx + dy * dy });
+        if (!bestResult) {
+          // Fallback: just stack vertically
+          let y = 0;
+          const placements = [];
+          for (const item of sortedItems) {
+            placements.push({ idx: item.idx, x: 0, y });
+            y += item.h;
           }
-        }
-        assignments.sort((a, b) => a.cost - b.cost);
-
-        const assignedEls = new Set();
-        const assignedSlots = new Set();
-        const result = new Array(n); // result[elIdx] = slotIdx
-
-        for (const { elIdx, slotIdx } of assignments) {
-          if (assignedEls.has(elIdx) || assignedSlots.has(slotIdx)) continue;
-          result[elIdx] = slotIdx;
-          assignedEls.add(elIdx);
-          assignedSlots.add(slotIdx);
-          if (assignedEls.size === n) break;
+          bestResult = { placements, usedW: maxItemW, usedH: y };
         }
 
-        // Apply positions: center each element in its assigned slot
-        for (let i = 0; i < n; i++) {
-          const slot = slots[result[i]];
-          const { el, b } = boundsMap[i];
-          const targetX = slot.cx - b.w / 2;
-          const targetY = slot.cy - b.h / 2;
-          const shiftX = targetX - b.x;
-          const shiftY = targetY - b.y;
+        // Center the layout on the centroid (subtract the gap padding from dimensions)
+        const layoutW = bestResult.usedW - gapX;
+        const layoutH = bestResult.usedH - gapY;
+        const offsetX = centroidX - layoutW / 2;
+        const offsetY = centroidY - layoutH / 2;
+
+        // Apply positions
+        for (const { idx, x, y } of bestResult.placements) {
+          const item = boundsMap[idx];
+          const targetX = x + offsetX;
+          const targetY = y + offsetY;
+          const shiftX = targetX - item.b.x;
+          const shiftY = targetY - item.b.y;
           if (shiftX !== 0 || shiftY !== 0) {
-            translateElement(el, shiftX, shiftY);
+            translateElement(item.el, shiftX, shiftY);
           }
         }
 
-        showToast(`Arranged ${n} items in a ${cols}×${rows} grid`);
+        const cols = Math.round(bestResult.usedW / (totalW / n));
+        showToast(`Mosaic: ${n} items packed (${Math.round(layoutW)}×${Math.round(layoutH)})`);
       }
 
       function getCanvasContentBounds() {
