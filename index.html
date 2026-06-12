@@ -231,6 +231,25 @@
         z-index: 11;
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
       }
+      .scale-btn {
+        background: #2d2d2d;
+        border: 1px solid #555;
+        color: #ccc;
+        padding: 4px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 500;
+        transition: all 0.15s;
+      }
+      .scale-btn:hover {
+        background: #444;
+        color: #fff;
+      }
+      .scale-btn:active {
+        background: #007acc;
+        color: #fff;
+      }
       .align-btn {
         background: transparent;
         border: 1px solid transparent;
@@ -553,6 +572,7 @@
     </div>
 
     <div id="alignment-panel">
+      <div id="alignment-group" style="display:flex;align-items:center;gap:4px;">
       <span class="align-title">Align</span>
       <button class="align-btn" data-align="left" title="Align Left">
         <svg viewBox="0 0 24 24">
@@ -738,6 +758,14 @@
           <rect x="14" y="14" width="7" height="7" rx="1"/>
         </svg>
       </button>
+      </div>
+      <div id="scale-group" style="display:none;align-items:center;gap:4px;">
+        <div class="scale-separator" style="width: 1px; height: 18px; background: #444; margin: 0 4px"></div>
+        <span class="align-title">Scale</span>
+        <button class="scale-btn" data-scale="0.5" title="Scale to 50% of original size">0.5x</button>
+        <button class="scale-btn" data-scale="1" title="Scale to original size">1x</button>
+        <button class="scale-btn" data-scale="2" title="Scale to 200% of original size">2x</button>
+      </div>
     </div>
 
     <div id="toast">Canvas copied to clipboard as PNG!</div>
@@ -833,11 +861,30 @@
       }
 
       function toggleAlignmentPanelVisibility() {
+        const scaleGroup = document.getElementById("scale-group");
+        const alignmentGroup = document.getElementById("alignment-group");
+        const hasImages = selectedElements.some(el => el.elementType === "image");
+
         if (currentTool === "select" && selectedElements.length > 1) {
           alignmentPanel.style.display = "flex";
+          alignmentGroup.style.display = "flex";
           updateSpacingInputs();
+        } else if (currentTool === "select" && selectedElements.length === 1 && hasImages) {
+          alignmentPanel.style.display = "flex";
+          alignmentGroup.style.display = "none";
         } else {
           alignmentPanel.style.display = "none";
+          alignmentGroup.style.display = "none";
+        }
+
+        // Show scale group when image(s) are selected
+        if (currentTool === "select" && selectedElements.length > 0 && hasImages) {
+          scaleGroup.style.display = "flex";
+          // Only show separator when alignment group is also visible
+          const scaleSep = scaleGroup.querySelector(".scale-separator");
+          if (scaleSep) scaleSep.style.display = alignmentGroup.style.display === "flex" ? "block" : "none";
+        } else {
+          scaleGroup.style.display = "none";
         }
         syncFontSizeFromSelection();
       }
@@ -1057,6 +1104,31 @@
         render();
         showToast(`${axis === "x" ? "Horizontal" : "Vertical"} spacing set to ${gap}px`);
       }
+
+      // --- SCALE PANEL BUTTON HANDLERS ---
+      document.querySelectorAll(".scale-btn").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          const scale = parseFloat(e.target.dataset.scale);
+          if (!scale || selectedElements.length === 0) return;
+          selectedElements.forEach((el) => {
+            if (el.elementType === "image") {
+              const naturalW = el.img.naturalWidth || el.w;
+              const naturalH = el.img.naturalHeight || el.h;
+              const newW = naturalW * scale;
+              const newH = naturalH * scale;
+              // Keep the center position
+              const centerX = el.x + el.w / 2;
+              const centerY = el.y + el.h / 2;
+              el.w = newW;
+              el.h = newH;
+              el.x = centerX - newW / 2;
+              el.y = centerY - newH / 2;
+            }
+          });
+          render();
+          showToast(`Scaled to ${scale * 100}%`);
+        });
+      });
 
       function updateCursor() {
         if (currentTool === "pan" || isRightClickHand)
