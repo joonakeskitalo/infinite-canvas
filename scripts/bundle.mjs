@@ -20,7 +20,11 @@ const root = resolve(import.meta.dir, "..");
 const result = await Bun.build({
   entrypoints: [resolve(root, "src/script.js")],
   format: "esm",
-  minify: false,
+  minify: {
+    whitespace: true,
+    syntax: true,
+    identifiers: false,
+  },
   target: "browser",
 });
 
