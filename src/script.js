@@ -8,7 +8,7 @@ const fontSizeSelect = document.getElementById("font-size-select");
 const zoomSlider = document.getElementById("zoom-slider");
 const zoomValDisplay = document.getElementById("zoom-val");
 const exportBtn = document.getElementById("export-btn");
-const export50Btn = document.getElementById("export-50-btn");
+
 const downloadImagesBtn = document.getElementById("download-images-btn");
 const centerCanvasBtn = document.getElementById("center-canvas-btn");
 const alignmentPanel = document.getElementById("alignment-panel");
@@ -4316,8 +4316,7 @@ async function executePNGExport(scaleFactor = 1.0) {
   }, "image/png");
 }
 
-exportBtn.addEventListener("click", () => executePNGExport(1.0));
-export50Btn.addEventListener("click", () => executePNGExport(0.5));
+exportBtn.addEventListener("click", (e) => executePNGExport(e.shiftKey ? 0.5 : 1.0));
 
 downloadImagesBtn.addEventListener("click", () => {
   if (images.length === 0) {
