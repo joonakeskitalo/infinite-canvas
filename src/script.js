@@ -1,4 +1,5 @@
 import { applyFilterToImageData } from "./filter-kernels.js";
+import { FILTER_OPTIONS, FILTER_LABELS } from "./color-filter.js";
 
 const container = document.getElementById("canvas-container");
 const canvas = document.getElementById("canvas");
@@ -1064,6 +1065,27 @@ window.addEventListener("keydown", (e) => {
     preSpaceTool = null;
     const btn = document.querySelector(`[data-tool="${targetTool}"]`);
     if (btn) btn.click();
+    return;
+  }
+
+  // P / Shift+P to cycle color filters forward/backward
+  if (key === "p") {
+    const idx = FILTER_OPTIONS.indexOf(currentFilter);
+    let newIdx;
+    if (e.shiftKey) {
+      newIdx = (idx - 1 + FILTER_OPTIONS.length) % FILTER_OPTIONS.length;
+    } else {
+      newIdx = (idx + 1) % FILTER_OPTIONS.length;
+    }
+    currentFilter = FILTER_OPTIONS[newIdx];
+    filteredImageCache = new WeakMap();
+    const filterSel = document.getElementById("filter-select");
+    if (filterSel) {
+      filterSel.value = currentFilter;
+      filterSel.classList.toggle("filter-active", currentFilter !== "none");
+    }
+    render();
+    showToast(`Filter: ${FILTER_LABELS[currentFilter]}`);
     return;
   }
 
