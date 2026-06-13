@@ -1,0 +1,8 @@
+{
+  "name": "infinite-canvas",
+  "private": true,
+  "scripts": {
+    "start": "npx serve .",
+    "bundle": "bun scripts/bundle.mjs"
+  }
+}
