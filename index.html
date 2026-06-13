@@ -350,20 +350,6 @@
     </style>
   </head>
   <body style="background-color: #f0f0f0">
-    <!-- SVG filters for color vision simulation (used by canvas context CSS filter) -->
-    <svg style="position:absolute;width:0;height:0;overflow:hidden;" aria-hidden="true">
-      <defs>
-        <filter id="protanopia-filter">
-          <feColorMatrix type="matrix" values="0.567 0.433 0 0 0  0.558 0.442 0 0 0  0 0.242 0.758 0 0  0 0 0 1 0" />
-        </filter>
-        <filter id="deuteranopia-filter">
-          <feColorMatrix type="matrix" values="0.625 0.375 0 0 0  0.7 0.3 0 0 0  0 0.3 0.7 0 0  0 0 0 1 0" />
-        </filter>
-        <filter id="tritanopia-filter">
-          <feColorMatrix type="matrix" values="0.95 0.05 0 0 0  0 0.433 0.567 0 0  0 0.475 0.525 0 0  0 0 0 1 0" />
-        </filter>
-      </defs>
-    </svg>
     <div id="toolbar">
       <button
         class="tool-btn active"
@@ -942,20 +928,40 @@
       // --- COLOR FILTER SYSTEM ---
       let currentFilter = "none";
 
-      // CSS filter strings for live canvas preview (GPU-composited, fast)
-      // Color vision simulations use inline SVG feColorMatrix filters for accurate preview.
-      // The pixel-accurate export path uses the same matrices via manual pixel manipulation.
-      const CSS_FILTER_MAP = {
-        none: "none",
-        grayscale: "grayscale(100%)",
-        protanopia: "url(#protanopia-filter)",
-        deuteranopia: "url(#deuteranopia-filter)",
-        tritanopia: "url(#tritanopia-filter)",
-        achromatopsia: "grayscale(100%)",
-        "low-contrast": "contrast(85%)",
-        "high-contrast": "contrast(125%)",
-        "low-quality-display": "contrast(95%) saturate(60%)",
-      };
+      // CSS filter strings — no longer used for rendering (kept for reference)
+      // Live preview now uses pre-rendered filtered canvases via getFilteredImage()
+
+      // Cache for filtered image canvases (invalidated when filter changes)
+      let filteredImageCache = new WeakMap();
+      let filteredImageCacheFilter = "none";
+
+      function getFilteredImage(imgData) {
+        // Invalidate cache if filter changed
+        if (filteredImageCacheFilter !== currentFilter) {
+          filteredImageCache = new WeakMap();
+          filteredImageCacheFilter = currentFilter;
+        }
+
+        // Return cached version if available
+        if (filteredImageCache.has(imgData.img)) {
+          return filteredImageCache.get(imgData.img);
+        }
+
+        // Render filtered version to an offscreen canvas
+        const w = imgData.img.naturalWidth || imgData.img.width;
+        const h = imgData.img.naturalHeight || imgData.img.height;
+        const offscreen = document.createElement("canvas");
+        offscreen.width = w;
+        offscreen.height = h;
+        const offCtx = offscreen.getContext("2d");
+        offCtx.drawImage(imgData.img, 0, 0);
+        const imageData = offCtx.getImageData(0, 0, w, h);
+        applyFilterToImageData(imageData, currentFilter);
+        offCtx.putImageData(imageData, 0, 0);
+
+        filteredImageCache.set(imgData.img, offscreen);
+        return offscreen;
+      }
 
       // Color matrices for pixel-accurate export (5x4 row-major, last col = offset)
       const COLOR_MATRICES = {
@@ -990,6 +996,7 @@
       function applyContrastToData(data, factor) {
         const intercept = CHANNEL_MIDPOINT * (1 - factor);
         for (let i = 0; i < data.length; i += 4) {
+          if (data[i + 3] === 0) continue; // skip transparent pixels
           data[i]     = data[i]     * factor + intercept;
           data[i + 1] = data[i + 1] * factor + intercept;
           data[i + 2] = data[i + 2] * factor + intercept;
@@ -998,6 +1005,7 @@
 
       function applySaturationToData(data, factor) {
         for (let i = 0; i < data.length; i += 4) {
+          if (data[i + 3] === 0) continue; // skip transparent pixels
           const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
           data[i]     = gray + factor * (data[i]     - gray);
           data[i + 1] = gray + factor * (data[i + 1] - gray);
@@ -1011,6 +1019,7 @@
 
         if (filter === "grayscale") {
           for (let i = 0; i < d.length; i += 4) {
+            if (d[i + 3] === 0) continue; // skip transparent pixels
             const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
             d[i] = d[i + 1] = d[i + 2] = gray;
           }
@@ -1024,6 +1033,7 @@
         } else if (COLOR_MATRICES[filter]) {
           const matrix = COLOR_MATRICES[filter];
           for (let i = 0; i < d.length; i += 4) {
+            if (d[i + 3] === 0) continue; // skip transparent pixels
             const r = d[i], g = d[i + 1], b = d[i + 2], a = d[i + 3];
             d[i]     = matrix[0]*r  + matrix[1]*g  + matrix[2]*b  + matrix[3]*a  + matrix[4];
             d[i + 1] = matrix[5]*r  + matrix[6]*g  + matrix[7]*b  + matrix[8]*a  + matrix[9];
@@ -1719,6 +1729,7 @@
       const filterSelect = document.getElementById("filter-select");
       filterSelect.addEventListener("change", (e) => {
         currentFilter = e.target.value;
+        filteredImageCache = new WeakMap(); // invalidate cached filtered images
         filterSelect.classList.toggle("filter-active", currentFilter !== "none");
         render();
         if (currentFilter !== "none") {
@@ -3148,12 +3159,12 @@
         images.forEach((imgData) => {
           targetCtx.save();
           targetCtx.globalAlpha = imgData.opacity != null ? imgData.opacity : 1;
-          // Apply color filter for live preview (CSS filter on canvas context)
-          if (!isExporting && currentFilter !== "none") {
-            targetCtx.filter = CSS_FILTER_MAP[currentFilter] || "none";
-          }
+          // Use pre-rendered filtered image if a filter is active
+          const drawSrc = (!isExporting && currentFilter !== "none")
+            ? getFilteredImage(imgData)
+            : imgData.img;
           targetCtx.drawImage(
-            imgData.img,
+            drawSrc,
             imgData.x,
             imgData.y,
             imgData.w,
@@ -5077,31 +5088,49 @@
         const exportW = (bounds.maxX - bounds.minX) * scaleFactor;
         const exportH = (bounds.maxY - bounds.minY) * scaleFactor;
 
+        // --- Layer 1: Images (filtered) ---
+        const imgLayer = document.createElement("canvas");
+        imgLayer.width = exportW;
+        imgLayer.height = exportH;
+        const imgLayerCtx = imgLayer.getContext("2d");
+        imgLayerCtx.save();
+        imgLayerCtx.scale(scaleFactor, scaleFactor);
+        imgLayerCtx.translate(-bounds.minX, -bounds.minY);
+        exportImages.forEach((imgData) => {
+          imgLayerCtx.save();
+          imgLayerCtx.globalAlpha = imgData.opacity != null ? imgData.opacity : 1;
+          imgLayerCtx.drawImage(imgData.img, imgData.x, imgData.y, imgData.w, imgData.h);
+          imgLayerCtx.restore();
+        });
+        imgLayerCtx.restore();
+
+        // Apply pixel-accurate filter to the image layer only
+        if (currentFilter !== "none") {
+          const id = imgLayerCtx.getImageData(0, 0, exportW, exportH);
+          applyFilterToImageData(id, currentFilter);
+          imgLayerCtx.putImageData(id, 0, 0);
+        }
+
+        // --- Layer 2: Drawings (never filtered) ---
+        const drawLayer = document.createElement("canvas");
+        drawLayer.width = exportW;
+        drawLayer.height = exportH;
+        const drawLayerCtx = drawLayer.getContext("2d");
+        drawLayerCtx.save();
+        drawLayerCtx.scale(scaleFactor, scaleFactor);
+        drawLayerCtx.translate(-bounds.minX, -bounds.minY);
+        exportDrawings.forEach((shape) => drawShape(drawLayerCtx, shape, true));
+        drawLayerCtx.restore();
+
+        // --- Composite: background + filtered images + unfiltered drawings ---
         const finalCanvas = document.createElement("canvas");
         finalCanvas.width = exportW;
         finalCanvas.height = exportH;
         const finalCtx = finalCanvas.getContext("2d");
-
         finalCtx.fillStyle = bgColor;
         finalCtx.fillRect(0, 0, exportW, exportH);
-
-        finalCtx.save();
-        finalCtx.scale(scaleFactor, scaleFactor);
-        finalCtx.translate(-bounds.minX, -bounds.minY);
-
-        exportImages.forEach((imgData) => {
-          finalCtx.save();
-          finalCtx.globalAlpha = imgData.opacity != null ? imgData.opacity : 1;
-          finalCtx.drawImage(imgData.img, imgData.x, imgData.y, imgData.w, imgData.h);
-          finalCtx.restore();
-        });
-        exportDrawings.forEach((shape) => drawShape(finalCtx, shape, true));
-        finalCtx.restore();
-
-        // Apply pixel-accurate color filter to the exported canvas
-        if (currentFilter !== "none") {
-          await applyFilterToCanvas(finalCanvas, currentFilter);
-        }
+        finalCtx.drawImage(imgLayer, 0, 0);
+        finalCtx.drawImage(drawLayer, 0, 0);
 
         finalCanvas.toBlob(async (blob) => {
           if (!blob) {
