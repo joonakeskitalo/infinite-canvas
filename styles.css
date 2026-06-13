@@ -1,0 +1,379 @@
+* {
+  box-sizing: border-box;
+  user-select: none;
+}
+
+#spacing-input-x,
+#spacing-input-y {
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-appearance: textfield;
+}
+
+#spacing-input-x::-webkit-inner-spin-button,
+#spacing-input-x::-webkit-outer-spin-button,
+#spacing-input-y::-webkit-inner-spin-button,
+#spacing-input-y::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+body,
+html {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  color: #fff;
+}
+
+#canvas-container {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  cursor: crosshair;
+}
+
+canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+}
+
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+input[type="color"]::-webkit-color-swatch {
+  border: none;
+}
+
+/* Compact Toolbar Styles */
+#toolbar {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(30, 30, 30, 0.9);
+  backdrop-filter: blur(10px);
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 6px 10px;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  z-index: 10;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.tool-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #ccc;
+  padding: 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+}
+
+.tool-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.tool-btn:hover {
+  background: #333;
+  color: #fff;
+}
+
+.font-size-btn:hover {
+  background: #333;
+  color: #fff;
+}
+
+.tool-btn.active {
+  background: #007acc;
+  color: #fff;
+  border-color: #0098ff;
+}
+
+.separator {
+  width: 1px;
+  height: 24px;
+  background: #444;
+  margin: 0 4px;
+}
+
+.color-picker-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 9px;
+  color: #aaa;
+  gap: 1px;
+}
+
+.color-picker-wrapper input[type="color"] {
+  border: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  cursor: pointer;
+  background: transparent;
+  padding: 0;
+  border: 1px solid rgba(211, 211, 211, 0.434);
+}
+
+.color-presets {
+  display: flex;
+  gap: 2px;
+}
+
+.preset-btn {
+  width: 18px;
+  height: 18px;
+  border: 1px solid #555;
+  border-radius: 18px;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.preset-btn:hover {
+  transform: scale(1.2);
+}
+
+/* Control Groups */
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #aaa;
+}
+
+.control-group input[type="range"] {
+  width: 168px;
+  accent-color: #007acc;
+  cursor: pointer;
+  color: white;
+}
+
+.control-group select {
+  background: #2d2d2d;
+  color: #fff;
+  border: 1px solid #555;
+  padding: 3px;
+  border-radius: 4px;
+  outline: none;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+#zoom-val {
+  min-width: 32px;
+  text-align: right;
+}
+
+/* Action buttons style */
+.action-container {
+  display: flex;
+  gap: 3px;
+}
+
+.action-btn {
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.action-btn:hover {
+  background: #218838;
+}
+
+.action-btn.secondary-action {
+  background: #6c757d;
+}
+
+.action-btn.secondary-action:hover {
+  background: #5a6268;
+}
+
+.action-btn.blue-action {
+  background: #17a2b8;
+}
+
+.action-btn.blue-action:hover {
+  background: #138496;
+}
+
+.action-btn.dark-action {
+  background: #343a40;
+  border: 1px solid #454d55;
+}
+
+.action-btn.dark-action:hover {
+  background: #23272b;
+}
+
+/* Alignment Panel */
+#alignment-panel {
+  display: none;
+  position: fixed;
+  top: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(30, 30, 30, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid #444;
+  padding: 4px 8px;
+  border-radius: 6px;
+  gap: 4px;
+  align-items: center;
+  z-index: 11;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+}
+
+.scale-btn {
+  background: #2d2d2d;
+  border: 1px solid #555;
+  color: #ccc;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+
+.scale-btn:hover {
+  background: #444;
+  color: #fff;
+}
+
+.scale-btn:active {
+  background: #007acc;
+  color: #fff;
+}
+
+.align-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #ccc;
+  padding: 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+}
+
+.align-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.align-btn:hover {
+  background: #444;
+  color: #fff;
+}
+
+.align-btn:active {
+  background: #007acc;
+  color: #fff;
+}
+
+.align-title {
+  font-size: 10px;
+  color: #888;
+  margin: 0 4px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Invisible Input element for text tools */
+#text-ghost-input {
+  position: absolute;
+  background: transparent;
+  border: 1px dashed #007acc;
+  color: #fff;
+  font-family: sans-serif;
+  outline: none;
+  display: none;
+  z-index: 100;
+  padding: 2px;
+  resize: none;
+  overflow: hidden;
+  line-height: 1.2;
+  white-space: pre;
+  min-width: 2ch;
+}
+
+/* Dynamic temporary toast notifications */
+#toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 122, 204, 0.95);
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-size: 13px;
+  z-index: 1000;
+  display: none;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+}
+
+/* Filter dropdown & indicator */
+#filter-select {
+  background: #2d2d2d;
+  color: #fff;
+  border: 1px solid #555;
+  padding: 3px 6px;
+  border-radius: 4px;
+  outline: none;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+#filter-select.filter-active {
+  border-color: #007acc;
+  background: #1a3a5c;
+}
+
+.filter-indicator {
+  display: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #007acc;
+  position: absolute;
+  top: 2px;
+  right: 2px;
+}
+
+.filter-active .filter-indicator {
+  display: block;
+}
