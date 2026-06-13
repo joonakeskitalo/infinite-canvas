@@ -319,9 +319,51 @@
         display: none;
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
       }
+      /* Filter dropdown & indicator */
+      #filter-select {
+        background: #2d2d2d;
+        color: #fff;
+        border: 1px solid #555;
+        padding: 3px 6px;
+        border-radius: 4px;
+        outline: none;
+        cursor: pointer;
+        font-size: 11px;
+      }
+      #filter-select.filter-active {
+        border-color: #007acc;
+        background: #1a3a5c;
+      }
+      .filter-indicator {
+        display: none;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #007acc;
+        position: absolute;
+        top: 2px;
+        right: 2px;
+      }
+      .filter-active .filter-indicator {
+        display: block;
+      }
     </style>
   </head>
   <body style="background-color: #f0f0f0">
+    <!-- SVG filters for color vision simulation (used by canvas context CSS filter) -->
+    <svg style="position:absolute;width:0;height:0;overflow:hidden;" aria-hidden="true">
+      <defs>
+        <filter id="protanopia-filter">
+          <feColorMatrix type="matrix" values="0.567 0.433 0 0 0  0.558 0.442 0 0 0  0 0.242 0.758 0 0  0 0 0 1 0" />
+        </filter>
+        <filter id="deuteranopia-filter">
+          <feColorMatrix type="matrix" values="0.625 0.375 0 0 0  0.7 0.3 0 0 0  0 0.3 0.7 0 0  0 0 0 1 0" />
+        </filter>
+        <filter id="tritanopia-filter">
+          <feColorMatrix type="matrix" values="0.95 0.05 0 0 0  0 0.433 0.567 0 0  0 0.475 0.525 0 0  0 0 0 1 0" />
+        </filter>
+      </defs>
+    </svg>
     <div id="toolbar">
       <button
         class="tool-btn active"
@@ -599,6 +641,22 @@
         <button class="action-btn blue-action" id="download-images-btn" title="Download pasted images as files">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17V3"/><path d="m6 11 6 6 6-6"/><path d="M19 21H5"/></svg>
         </button>
+
+        <div class="separator"></div>
+
+        <div class="control-group" title="Color Vision Filter">
+          <select id="filter-select">
+            <option value="none">No filter</option>
+            <option value="grayscale">Grayscale</option>
+            <option value="protanopia">Protanopia</option>
+            <option value="deuteranopia">Deuteranopia</option>
+            <option value="tritanopia">Tritanopia</option>
+            <option value="achromatopsia">Achromatopsia</option>
+            <option value="low-contrast">Low contrast</option>
+            <option value="high-contrast">High contrast</option>
+            <option value="low-quality-display">Low quality</option>
+          </select>
+        </div>
 
         <div class="separator"></div>
 
@@ -881,6 +939,231 @@
       let pasteOffset = 0; // increments each paste to offset duplicates
       let internalCopyPerformed = false; // true when last copy was from canvas selection
 
+      // --- COLOR FILTER SYSTEM ---
+      let currentFilter = "none";
+
+      // CSS filter strings for live canvas preview (GPU-composited, fast)
+      // Color vision simulations use inline SVG feColorMatrix filters for accurate preview.
+      // The pixel-accurate export path uses the same matrices via manual pixel manipulation.
+      const CSS_FILTER_MAP = {
+        none: "none",
+        grayscale: "grayscale(100%)",
+        protanopia: "url(#protanopia-filter)",
+        deuteranopia: "url(#deuteranopia-filter)",
+        tritanopia: "url(#tritanopia-filter)",
+        achromatopsia: "grayscale(100%)",
+        "low-contrast": "contrast(85%)",
+        "high-contrast": "contrast(125%)",
+        "low-quality-display": "contrast(95%) saturate(60%)",
+      };
+
+      // Color matrices for pixel-accurate export (5x4 row-major, last col = offset)
+      const COLOR_MATRICES = {
+        protanopia: [
+          0.567, 0.433, 0, 0, 0,
+          0.558, 0.442, 0, 0, 0,
+          0,     0.242, 0.758, 0, 0,
+          0,     0,     0,     1, 0,
+        ],
+        deuteranopia: [
+          0.625, 0.375, 0,   0, 0,
+          0.7,   0.3,   0,   0, 0,
+          0,     0.3,   0.7, 0, 0,
+          0,     0,     0,   1, 0,
+        ],
+        tritanopia: [
+          0.95, 0.05,  0,     0, 0,
+          0,    0.433, 0.567, 0, 0,
+          0,    0.475, 0.525, 0, 0,
+          0,    0,     0,     1, 0,
+        ],
+        achromatopsia: [
+          0.299, 0.587, 0.114, 0, 0,
+          0.299, 0.587, 0.114, 0, 0,
+          0.299, 0.587, 0.114, 0, 0,
+          0,     0,     0,     1, 0,
+        ],
+      };
+
+      const CHANNEL_MIDPOINT = 128;
+
+      function applyContrastToData(data, factor) {
+        const intercept = CHANNEL_MIDPOINT * (1 - factor);
+        for (let i = 0; i < data.length; i += 4) {
+          data[i]     = data[i]     * factor + intercept;
+          data[i + 1] = data[i + 1] * factor + intercept;
+          data[i + 2] = data[i + 2] * factor + intercept;
+        }
+      }
+
+      function applySaturationToData(data, factor) {
+        for (let i = 0; i < data.length; i += 4) {
+          const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+          data[i]     = gray + factor * (data[i]     - gray);
+          data[i + 1] = gray + factor * (data[i + 1] - gray);
+          data[i + 2] = gray + factor * (data[i + 2] - gray);
+        }
+      }
+
+      function applyFilterToImageData(imageData, filter) {
+        if (!filter || filter === "none") return imageData;
+        const d = imageData.data;
+
+        if (filter === "grayscale") {
+          for (let i = 0; i < d.length; i += 4) {
+            const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+            d[i] = d[i + 1] = d[i + 2] = gray;
+          }
+        } else if (filter === "low-contrast") {
+          applyContrastToData(d, 0.85);
+        } else if (filter === "high-contrast") {
+          applyContrastToData(d, 1.25);
+        } else if (filter === "low-quality-display") {
+          applyContrastToData(d, 0.95);
+          applySaturationToData(d, 0.6);
+        } else if (COLOR_MATRICES[filter]) {
+          const matrix = COLOR_MATRICES[filter];
+          for (let i = 0; i < d.length; i += 4) {
+            const r = d[i], g = d[i + 1], b = d[i + 2], a = d[i + 3];
+            d[i]     = matrix[0]*r  + matrix[1]*g  + matrix[2]*b  + matrix[3]*a  + matrix[4];
+            d[i + 1] = matrix[5]*r  + matrix[6]*g  + matrix[7]*b  + matrix[8]*a  + matrix[9];
+            d[i + 2] = matrix[10]*r + matrix[11]*g + matrix[12]*b + matrix[13]*a + matrix[14];
+          }
+        }
+        return imageData;
+      }
+
+      // Web Worker pool for off-main-thread filter processing during export
+      const WORKER_POOL_SIZE = navigator.hardwareConcurrency || 4;
+      const filterWorkerPool = [];
+      let filterWorkerRoundRobin = 0;
+      let filterWorkerIdCounter = 0;
+      let filterWorkerBlobUrl = null;
+
+      function generateFilterWorkerSource() {
+        return `
+          const COLOR_MATRICES = ${JSON.stringify(COLOR_MATRICES)};
+          const CHANNEL_MIDPOINT = 128;
+
+          function applyContrastToData(data, factor) {
+            const intercept = CHANNEL_MIDPOINT * (1 - factor);
+            for (let i = 0; i < data.length; i += 4) {
+              data[i]     = data[i]     * factor + intercept;
+              data[i + 1] = data[i + 1] * factor + intercept;
+              data[i + 2] = data[i + 2] * factor + intercept;
+            }
+          }
+
+          function applySaturationToData(data, factor) {
+            for (let i = 0; i < data.length; i += 4) {
+              const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+              data[i]     = gray + factor * (data[i]     - gray);
+              data[i + 1] = gray + factor * (data[i + 1] - gray);
+              data[i + 2] = gray + factor * (data[i + 2] - gray);
+            }
+          }
+
+          function applyFilterToImageData(imageData, filter) {
+            if (!filter || filter === "none") return imageData;
+            const d = imageData.data;
+
+            if (filter === "grayscale") {
+              for (let i = 0; i < d.length; i += 4) {
+                const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+                d[i] = d[i + 1] = d[i + 2] = gray;
+              }
+            } else if (filter === "low-contrast") {
+              applyContrastToData(d, 0.85);
+            } else if (filter === "high-contrast") {
+              applyContrastToData(d, 1.25);
+            } else if (filter === "low-quality-display") {
+              applyContrastToData(d, 0.95);
+              applySaturationToData(d, 0.6);
+            } else if (COLOR_MATRICES[filter]) {
+              const matrix = COLOR_MATRICES[filter];
+              for (let i = 0; i < d.length; i += 4) {
+                const r = d[i], g = d[i + 1], b = d[i + 2], a = d[i + 3];
+                d[i]     = matrix[0]*r  + matrix[1]*g  + matrix[2]*b  + matrix[3]*a  + matrix[4];
+                d[i + 1] = matrix[5]*r  + matrix[6]*g  + matrix[7]*b  + matrix[8]*a  + matrix[9];
+                d[i + 2] = matrix[10]*r + matrix[11]*g + matrix[12]*b + matrix[13]*a + matrix[14];
+              }
+            }
+            return imageData;
+          }
+
+          self.onmessage = async (e) => {
+            const { type, imageBitmap, filter, id } = e.data;
+            if (type === "apply") {
+              try {
+                const w = imageBitmap.width;
+                const h = imageBitmap.height;
+                const canvas = new OffscreenCanvas(w, h);
+                const ctx = canvas.getContext("2d");
+                ctx.drawImage(imageBitmap, 0, 0);
+
+                if (filter !== "none") {
+                  const imageData = ctx.getImageData(0, 0, w, h);
+                  applyFilterToImageData(imageData, filter);
+                  ctx.putImageData(imageData, 0, 0);
+                }
+
+                const blob = await canvas.convertToBlob({ type: "image/png" });
+                self.postMessage({ type: "result", blob, id });
+              } catch (err) {
+                self.postMessage({ type: "error", error: err.message, id });
+              } finally {
+                imageBitmap.close();
+              }
+            }
+          };
+        `;
+      }
+
+      function getFilterWorkerBlobUrl() {
+        if (filterWorkerBlobUrl) return filterWorkerBlobUrl;
+        const blob = new Blob([generateFilterWorkerSource()], { type: "application/javascript" });
+        filterWorkerBlobUrl = URL.createObjectURL(blob);
+        return filterWorkerBlobUrl;
+      }
+
+      function initFilterWorkerPool() {
+        if (filterWorkerPool.length > 0) return;
+        const url = getFilterWorkerBlobUrl();
+        for (let i = 0; i < WORKER_POOL_SIZE; i++) {
+          const worker = new Worker(url);
+          worker._pending = new Map();
+          worker.onmessage = (e) => {
+            const { id, type, blob, error } = e.data;
+            const pending = worker._pending.get(id);
+            if (!pending) return;
+            worker._pending.delete(id);
+            if (type === "result") pending.resolve(blob);
+            else pending.reject(new Error(error));
+          };
+          filterWorkerPool.push(worker);
+        }
+      }
+
+      function applyFilterViaWorker(imageBitmap, filter) {
+        initFilterWorkerPool();
+        const id = filterWorkerIdCounter++;
+        const worker = filterWorkerPool[filterWorkerRoundRobin % filterWorkerPool.length];
+        filterWorkerRoundRobin++;
+        return new Promise((resolve, reject) => {
+          worker._pending.set(id, { resolve, reject });
+          worker.postMessage({ type: "apply", imageBitmap, filter, id }, [imageBitmap]);
+        });
+      }
+
+      // Apply filter to the export canvas (pixel-accurate, for PNG export)
+      async function applyFilterToCanvas(canvasEl, filter) {
+        if (!filter || filter === "none") return;
+        const ctx2 = canvasEl.getContext("2d");
+        const imageData = ctx2.getImageData(0, 0, canvasEl.width, canvasEl.height);
+        applyFilterToImageData(imageData, filter);
+        ctx2.putImageData(imageData, 0, 0);
+      }
+
       // --- UNDO / REDO SYSTEM ---
       const MAX_HISTORY = 50;
       let undoStack = [];
@@ -1035,6 +1318,7 @@
           transform: transform,
           bgColor: bgColor,
           drawColor: drawColor,
+          currentFilter: currentFilter,
         };
 
         zip.file("manifest.json", JSON.stringify(manifest));
@@ -1163,6 +1447,14 @@
         if (state.drawColor) {
           drawColor = state.drawColor;
           colorPicker.value = drawColor;
+        }
+        if (state.currentFilter) {
+          currentFilter = state.currentFilter;
+          const filterSel = document.getElementById("filter-select");
+          if (filterSel) {
+            filterSel.value = currentFilter;
+            filterSel.classList.toggle("filter-active", currentFilter !== "none");
+          }
         }
 
         // Update elementIdCounter to avoid ID collisions
@@ -1421,6 +1713,17 @@
         document.body.style.backgroundColor = bgColor;
         render();
         scheduleSave();
+      });
+
+      // --- Filter Dropdown ---
+      const filterSelect = document.getElementById("filter-select");
+      filterSelect.addEventListener("change", (e) => {
+        currentFilter = e.target.value;
+        filterSelect.classList.toggle("filter-active", currentFilter !== "none");
+        render();
+        if (currentFilter !== "none") {
+          showToast(`Filter: ${e.target.options[e.target.selectedIndex].text}`);
+        }
       });
 
       fontSizeSelect.addEventListener("change", (e) => {
@@ -2845,6 +3148,10 @@
         images.forEach((imgData) => {
           targetCtx.save();
           targetCtx.globalAlpha = imgData.opacity != null ? imgData.opacity : 1;
+          // Apply color filter for live preview (CSS filter on canvas context)
+          if (!isExporting && currentFilter !== "none") {
+            targetCtx.filter = CSS_FILTER_MAP[currentFilter] || "none";
+          }
           targetCtx.drawImage(
             imgData.img,
             imgData.x,
@@ -4791,6 +5098,11 @@
         exportDrawings.forEach((shape) => drawShape(finalCtx, shape, true));
         finalCtx.restore();
 
+        // Apply pixel-accurate color filter to the exported canvas
+        if (currentFilter !== "none") {
+          await applyFilterToCanvas(finalCanvas, currentFilter);
+        }
+
         finalCanvas.toBlob(async (blob) => {
           if (!blob) {
             showToast("Failed to compile image asset");
@@ -4841,6 +5153,13 @@
           tempCanvas.width = imgData.img.naturalWidth || imgData.w;
           tempCanvas.height = imgData.img.naturalHeight || imgData.h;
           tempCanvas.getContext("2d").drawImage(imgData.img, 0, 0);
+          // Apply pixel-accurate color filter before download
+          if (currentFilter !== "none") {
+            const tempCtx = tempCanvas.getContext("2d");
+            const imgDataPixels = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+            applyFilterToImageData(imgDataPixels, currentFilter);
+            tempCtx.putImageData(imgDataPixels, 0, 0);
+          }
           const a = document.createElement("a");
           a.href = tempCanvas.toDataURL("image/png");
           a.download = `pasted_asset_${index + 1}.png`;
@@ -4848,7 +5167,8 @@
           a.click();
           document.body.removeChild(a);
         });
-        showToast(`Downloading ${images.length} separate asset files...`);
+        const filterLabel = currentFilter !== "none" ? ` (${currentFilter})` : "";
+        showToast(`Downloading ${images.length} asset files${filterLabel}...`);
       });
 
       resize();
