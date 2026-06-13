@@ -4248,8 +4248,27 @@ async function executePNGExport(scaleFactor = 1.0) {
     exportDrawings = drawings;
   }
 
-  const exportW = (bounds.maxX - bounds.minX) * scaleFactor;
-  const exportH = (bounds.maxY - bounds.minY) * scaleFactor;
+  // Browsers enforce maximum canvas size limits. If the export dimensions
+  // exceed these limits, toBlob() returns null ("Failed to compile image asset").
+  // We cap to a safe maximum and scale down automatically if needed.
+  const MAX_CANVAS_DIM = 16384;
+  const MAX_CANVAS_AREA = 16384 * 16384; // ~268M pixels
+
+  let exportW = (bounds.maxX - bounds.minX) * scaleFactor;
+  let exportH = (bounds.maxY - bounds.minY) * scaleFactor;
+
+  // Scale down if either dimension or total area exceeds browser limits
+  let effectiveScale = scaleFactor;
+  const dimScale = Math.min(MAX_CANVAS_DIM / exportW, MAX_CANVAS_DIM / exportH, 1);
+  const areaScale = Math.min(Math.sqrt(MAX_CANVAS_AREA / (exportW * exportH)), 1);
+  const downscale = Math.min(dimScale, areaScale);
+
+  if (downscale < 1) {
+    effectiveScale = scaleFactor * downscale;
+    exportW = Math.floor((bounds.maxX - bounds.minX) * effectiveScale);
+    exportH = Math.floor((bounds.maxY - bounds.minY) * effectiveScale);
+    showToast(`Canvas too large — exporting at ${Math.round(effectiveScale * 100)}% scale`);
+  }
 
   // --- Layer 1: Images (filtered) ---
   const imgLayer = document.createElement("canvas");
@@ -4257,7 +4276,7 @@ async function executePNGExport(scaleFactor = 1.0) {
   imgLayer.height = exportH;
   const imgLayerCtx = imgLayer.getContext("2d");
   imgLayerCtx.save();
-  imgLayerCtx.scale(scaleFactor, scaleFactor);
+  imgLayerCtx.scale(effectiveScale, effectiveScale);
   imgLayerCtx.translate(-bounds.minX, -bounds.minY);
   exportImages.forEach((imgData) => {
     imgLayerCtx.save();
@@ -4286,7 +4305,7 @@ async function executePNGExport(scaleFactor = 1.0) {
   drawLayer.height = exportH;
   const drawLayerCtx = drawLayer.getContext("2d");
   drawLayerCtx.save();
-  drawLayerCtx.scale(scaleFactor, scaleFactor);
+  drawLayerCtx.scale(effectiveScale, effectiveScale);
   drawLayerCtx.translate(-bounds.minX, -bounds.minY);
   exportDrawings.forEach((shape) => drawShape(drawLayerCtx, shape, true));
   drawLayerCtx.restore();
