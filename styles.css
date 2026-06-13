@@ -356,6 +356,7 @@ input[type="color"]::-webkit-color-swatch {
   outline: none;
   cursor: pointer;
   font-size: 11px;
+  padding: 9px;
 }
 
 #filter-select.filter-active {
