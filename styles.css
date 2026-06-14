@@ -501,8 +501,8 @@ input[type="color"]::-webkit-color-swatch {
 }
 
 .guide-line.horizontal {
-  left: 20px;
-  width: calc(100% - 20px);
+  left: 12px;
+  width: calc(100% - 12px);
   height: 1px;
   background: rgba(0, 180, 255, 0.7);
   cursor: ns-resize;
@@ -510,8 +510,8 @@ input[type="color"]::-webkit-color-swatch {
 }
 
 .guide-line.vertical {
-  top: 20px;
-  height: calc(100% - 20px);
+  top: 12px;
+  height: calc(100% - 12px);
   width: 1px;
   background: rgba(0, 180, 255, 0.7);
   cursor: ew-resize;
