@@ -385,8 +385,8 @@ input[type="color"]::-webkit-color-swatch {
   position: fixed;
   top: 0;
   left: 0;
-  width: 25px;
-  height: 25px;
+  width: 20px;
+  height: 20px;
   background: rgba(30, 30, 30, 0.92);
   border-right: 1px solid rgba(100, 100, 100, 0.5);
   border-bottom: 1px solid rgba(100, 100, 100, 0.5);
@@ -404,8 +404,8 @@ input[type="color"]::-webkit-color-swatch {
 
 #ruler-corner::after {
   content: "";
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border: 1.5px solid rgba(0, 180, 255, 0.8);
   border-radius: 1px;
   display: block;
@@ -428,18 +428,18 @@ input[type="color"]::-webkit-color-swatch {
 
 #ruler-top {
   top: 0;
-  left: 25px;
-  height: 25px;
-  width: calc(100% - 25px);
+  left: 20px;
+  height: 20px;
+  width: calc(100% - 20px);
   border-bottom: 1px solid rgba(100, 100, 100, 0.5);
   cursor: s-resize;
 }
 
 #ruler-left {
-  top: 25px;
+  top: 20px;
   left: 0;
-  width: 25px;
-  height: calc(100% - 25px);
+  width: 20px;
+  height: calc(100% - 20px);
   border-right: 1px solid rgba(100, 100, 100, 0.5);
   cursor: e-resize;
 }
@@ -447,13 +447,13 @@ input[type="color"]::-webkit-color-swatch {
 /* Guide lines */
 .guide-line {
   position: fixed;
-  z-index: 15;
+  z-index: 9;
   pointer-events: none;
 }
 
 .guide-line.horizontal {
-  left: 0;
-  width: 100%;
+  left: 20px;
+  width: calc(100% - 20px);
   height: 1px;
   background: rgba(0, 180, 255, 0.7);
   cursor: ns-resize;
@@ -461,8 +461,8 @@ input[type="color"]::-webkit-color-swatch {
 }
 
 .guide-line.vertical {
-  top: 0;
-  height: 100%;
+  top: 20px;
+  height: calc(100% - 20px);
   width: 1px;
   background: rgba(0, 180, 255, 0.7);
   cursor: ew-resize;

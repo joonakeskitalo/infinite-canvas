@@ -4407,7 +4407,7 @@ const rulerLeft = document.getElementById("ruler-left");
 const rulerTopCtx = rulerTop.getContext("2d");
 const rulerLeftCtx = rulerLeft.getContext("2d");
 
-const RULER_SIZE = 25; // px
+const RULER_SIZE = 20; // px
 let guides = []; // {axis: 'x'|'y', position: number (world coords)}
 let guidesVisible = true; // toggle visibility of guide lines
 let draggingGuide = null; // {guide, axis}
@@ -4678,16 +4678,16 @@ window.addEventListener("mousemove", (e) => {
       previewEl = document.createElement("div");
       previewEl.id = "guide-preview";
       previewEl.style.position = "fixed";
-      previewEl.style.zIndex = "15";
+      previewEl.style.zIndex = "9";
       previewEl.style.pointerEvents = "none";
       if (axis === "y") {
-        previewEl.style.left = "0";
-        previewEl.style.width = "100%";
+        previewEl.style.left = RULER_SIZE + "px";
+        previewEl.style.width = `calc(100% - ${RULER_SIZE}px)`;
         previewEl.style.height = "1px";
         previewEl.style.background = "rgba(0, 180, 255, 0.5)";
       } else {
-        previewEl.style.top = "0";
-        previewEl.style.height = "100%";
+        previewEl.style.top = RULER_SIZE + "px";
+        previewEl.style.height = `calc(100% - ${RULER_SIZE}px)`;
         previewEl.style.width = "1px";
         previewEl.style.background = "rgba(0, 180, 255, 0.5)";
       }
