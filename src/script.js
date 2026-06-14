@@ -2867,6 +2867,29 @@ function _doRender(targetCtx = ctx, isExporting = false) {
       targetCtx.fillRect(m.x - mSize / 2, m.y - mSize / 2, mSize, mSize);
     });
 
+    // Draw half/quarter snap guides when shift is held during crop drag
+    if (cropDragEdge && isShiftPressed) {
+      targetCtx.strokeStyle = "rgba(255, 180, 0, 0.6)";
+      targetCtx.lineWidth = 1 / transform.zoom;
+      targetCtx.setLineDash([4 / transform.zoom, 4 / transform.zoom]);
+      const fracs = [0.25, 0.5, 0.75];
+      fracs.forEach((f) => {
+        // Vertical guide lines
+        const gx = full.x + f * full.w;
+        targetCtx.beginPath();
+        targetCtx.moveTo(gx, full.y);
+        targetCtx.lineTo(gx, full.y + full.h);
+        targetCtx.stroke();
+        // Horizontal guide lines
+        const gy = full.y + f * full.h;
+        targetCtx.beginPath();
+        targetCtx.moveTo(full.x, gy);
+        targetCtx.lineTo(full.x + full.w, gy);
+        targetCtx.stroke();
+      });
+      targetCtx.setLineDash([]);
+    }
+
     targetCtx.restore();
   }
 
@@ -4139,6 +4162,53 @@ container.addEventListener("mousemove", (e) => {
       const maxBottomExtend = imgBottom - (r.y + r.h);
       const moved = Math.max(-(r.h - minSize), Math.min(mdy, maxBottomExtend));
       newH = r.h + moved;
+    }
+
+    // Shift-snap: snap crop edges to half and quarter points of the full image
+    if (e.shiftKey) {
+      const snapThreshold = 10 / transform.zoom;
+      // Snap points at 0%, 25%, 50%, 75%, 100% of image dimensions
+      const xSnaps = [0, 0.25, 0.5, 0.75, 1].map(f => full.x + f * full.w);
+      const ySnaps = [0, 0.25, 0.5, 0.75, 1].map(f => full.y + f * full.h);
+
+      // Snap left edge (x)
+      if (cropDragEdge.includes("w")) {
+        for (const sx of xSnaps) {
+          if (Math.abs(newX - sx) < snapThreshold) {
+            newW += newX - sx;
+            newX = sx;
+            break;
+          }
+        }
+      }
+      // Snap right edge (x + w)
+      if (cropDragEdge.includes("e")) {
+        for (const sx of xSnaps) {
+          if (Math.abs((newX + newW) - sx) < snapThreshold) {
+            newW = sx - newX;
+            break;
+          }
+        }
+      }
+      // Snap top edge (y)
+      if (cropDragEdge.includes("n")) {
+        for (const sy of ySnaps) {
+          if (Math.abs(newY - sy) < snapThreshold) {
+            newH += newY - sy;
+            newY = sy;
+            break;
+          }
+        }
+      }
+      // Snap bottom edge (y + h)
+      if (cropDragEdge.includes("s")) {
+        for (const sy of ySnaps) {
+          if (Math.abs((newY + newH) - sy) < snapThreshold) {
+            newH = sy - newY;
+            break;
+          }
+        }
+      }
     }
 
     cropRect = { x: newX, y: newY, w: newW, h: newH };
