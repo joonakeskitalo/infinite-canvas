@@ -71,6 +71,13 @@ let swapSourceElement = null; // source element for the swap operation
 let swapDragWorldPos = null; // current world position during swap drag
 let swapTargetElement = null; // element under cursor during swap drag
 
+// --- CROP MODE STATE ---
+let cropMode = false; // true when in crop mode
+let cropTarget = null; // the image element being cropped
+let cropRect = null; // {x, y, w, h} in world coords — the crop region
+let cropDragEdge = null; // which edge/corner is being dragged: 'n','s','e','w','ne','nw','se','sw'
+let cropDragStart = null; // starting mouse world position for crop drag
+
 // --- COLOR FILTER SYSTEM ---
 let currentFilter = "none";
 
@@ -106,6 +113,102 @@ function getFilteredImage(imgData) {
   return offscreen;
 }
 
+// --- CROP MODE FUNCTIONS ---
+
+function enterCropMode(imgElement) {
+  cropMode = true;
+  cropTarget = imgElement;
+  // Initialize crop rect to the full image bounds (in world coords)
+  cropRect = { x: imgElement.x, y: imgElement.y, w: imgElement.w, h: imgElement.h };
+  selectedElements = [imgElement];
+  showToast("Crop mode — drag edges to crop, Enter to apply, Escape to cancel");
+}
+
+function exitCropMode(apply) {
+  if (!cropMode || !cropTarget) return;
+  if (apply && cropRect) {
+    // Convert crop rect from world coords to normalized fractions of the image's display area
+    const el = cropTarget;
+    // Current crop fraction (if already cropped, compose with existing crop)
+    const existingCrop = el.crop || { x: 0, y: 0, w: 1, h: 1 };
+
+    // Compute the fraction of the displayed area that was selected
+    const fracX = Math.max(0, Math.min(1, (cropRect.x - el.x) / el.w));
+    const fracY = Math.max(0, Math.min(1, (cropRect.y - el.y) / el.h));
+    const fracW = Math.max(0.01, Math.min(1 - fracX, cropRect.w / el.w));
+    const fracH = Math.max(0.01, Math.min(1 - fracY, cropRect.h / el.h));
+
+    // Compose with existing crop (nested crop)
+    const newCropX = existingCrop.x + fracX * existingCrop.w;
+    const newCropY = existingCrop.y + fracY * existingCrop.h;
+    const newCropW = fracW * existingCrop.w;
+    const newCropH = fracH * existingCrop.h;
+
+    // Only apply if the crop actually changed something
+    if (fracX > 0.001 || fracY > 0.001 || fracW < 0.999 || fracH < 0.999) {
+      pushUndo();
+      el.crop = { x: newCropX, y: newCropY, w: newCropW, h: newCropH };
+
+      // Update the element's display position/size to match the crop rect
+      el.x = cropRect.x;
+      el.y = cropRect.y;
+      el.w = cropRect.w;
+      el.h = cropRect.h;
+
+      showToast("Crop applied");
+      scheduleSave();
+    }
+  }
+  cropMode = false;
+  cropTarget = null;
+  cropRect = null;
+  cropDragEdge = null;
+  cropDragStart = null;
+  render();
+}
+
+function getCropEdgeAtPoint(worldPos) {
+  if (!cropRect) return null;
+  const threshold = 8 / transform.zoom;
+  const r = cropRect;
+  const left = r.x;
+  const right = r.x + r.w;
+  const top = r.y;
+  const bottom = r.y + r.h;
+
+  const nearLeft = Math.abs(worldPos.x - left) < threshold;
+  const nearRight = Math.abs(worldPos.x - right) < threshold;
+  const nearTop = Math.abs(worldPos.y - top) < threshold;
+  const nearBottom = Math.abs(worldPos.y - bottom) < threshold;
+
+  const withinX = worldPos.x >= left - threshold && worldPos.x <= right + threshold;
+  const withinY = worldPos.y >= top - threshold && worldPos.y <= bottom + threshold;
+
+  // Corners first (higher priority)
+  if (nearLeft && nearTop) return "nw";
+  if (nearRight && nearTop) return "ne";
+  if (nearLeft && nearBottom) return "sw";
+  if (nearRight && nearBottom) return "se";
+
+  // Edges
+  if (nearTop && withinX) return "n";
+  if (nearBottom && withinX) return "s";
+  if (nearLeft && withinY) return "w";
+  if (nearRight && withinY) return "e";
+
+  return null;
+}
+
+function getCropCursor(edge) {
+  switch (edge) {
+    case "n": case "s": return "ns-resize";
+    case "e": case "w": return "ew-resize";
+    case "nw": case "se": return "nwse-resize";
+    case "ne": case "sw": return "nesw-resize";
+    default: return "crosshair";
+  }
+}
+
 // --- UNDO / REDO SYSTEM ---
 const MAX_HISTORY = 50;
 let undoStack = [];
@@ -121,7 +224,7 @@ function captureState() {
 
 function serializeElement(el) {
   if (el.elementType === "image") {
-    return {
+    const serialized = {
       id: el.id,
       elementType: "image",
       img: el.img,
@@ -132,6 +235,8 @@ function serializeElement(el) {
       groupId: el.groupId || null,
       opacity: el.opacity != null ? el.opacity : 1,
     };
+    if (el.crop) serialized.crop = { ...el.crop };
+    return serialized;
   }
   const clone = {
     id: el.id,
@@ -182,6 +287,7 @@ function pushUndo() {
 
 function undo() {
   if (undoStack.length === 0) return;
+  if (cropMode) { cropMode = false; cropTarget = null; cropRect = null; cropDragEdge = null; cropDragStart = null; }
   redoStack.push(captureState());
   const state = undoStack.pop();
   restoreState(state);
@@ -192,6 +298,7 @@ function undo() {
 
 function redo() {
   if (redoStack.length === 0) return;
+  if (cropMode) { cropMode = false; cropTarget = null; cropRect = null; cropDragEdge = null; cropDragStart = null; }
   undoStack.push(captureState());
   const state = redoStack.pop();
   restoreState(state);
@@ -268,6 +375,7 @@ async function buildZipBlob() {
       h: el.h,
       groupId: el.groupId || null,
       opacity: el.opacity != null ? el.opacity : 1,
+      crop: el.crop || null,
     });
   }
 
@@ -376,7 +484,7 @@ async function restoreFromZip(arrayBuf) {
       return new Promise((resolve) => {
         const img = new Image();
         img.onload = () => {
-          resolve({
+          const restored = {
             id: data.id,
             elementType: "image",
             img: img,
@@ -386,7 +494,9 @@ async function restoreFromZip(arrayBuf) {
             h: data.h,
             groupId: data.groupId || null,
             opacity: data.opacity != null ? data.opacity : 1,
-          });
+          };
+          if (data.crop) restored.crop = { ...data.crop };
+          resolve(restored);
         };
         img.onerror = () => resolve(null);
         img.src = dataURL;
@@ -648,6 +758,7 @@ buttons.forEach((btn) => {
     const targetBtn = e.target.closest(".tool-btn");
     if (!targetBtn.dataset.tool) return; // Skip non-tool buttons (undo, redo, group, ungroup)
     if (ghostInput.style.display === "block") bakeText();
+    if (cropMode) exitCropMode(false);
     currentTool = targetBtn.dataset.tool;
     if (currentTool !== "select") selectedElements = [];
     if (currentTool !== "select") { swapHoveredElement = null; isSwapDragging = false; swapSourceElement = null; swapDragWorldPos = null; swapTargetElement = null; }
@@ -933,6 +1044,7 @@ window.addEventListener("mousemove", (e) => {
   if (
     currentTool === "select" &&
     !isInteracting &&
+    !cropMode &&
     selectedElements.length === 1
   ) {
     const el = selectedElements[0];
@@ -1082,6 +1194,23 @@ window.addEventListener("keydown", (e) => {
     e.target.tagName === "TEXTAREA"
   )
     return;
+
+  // Crop mode keyboard shortcuts
+  if (cropMode) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      exitCropMode(true);
+      return;
+    }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      exitCropMode(false);
+      return;
+    }
+    // Block other keys while in crop mode
+    return;
+  }
+
   const key = e.key.toLowerCase();
   if (e.key === "+" || e.key === "=") {
     e.preventDefault();
@@ -2470,9 +2599,22 @@ function render(targetCtx = ctx, isExporting = false) {
       !isExporting && currentFilter !== "none"
         ? getFilteredImage(imgData)
         : imgData.img;
-    targetCtx.drawImage(drawSrc, imgData.x, imgData.y, imgData.w, imgData.h);
+    // If the image has crop data, draw only the cropped portion
+    if (imgData.crop) {
+      const c = imgData.crop;
+      const natW = imgData.img.naturalWidth || imgData.img.width;
+      const natH = imgData.img.naturalHeight || imgData.img.height;
+      // crop is stored as fractions [0..1]
+      const sx = c.x * natW;
+      const sy = c.y * natH;
+      const sw = c.w * natW;
+      const sh = c.h * natH;
+      targetCtx.drawImage(drawSrc, sx, sy, sw, sh, imgData.x, imgData.y, imgData.w, imgData.h);
+    } else {
+      targetCtx.drawImage(drawSrc, imgData.x, imgData.y, imgData.w, imgData.h);
+    }
     targetCtx.restore();
-    if (!isExporting && currentTool === "select") {
+    if (!isExporting && currentTool === "select" && !(cropMode && cropTarget && cropTarget.id === imgData.id)) {
       const isSelected = selectedElements.some((el) => el.id === imgData.id);
       const isGrouped = !!imgData.groupId;
       targetCtx.save();
@@ -2498,6 +2640,84 @@ function render(targetCtx = ctx, isExporting = false) {
       targetCtx.restore();
     }
   });
+
+  // 1.5 Render crop mode overlay
+  if (!isExporting && cropMode && cropTarget && cropRect) {
+    targetCtx.save();
+    const el = cropTarget;
+    // Dark overlay on the portions outside the crop rect
+    targetCtx.fillStyle = "rgba(0, 0, 0, 0.5)";
+    // Top strip
+    targetCtx.fillRect(el.x, el.y, el.w, cropRect.y - el.y);
+    // Bottom strip
+    targetCtx.fillRect(el.x, cropRect.y + cropRect.h, el.w, (el.y + el.h) - (cropRect.y + cropRect.h));
+    // Left strip
+    targetCtx.fillRect(el.x, cropRect.y, cropRect.x - el.x, cropRect.h);
+    // Right strip
+    targetCtx.fillRect(cropRect.x + cropRect.w, cropRect.y, (el.x + el.w) - (cropRect.x + cropRect.w), cropRect.h);
+
+    // Draw crop border (double stroke for contrast on any background)
+    targetCtx.strokeStyle = "rgba(0, 0, 0, 0.6)";
+    targetCtx.lineWidth = 3 / transform.zoom;
+    targetCtx.setLineDash([]);
+    targetCtx.strokeRect(cropRect.x, cropRect.y, cropRect.w, cropRect.h);
+    targetCtx.strokeStyle = "#00bfff";
+    targetCtx.lineWidth = 1.5 / transform.zoom;
+    targetCtx.strokeRect(cropRect.x, cropRect.y, cropRect.w, cropRect.h);
+
+    // Draw rule-of-thirds grid lines
+    targetCtx.strokeStyle = "rgba(0, 191, 255, 0.5)";
+    targetCtx.lineWidth = 1 / transform.zoom;
+    for (let i = 1; i <= 2; i++) {
+      // Vertical lines
+      const vx = cropRect.x + (cropRect.w * i) / 3;
+      targetCtx.beginPath();
+      targetCtx.moveTo(vx, cropRect.y);
+      targetCtx.lineTo(vx, cropRect.y + cropRect.h);
+      targetCtx.stroke();
+      // Horizontal lines
+      const hy = cropRect.y + (cropRect.h * i) / 3;
+      targetCtx.beginPath();
+      targetCtx.moveTo(cropRect.x, hy);
+      targetCtx.lineTo(cropRect.x + cropRect.w, hy);
+      targetCtx.stroke();
+    }
+
+    // Draw corner handles for the crop rect
+    const hSize = 10 / transform.zoom;
+    const hThick = 3 / transform.zoom;
+    targetCtx.strokeStyle = "#00bfff";
+    targetCtx.lineWidth = hThick;
+    targetCtx.setLineDash([]);
+    const corners = [
+      { x: cropRect.x, y: cropRect.y, dx: 1, dy: 1 },
+      { x: cropRect.x + cropRect.w, y: cropRect.y, dx: -1, dy: 1 },
+      { x: cropRect.x, y: cropRect.y + cropRect.h, dx: 1, dy: -1 },
+      { x: cropRect.x + cropRect.w, y: cropRect.y + cropRect.h, dx: -1, dy: -1 },
+    ];
+    corners.forEach((c) => {
+      targetCtx.beginPath();
+      targetCtx.moveTo(c.x, c.y + c.dy * hSize);
+      targetCtx.lineTo(c.x, c.y);
+      targetCtx.lineTo(c.x + c.dx * hSize, c.y);
+      targetCtx.stroke();
+    });
+
+    // Draw edge midpoint handles
+    const midpoints = [
+      { x: cropRect.x + cropRect.w / 2, y: cropRect.y }, // top
+      { x: cropRect.x + cropRect.w / 2, y: cropRect.y + cropRect.h }, // bottom
+      { x: cropRect.x, y: cropRect.y + cropRect.h / 2 }, // left
+      { x: cropRect.x + cropRect.w, y: cropRect.y + cropRect.h / 2 }, // right
+    ];
+    targetCtx.fillStyle = "#00bfff";
+    const mSize = 4 / transform.zoom;
+    midpoints.forEach((m) => {
+      targetCtx.fillRect(m.x - mSize / 2, m.y - mSize / 2, mSize, mSize);
+    });
+
+    targetCtx.restore();
+  }
 
   // 2. Render Vector Graphics & Text elements
   drawings.forEach((shape) => {
@@ -3320,6 +3540,31 @@ container.addEventListener("mousedown", (e) => {
 
   let worldPos = screenToWorld(e.clientX, e.clientY);
 
+  // --- Crop mode interaction ---
+  if (cropMode && cropTarget && cropRect) {
+    // Check if clicking outside the image bounds exits crop mode
+    if (
+      worldPos.x < cropTarget.x - 20 / transform.zoom ||
+      worldPos.x > cropTarget.x + cropTarget.w + 20 / transform.zoom ||
+      worldPos.y < cropTarget.y - 20 / transform.zoom ||
+      worldPos.y > cropTarget.y + cropTarget.h + 20 / transform.zoom
+    ) {
+      exitCropMode(false);
+      isInteracting = false;
+      return;
+    }
+    const edge = getCropEdgeAtPoint(worldPos);
+    if (edge) {
+      cropDragEdge = edge;
+      cropDragStart = { ...worldPos, rect: { ...cropRect } };
+      isInteracting = true;
+      return;
+    }
+    // Click inside crop rect but not on edge — do nothing (allow repositioning later if needed)
+    isInteracting = false;
+    return;
+  }
+
   if (isMiddleClick || isRightClickHand || currentTool === "pan") {
     updateCursor();
     return;
@@ -3564,6 +3809,12 @@ container.addEventListener("mousedown", (e) => {
 
 // Double-click to edit existing text elements
 container.addEventListener("dblclick", (e) => {
+  // If in crop mode, double-click applies the crop
+  if (cropMode) {
+    exitCropMode(true);
+    return;
+  }
+
   if (currentTool !== "select") return; // Only allow editing in Select Mode
 
   const worldPos = screenToWorld(e.clientX, e.clientY);
@@ -3604,6 +3855,21 @@ container.addEventListener("dblclick", (e) => {
         if (ob.end) el.end = { ...ob.end };
       }
       showToast("Restored to original size");
+      render();
+      return;
+    }
+  }
+
+  // Check if we double-clicked an image to enter crop mode
+  for (let i = images.length - 1; i >= 0; i--) {
+    const img = images[i];
+    if (
+      worldPos.x >= img.x &&
+      worldPos.x <= img.x + img.w &&
+      worldPos.y >= img.y &&
+      worldPos.y <= img.y + img.h
+    ) {
+      enterCropMode(img);
       render();
       return;
     }
@@ -3657,6 +3923,14 @@ container.addEventListener("dblclick", (e) => {
 });
 
 container.addEventListener("mousemove", (e) => {
+  // Crop mode: update cursor based on edge proximity even when not dragging
+  if (cropMode && cropTarget && cropRect && !isInteracting) {
+    const worldPos = screenToWorld(e.clientX, e.clientY);
+    const edge = getCropEdgeAtPoint(worldPos);
+    container.style.cursor = edge ? getCropCursor(edge) : "default";
+    return;
+  }
+
   if (!isInteracting) return;
 
   // Sync shift state from the live event to avoid stale keydown/keyup tracking
@@ -3665,6 +3939,48 @@ container.addEventListener("mousemove", (e) => {
   let dx = e.clientX - startX;
   let dy = e.clientY - startY;
   let worldPos = screenToWorld(e.clientX, e.clientY);
+
+  // --- Crop drag handling ---
+  if (cropMode && cropDragEdge && cropDragStart && cropTarget) {
+    const r = cropDragStart.rect;
+    const mdx = worldPos.x - cropDragStart.x;
+    const mdy = worldPos.y - cropDragStart.y;
+    const minSize = 20 / transform.zoom;
+    const imgLeft = cropTarget.x;
+    const imgTop = cropTarget.y;
+    const imgRight = cropTarget.x + cropTarget.w;
+    const imgBottom = cropTarget.y + cropTarget.h;
+
+    let newX = r.x, newY = r.y, newW = r.w, newH = r.h;
+
+    // Apply edge/corner drag
+    if (cropDragEdge.includes("w")) {
+      const maxLeftMove = r.x - imgLeft;
+      const moved = Math.max(-maxLeftMove, Math.min(mdx, r.w - minSize));
+      newX = r.x + moved;
+      newW = r.w - moved;
+    }
+    if (cropDragEdge.includes("e")) {
+      const maxRightExtend = imgRight - (r.x + r.w);
+      const moved = Math.max(-(r.w - minSize), Math.min(mdx, maxRightExtend));
+      newW = r.w + moved;
+    }
+    if (cropDragEdge.includes("n")) {
+      const maxTopMove = r.y - imgTop;
+      const moved = Math.max(-maxTopMove, Math.min(mdy, r.h - minSize));
+      newY = r.y + moved;
+      newH = r.h - moved;
+    }
+    if (cropDragEdge.includes("s")) {
+      const maxBottomExtend = imgBottom - (r.y + r.h);
+      const moved = Math.max(-(r.h - minSize), Math.min(mdy, maxBottomExtend));
+      newH = r.h + moved;
+    }
+
+    cropRect = { x: newX, y: newY, w: newW, h: newH };
+    render();
+    return;
+  }
 
   if (isMiddleClick || isRightClickHand || currentTool === "pan") {
     if (e.shiftKey) {
@@ -4042,6 +4358,14 @@ container.addEventListener("mouseup", (e) => {
   activeSnapGuides = [];
   activeProximityGuides = [];
   activeSpacingGuides = [];
+
+  // End crop drag
+  if (cropMode && cropDragEdge) {
+    cropDragEdge = null;
+    cropDragStart = null;
+    render();
+    return;
+  }
 
   if (currentTool === "measure" && activeMeasureLine) {
     const dx = activeMeasureLine.end.x - activeMeasureLine.start.x;
@@ -4907,13 +5231,24 @@ async function executePNGExport(scaleFactor = 1.0) {
   exportImages.forEach((imgData) => {
     imgLayerCtx.save();
     imgLayerCtx.globalAlpha = imgData.opacity != null ? imgData.opacity : 1;
-    imgLayerCtx.drawImage(
-      imgData.img,
-      imgData.x,
-      imgData.y,
-      imgData.w,
-      imgData.h,
-    );
+    if (imgData.crop) {
+      const c = imgData.crop;
+      const natW = imgData.img.naturalWidth || imgData.img.width;
+      const natH = imgData.img.naturalHeight || imgData.img.height;
+      const sx = c.x * natW;
+      const sy = c.y * natH;
+      const sw = c.w * natW;
+      const sh = c.h * natH;
+      imgLayerCtx.drawImage(imgData.img, sx, sy, sw, sh, imgData.x, imgData.y, imgData.w, imgData.h);
+    } else {
+      imgLayerCtx.drawImage(
+        imgData.img,
+        imgData.x,
+        imgData.y,
+        imgData.w,
+        imgData.h,
+      );
+    }
     imgLayerCtx.restore();
   });
   imgLayerCtx.restore();
