@@ -64,6 +64,13 @@ let internalCopyPerformed = false; // true when last copy was from canvas select
 let measureHoverGuides = []; // distance guides shown on hover when measure tool active
 let activeMeasureLine = null; // live measurement line while dragging
 
+// --- SWAP TOOL STATE ---
+let swapHoveredElement = null; // element currently hovered that is also selected
+let isSwapDragging = false; // true while dragging from swap handle
+let swapSourceElement = null; // source element for the swap operation
+let swapDragWorldPos = null; // current world position during swap drag
+let swapTargetElement = null; // element under cursor during swap drag
+
 // --- COLOR FILTER SYSTEM ---
 let currentFilter = "none";
 
@@ -643,6 +650,7 @@ buttons.forEach((btn) => {
     if (ghostInput.style.display === "block") bakeText();
     currentTool = targetBtn.dataset.tool;
     if (currentTool !== "select") selectedElements = [];
+    if (currentTool !== "select") { swapHoveredElement = null; isSwapDragging = false; swapSourceElement = null; swapDragWorldPos = null; swapTargetElement = null; }
     if (currentTool !== "measure") { measureHoverGuides = []; activeMeasureLine = null; }
     updateToolbarUI();
     updateCursor();
@@ -899,6 +907,21 @@ window.addEventListener("mousemove", (e) => {
   lastMousePos.x = e.clientX;
   lastMousePos.y = e.clientY;
 
+  // Handle swap drag in progress
+  if (isSwapDragging) {
+    const mouseWorld = screenToWorld(e.clientX, e.clientY);
+    swapDragWorldPos = mouseWorld;
+    // Find what element is under the cursor (excluding the source)
+    swapTargetElement = getElementAtWorldPos(mouseWorld, swapSourceElement);
+    // Highlight only if target is also in the selection
+    if (swapTargetElement && !selectedElements.some((el) => el.id === swapTargetElement.id)) {
+      swapTargetElement = null;
+    }
+    container.style.cursor = "grabbing";
+    render();
+    return;
+  }
+
   // Measure tool: show distances to nearby items on hover
   if (currentTool === "measure" && !isInteracting) {
     const mouseWorld = screenToWorld(e.clientX, e.clientY);
@@ -945,6 +968,50 @@ window.addEventListener("mousemove", (e) => {
 
     if (!handleHit) container.style.cursor = "default";
     if (handleHit) return;
+  }
+
+  // Handle swap handle hover detection for selected elements (multi-select)
+  if (
+    currentTool === "select" &&
+    !isInteracting &&
+    !isSwapDragging &&
+    selectedElements.length >= 2
+  ) {
+    const mouseWorld = screenToWorld(e.clientX, e.clientY);
+    let newHovered = null;
+
+    // Check if cursor is over any selected element
+    for (let i = selectedElements.length - 1; i >= 0; i--) {
+      const el = selectedElements[i];
+      let isOver = false;
+      if (el.elementType === "image") {
+        isOver =
+          mouseWorld.x >= el.x &&
+          mouseWorld.x <= el.x + el.w &&
+          mouseWorld.y >= el.y &&
+          mouseWorld.y <= el.y + el.h;
+      } else {
+        isOver = isPointHittingShape(mouseWorld, el);
+      }
+      if (isOver) {
+        newHovered = el;
+        break;
+      }
+    }
+
+    if (newHovered !== swapHoveredElement) {
+      swapHoveredElement = newHovered;
+      render();
+    }
+
+    // Show grab cursor when hovering the swap handle
+    if (swapHoveredElement && isPointOnSwapHandle(mouseWorld, swapHoveredElement)) {
+      container.style.cursor = "grab";
+      return;
+    }
+  } else if (!isSwapDragging && swapHoveredElement) {
+    swapHoveredElement = null;
+    render();
   }
 });
 
@@ -1290,6 +1357,78 @@ function getElementResizeHandles(el) {
     { x: b.x, y: b.y + b.h, cursor: "nesw-resize", position: "bl" },
     { x: b.x + b.w, y: b.y + b.h, cursor: "nwse-resize", position: "br" },
   ];
+}
+
+// --- SWAP HANDLE HELPERS ---
+
+function getElementCenter(el) {
+  if (el.elementType === "image") {
+    return { x: el.x + el.w / 2, y: el.y + el.h / 2 };
+  }
+  const b = getShapeBounds(el);
+  return { x: b.x + b.w / 2, y: b.y + b.h / 2 };
+}
+
+function getSwapHandleRadius() {
+  return 14 / transform.zoom;
+}
+
+function isPointOnSwapHandle(worldPos, element) {
+  const center = getElementCenter(element);
+  const radius = getSwapHandleRadius();
+  const dx = worldPos.x - center.x;
+  const dy = worldPos.y - center.y;
+  return dx * dx + dy * dy <= radius * radius;
+}
+
+function getElementAtWorldPos(worldPos, excludeElement) {
+  // Check drawings (top to bottom in rendering order)
+  for (let i = drawings.length - 1; i >= 0; i--) {
+    if (excludeElement && drawings[i].id === excludeElement.id) continue;
+    if (isPointHittingShape(worldPos, drawings[i])) {
+      return drawings[i];
+    }
+  }
+  // Check images
+  for (let i = images.length - 1; i >= 0; i--) {
+    if (excludeElement && images[i].id === excludeElement.id) continue;
+    const img = images[i];
+    if (
+      worldPos.x >= img.x &&
+      worldPos.x <= img.x + img.w &&
+      worldPos.y >= img.y &&
+      worldPos.y <= img.y + img.h
+    ) {
+      return img;
+    }
+  }
+  return null;
+}
+
+function swapElementPositions(elA, elB) {
+  pushUndo();
+
+  // Get centers of both elements
+  const boundsA = elA.elementType === "image"
+    ? { x: elA.x, y: elA.y, w: elA.w, h: elA.h }
+    : getShapeBounds(elA);
+  const boundsB = elB.elementType === "image"
+    ? { x: elB.x, y: elB.y, w: elB.w, h: elB.h }
+    : getShapeBounds(elB);
+
+  const centerA = { x: boundsA.x + boundsA.w / 2, y: boundsA.y + boundsA.h / 2 };
+  const centerB = { x: boundsB.x + boundsB.w / 2, y: boundsB.y + boundsB.h / 2 };
+
+  // Calculate shift needed: move A to where B's center is, and vice versa
+  const shiftAtoB = { x: centerB.x - centerA.x, y: centerB.y - centerA.y };
+  const shiftBtoA = { x: centerA.x - centerB.x, y: centerA.y - centerB.y };
+
+  translateElement(elA, shiftAtoB.x, shiftAtoB.y);
+  translateElement(elB, shiftBtoA.x, shiftBtoA.y);
+
+  render();
+  scheduleSave();
+  showToast("Swapped positions");
 }
 
 function handleImageFile(file, worldX, worldY) {
@@ -2625,6 +2764,106 @@ function render(targetCtx = ctx, isExporting = false) {
     targetCtx.restore();
   }
 
+  // 4.5 Draw swap handle and swap drag line
+  if (!isExporting && currentTool === "select" && selectedElements.length >= 2) {
+    targetCtx.save();
+    targetCtx.translate(transform.x, transform.y);
+    targetCtx.scale(transform.zoom, transform.zoom);
+
+    const radius = getSwapHandleRadius();
+
+    // Draw swap handle on hovered selected element
+    if (swapHoveredElement && !isSwapDragging) {
+      const center = getElementCenter(swapHoveredElement);
+      // Draw circular handle background
+      targetCtx.beginPath();
+      targetCtx.arc(center.x, center.y, radius, 0, Math.PI * 2);
+      targetCtx.fillStyle = "rgba(100, 100, 255, 0.85)";
+      targetCtx.fill();
+      targetCtx.strokeStyle = "#fff";
+      targetCtx.lineWidth = 2 / transform.zoom;
+      targetCtx.stroke();
+
+      // Draw swap icon (two arrows)
+      const iconSize = radius * 0.55;
+      targetCtx.strokeStyle = "#fff";
+      targetCtx.lineWidth = 1.8 / transform.zoom;
+      targetCtx.lineCap = "round";
+      targetCtx.lineJoin = "round";
+      // Arrow pointing right
+      targetCtx.beginPath();
+      targetCtx.moveTo(center.x - iconSize, center.y - iconSize * 0.35);
+      targetCtx.lineTo(center.x + iconSize * 0.5, center.y - iconSize * 0.35);
+      targetCtx.lineTo(center.x + iconSize * 0.1, center.y - iconSize * 0.75);
+      targetCtx.stroke();
+      // Arrow pointing left
+      targetCtx.beginPath();
+      targetCtx.moveTo(center.x + iconSize, center.y + iconSize * 0.35);
+      targetCtx.lineTo(center.x - iconSize * 0.5, center.y + iconSize * 0.35);
+      targetCtx.lineTo(center.x - iconSize * 0.1, center.y + iconSize * 0.75);
+      targetCtx.stroke();
+    }
+
+    // Draw swap drag line and target highlight
+    if (isSwapDragging && swapSourceElement && swapDragWorldPos) {
+      const sourceCenter = getElementCenter(swapSourceElement);
+
+      // Draw source element highlight
+      targetCtx.beginPath();
+      targetCtx.arc(sourceCenter.x, sourceCenter.y, radius, 0, Math.PI * 2);
+      targetCtx.fillStyle = "rgba(100, 100, 255, 0.9)";
+      targetCtx.fill();
+      targetCtx.strokeStyle = "#fff";
+      targetCtx.lineWidth = 2 / transform.zoom;
+      targetCtx.stroke();
+
+      // Draw drag line from source center to cursor
+      targetCtx.beginPath();
+      targetCtx.moveTo(sourceCenter.x, sourceCenter.y);
+      targetCtx.lineTo(swapDragWorldPos.x, swapDragWorldPos.y);
+      targetCtx.strokeStyle = "rgba(100, 100, 255, 0.6)";
+      targetCtx.lineWidth = 2.5 / transform.zoom;
+      targetCtx.setLineDash([6 / transform.zoom, 4 / transform.zoom]);
+      targetCtx.stroke();
+      targetCtx.setLineDash([]);
+
+      // Highlight target element if hovering over one
+      if (swapTargetElement) {
+        const targetBounds = swapTargetElement.elementType === "image"
+          ? { x: swapTargetElement.x, y: swapTargetElement.y, w: swapTargetElement.w, h: swapTargetElement.h }
+          : getShapeBounds(swapTargetElement);
+        targetCtx.strokeStyle = "rgba(100, 100, 255, 0.8)";
+        targetCtx.lineWidth = 3 / transform.zoom;
+        targetCtx.setLineDash([]);
+        targetCtx.strokeRect(targetBounds.x - 4, targetBounds.y - 4, targetBounds.w + 8, targetBounds.h + 8);
+
+        // Draw swap icon on target center
+        const targetCenter = getElementCenter(swapTargetElement);
+        targetCtx.beginPath();
+        targetCtx.arc(targetCenter.x, targetCenter.y, radius, 0, Math.PI * 2);
+        targetCtx.fillStyle = "rgba(80, 200, 80, 0.85)";
+        targetCtx.fill();
+        targetCtx.strokeStyle = "#fff";
+        targetCtx.lineWidth = 2 / transform.zoom;
+        targetCtx.stroke();
+
+        // Checkmark on target
+        const checkSize = radius * 0.5;
+        targetCtx.beginPath();
+        targetCtx.moveTo(targetCenter.x - checkSize * 0.5, targetCenter.y);
+        targetCtx.lineTo(targetCenter.x - checkSize * 0.1, targetCenter.y + checkSize * 0.4);
+        targetCtx.lineTo(targetCenter.x + checkSize * 0.5, targetCenter.y - checkSize * 0.4);
+        targetCtx.strokeStyle = "#fff";
+        targetCtx.lineWidth = 2 / transform.zoom;
+        targetCtx.lineCap = "round";
+        targetCtx.lineJoin = "round";
+        targetCtx.stroke();
+      }
+    }
+
+    targetCtx.restore();
+  }
+
   // 4. Draw measurement tool overlays
   if (!isExporting && currentTool === "measure") {
     targetCtx.save();
@@ -3144,6 +3383,21 @@ container.addEventListener("mousedown", (e) => {
   }
 
   if (currentTool === "select") {
+    // 0. Check swap handle hit (multi-select only)
+    if (
+      selectedElements.length >= 2 &&
+      swapHoveredElement &&
+      isPointOnSwapHandle(worldPos, swapHoveredElement)
+    ) {
+      isSwapDragging = true;
+      swapSourceElement = swapHoveredElement;
+      swapDragWorldPos = { ...worldPos };
+      swapTargetElement = null;
+      container.style.cursor = "grabbing";
+      isInteracting = false; // Don't trigger normal drag
+      return;
+    }
+
     // 1. Check resize handle hits first
     if (selectedElements.length === 1) {
       const el = selectedElements[0];
@@ -5107,6 +5361,21 @@ window.addEventListener("mousemove", (e) => {
 });
 
 window.addEventListener("mouseup", (e) => {
+  // Complete swap drag operation
+  if (isSwapDragging) {
+    if (swapTargetElement && swapSourceElement && swapTargetElement.id !== swapSourceElement.id) {
+      swapElementPositions(swapSourceElement, swapTargetElement);
+    }
+    isSwapDragging = false;
+    swapSourceElement = null;
+    swapDragWorldPos = null;
+    swapTargetElement = null;
+    swapHoveredElement = null;
+    container.style.cursor = "default";
+    render();
+    return;
+  }
+
   if (draggingNewGuide) {
     const axis = draggingNewGuide.axis;
     // Remove preview
