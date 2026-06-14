@@ -128,6 +128,13 @@ input[type="color"]::-webkit-color-swatch {
   border-color: #0098ff;
 }
 
+#toggle-rulers-btn.active {
+  background: rgba(0, 122, 204, 0.15);
+  color: #4fc3f7;
+  border-color: transparent;
+  border-bottom: 2px solid #4fc3f7;
+}
+
 .separator {
   width: 1px;
   height: 24px;
