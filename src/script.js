@@ -1040,6 +1040,29 @@ window.addEventListener("keydown", (e) => {
     return;
   }
 
+  // Arrow keys to move selected elements
+  if (
+    (e.key === "ArrowUp" ||
+      e.key === "ArrowDown" ||
+      e.key === "ArrowLeft" ||
+      e.key === "ArrowRight") &&
+    currentTool === "select" &&
+    selectedElements.length > 0
+  ) {
+    e.preventDefault();
+    const step = e.altKey ? 500 : e.metaKey || e.ctrlKey ? 100 : e.shiftKey ? 10 : 1;
+    let dx = 0;
+    let dy = 0;
+    if (e.key === "ArrowUp") dy = -step;
+    if (e.key === "ArrowDown") dy = step;
+    if (e.key === "ArrowLeft") dx = -step;
+    if (e.key === "ArrowRight") dx = step;
+    pushUndo();
+    selectedElements.forEach((el) => translateElement(el, dx, dy));
+    render();
+    return;
+  }
+
   let targetTool = null;
   if (e.metaKey || e.ctrlKey) return; // Let modifier combos be handled elsewhere
   if (key === "r" && e.shiftKey) {
