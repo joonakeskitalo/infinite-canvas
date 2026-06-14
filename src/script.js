@@ -2704,7 +2704,48 @@ function computeMeasureHoverGuides(worldPos) {
     }
   }
 
-  if (!hoveredBounds) return guides;
+  if (!hoveredBounds) {
+    // Not hovering over an item: show cursor-to-edge distances to nearby elements
+    for (const bounds of allBounds) {
+      const left = bounds.x;
+      const right = bounds.x + bounds.w;
+      const top = bounds.y;
+      const bottom = bounds.y + bounds.h;
+
+      // Horizontal distance (cursor vertically overlaps element)
+      if (worldPos.y >= top && worldPos.y <= bottom) {
+        if (worldPos.x < left) {
+          const dist = left - worldPos.x;
+          if (dist < MAX_DIST) {
+            guides.push({ fromX: worldPos.x, fromY: worldPos.y, toX: left, toY: worldPos.y, dist });
+          }
+        } else if (worldPos.x > right) {
+          const dist = worldPos.x - right;
+          if (dist < MAX_DIST) {
+            guides.push({ fromX: worldPos.x, fromY: worldPos.y, toX: right, toY: worldPos.y, dist });
+          }
+        }
+      }
+
+      // Vertical distance (cursor horizontally overlaps element)
+      if (worldPos.x >= left && worldPos.x <= right) {
+        if (worldPos.y < top) {
+          const dist = top - worldPos.y;
+          if (dist < MAX_DIST) {
+            guides.push({ fromX: worldPos.x, fromY: worldPos.y, toX: worldPos.x, toY: top, dist });
+          }
+        } else if (worldPos.y > bottom) {
+          const dist = worldPos.y - bottom;
+          if (dist < MAX_DIST) {
+            guides.push({ fromX: worldPos.x, fromY: worldPos.y, toX: worldPos.x, toY: bottom, dist });
+          }
+        }
+      }
+    }
+
+    guides.sort((a, b) => a.dist - b.dist);
+    return guides.slice(0, MAX_GUIDES);
+  }
 
   const myLeft = hoveredBounds.x;
   const myRight = hoveredBounds.x + hoveredBounds.w;
