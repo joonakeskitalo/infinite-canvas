@@ -520,6 +520,7 @@ window.addEventListener("resize", resize);
 
 function updateToolbarUI() {
   buttons.forEach((b) => {
+    if (!b.dataset.tool) return; // Skip non-tool buttons (e.g. ruler toggle)
     if (b.dataset.tool === currentTool) b.classList.add("active");
     else b.classList.remove("active");
   });
