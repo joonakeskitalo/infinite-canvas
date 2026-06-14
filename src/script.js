@@ -4392,4 +4392,263 @@ downloadImagesBtn.addEventListener("click", () => {
   showToast(`Downloading ${images.length} asset files${filterLabel}...`);
 });
 
+// --- RULERS & GUIDE LINES ---
+const rulerTop = document.getElementById("ruler-top");
+const rulerLeft = document.getElementById("ruler-left");
+const rulerTopCtx = rulerTop.getContext("2d");
+const rulerLeftCtx = rulerLeft.getContext("2d");
+
+const RULER_SIZE = 25; // px
+let guides = []; // {axis: 'x'|'y', position: number (world coords)}
+let draggingGuide = null; // {guide, axis}
+let draggingNewGuide = null; // {axis: 'x'|'y'} when pulling from ruler
+
+function resizeRulers() {
+  rulerTop.width = window.innerWidth - RULER_SIZE;
+  rulerTop.height = RULER_SIZE;
+  rulerLeft.width = RULER_SIZE;
+  rulerLeft.height = window.innerHeight - RULER_SIZE;
+}
+
+function renderRulers() {
+  // --- Top Ruler ---
+  const topW = rulerTop.width;
+  const topH = rulerTop.height;
+  rulerTopCtx.clearRect(0, 0, topW, topH);
+  rulerTopCtx.fillStyle = "#1e1e1e";
+  rulerTopCtx.fillRect(0, 0, topW, topH);
+
+  // Calculate world-space tick spacing based on zoom
+  const baseStep = getTickStep(transform.zoom);
+  const startWorldX = (0 - RULER_SIZE - transform.x) / transform.zoom;
+  const endWorldX = (topW - transform.x) / transform.zoom;
+  const firstTick = Math.floor(startWorldX / baseStep) * baseStep;
+
+  rulerTopCtx.fillStyle = "#999";
+  rulerTopCtx.strokeStyle = "#666";
+  rulerTopCtx.lineWidth = 1;
+  rulerTopCtx.font = "9px sans-serif";
+  rulerTopCtx.textAlign = "center";
+  rulerTopCtx.textBaseline = "top";
+
+  for (let wx = firstTick; wx <= endWorldX; wx += baseStep) {
+    const sx = wx * transform.zoom + transform.x - RULER_SIZE;
+    const isMajor = Math.round(wx / baseStep) % 5 === 0;
+    const tickH = isMajor ? topH * 0.6 : topH * 0.3;
+
+    rulerTopCtx.beginPath();
+    rulerTopCtx.moveTo(sx, topH);
+    rulerTopCtx.lineTo(sx, topH - tickH);
+    rulerTopCtx.stroke();
+
+    if (isMajor) {
+      rulerTopCtx.fillText(Math.round(wx).toString(), sx, 2);
+    }
+  }
+
+  // --- Left Ruler ---
+  const leftW = rulerLeft.width;
+  const leftH = rulerLeft.height;
+  rulerLeftCtx.clearRect(0, 0, leftW, leftH);
+  rulerLeftCtx.fillStyle = "#1e1e1e";
+  rulerLeftCtx.fillRect(0, 0, leftW, leftH);
+
+  const startWorldY = (0 - RULER_SIZE - transform.y) / transform.zoom;
+  const endWorldY = (leftH - transform.y) / transform.zoom;
+  const firstTickY = Math.floor(startWorldY / baseStep) * baseStep;
+
+  rulerLeftCtx.fillStyle = "#999";
+  rulerLeftCtx.strokeStyle = "#666";
+  rulerLeftCtx.lineWidth = 1;
+  rulerLeftCtx.font = "9px sans-serif";
+  rulerLeftCtx.textAlign = "center";
+  rulerLeftCtx.textBaseline = "middle";
+
+  for (let wy = firstTickY; wy <= endWorldY; wy += baseStep) {
+    const sy = wy * transform.zoom + transform.y - RULER_SIZE;
+    const isMajor = Math.round(wy / baseStep) % 5 === 0;
+    const tickW = isMajor ? leftW * 0.6 : leftW * 0.3;
+
+    rulerLeftCtx.beginPath();
+    rulerLeftCtx.moveTo(leftW, sy);
+    rulerLeftCtx.lineTo(leftW - tickW, sy);
+    rulerLeftCtx.stroke();
+
+    if (isMajor) {
+      rulerLeftCtx.save();
+      rulerLeftCtx.translate(8, sy);
+      rulerLeftCtx.rotate(-Math.PI / 2);
+      rulerLeftCtx.fillText(Math.round(wy).toString(), 0, 0);
+      rulerLeftCtx.restore();
+    }
+  }
+}
+
+function getTickStep(zoom) {
+  // Choose a sensible tick spacing based on zoom level
+  const targetScreenPx = 20; // desired pixel gap between small ticks
+  const worldPx = targetScreenPx / zoom;
+  const magnitudes = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
+  for (const m of magnitudes) {
+    if (m >= worldPx) return m;
+  }
+  return 5000;
+}
+
+function renderGuides() {
+  // Remove existing guide DOM elements
+  document.querySelectorAll(".guide-line").forEach((el) => el.remove());
+
+  guides.forEach((guide, idx) => {
+    const div = document.createElement("div");
+    div.className = `guide-line ${guide.axis === "x" ? "vertical" : "horizontal"}`;
+    div.dataset.guideIdx = idx;
+
+    if (guide.axis === "x") {
+      const sx = guide.position * transform.zoom + transform.x;
+      div.style.left = sx + "px";
+    } else {
+      const sy = guide.position * transform.zoom + transform.y;
+      div.style.top = sy + "px";
+    }
+
+    // Allow dragging existing guides
+    div.addEventListener("mousedown", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      draggingGuide = { guide, startPos: guide.axis === "x" ? e.clientX : e.clientY };
+      document.body.style.cursor = guide.axis === "x" ? "ew-resize" : "ns-resize";
+    });
+
+    // Double-click to remove
+    div.addEventListener("dblclick", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      guides.splice(idx, 1);
+      renderGuides();
+    });
+
+    document.body.appendChild(div);
+  });
+}
+
+// Drag from top ruler to create horizontal guide
+rulerTop.addEventListener("mousedown", (e) => {
+  e.preventDefault();
+  draggingNewGuide = { axis: "y", startScreen: e.clientY };
+  document.body.style.cursor = "ns-resize";
+});
+
+// Drag from left ruler to create vertical guide
+rulerLeft.addEventListener("mousedown", (e) => {
+  e.preventDefault();
+  draggingNewGuide = { axis: "x", startScreen: e.clientX };
+  document.body.style.cursor = "ew-resize";
+});
+
+window.addEventListener("mousemove", (e) => {
+  if (draggingNewGuide) {
+    const axis = draggingNewGuide.axis;
+    // Show a temporary preview guide
+    let previewEl = document.getElementById("guide-preview");
+    if (!previewEl) {
+      previewEl = document.createElement("div");
+      previewEl.id = "guide-preview";
+      previewEl.style.position = "fixed";
+      previewEl.style.zIndex = "15";
+      previewEl.style.pointerEvents = "none";
+      if (axis === "y") {
+        previewEl.style.left = "0";
+        previewEl.style.width = "100%";
+        previewEl.style.height = "1px";
+        previewEl.style.background = "rgba(0, 180, 255, 0.5)";
+      } else {
+        previewEl.style.top = "0";
+        previewEl.style.height = "100%";
+        previewEl.style.width = "1px";
+        previewEl.style.background = "rgba(0, 180, 255, 0.5)";
+      }
+      document.body.appendChild(previewEl);
+    }
+    if (axis === "y") {
+      previewEl.style.top = e.clientY + "px";
+    } else {
+      previewEl.style.left = e.clientX + "px";
+    }
+    return;
+  }
+
+  if (draggingGuide) {
+    const guide = draggingGuide.guide;
+    if (guide.axis === "x") {
+      const worldX = (e.clientX - transform.x) / transform.zoom;
+      guide.position = worldX;
+    } else {
+      const worldY = (e.clientY - transform.y) / transform.zoom;
+      guide.position = worldY;
+    }
+    renderGuides();
+    return;
+  }
+});
+
+window.addEventListener("mouseup", (e) => {
+  if (draggingNewGuide) {
+    const axis = draggingNewGuide.axis;
+    // Remove preview
+    const previewEl = document.getElementById("guide-preview");
+    if (previewEl) previewEl.remove();
+
+    // Only add if dragged far enough away from ruler
+    if (axis === "y" && e.clientY > RULER_SIZE + 5) {
+      const worldY = (e.clientY - transform.y) / transform.zoom;
+      guides.push({ axis: "y", position: worldY });
+      renderGuides();
+    } else if (axis === "x" && e.clientX > RULER_SIZE + 5) {
+      const worldX = (e.clientX - transform.x) / transform.zoom;
+      guides.push({ axis: "x", position: worldX });
+      renderGuides();
+    }
+
+    draggingNewGuide = null;
+    document.body.style.cursor = "";
+    return;
+  }
+
+  if (draggingGuide) {
+    const guide = draggingGuide.guide;
+    // If dragged back onto the ruler, remove the guide
+    if (guide.axis === "x" && e.clientX <= RULER_SIZE) {
+      const idx = guides.indexOf(guide);
+      if (idx !== -1) guides.splice(idx, 1);
+    } else if (guide.axis === "y" && e.clientY <= RULER_SIZE) {
+      const idx = guides.indexOf(guide);
+      if (idx !== -1) guides.splice(idx, 1);
+    }
+    draggingGuide = null;
+    document.body.style.cursor = "";
+    renderGuides();
+    return;
+  }
+});
+
+// Hook rulers into the render cycle
+const _originalRender = render;
+render = function (...args) {
+  _originalRender(...args);
+  // Only update rulers for live rendering (not exports)
+  if (!args[1]) {
+    renderRulers();
+    renderGuides();
+  }
+};
+
+// Hook rulers into resize
+const _originalResize = resize;
+resize = function () {
+  resizeRulers();
+  _originalResize();
+};
+
+resizeRulers();
 resize();
