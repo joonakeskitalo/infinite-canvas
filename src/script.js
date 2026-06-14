@@ -398,6 +398,15 @@ document.getElementById("redo-btn").addEventListener("click", redo);
 let fileHandle = null; // Persistent file handle for autosave
 let saveTimeout = null;
 let isDirty = false;
+let isSaving = false;
+let pendingSave = false;
+
+window.addEventListener("beforeunload", (e) => {
+  if (isDirty) {
+    e.preventDefault();
+    e.returnValue = "";
+  }
+});
 
 function scheduleSave() {
   isDirty = true;
@@ -475,6 +484,11 @@ async function buildZipBlob() {
 
 async function autoSave() {
   if (!fileHandle) return;
+  if (isSaving) {
+    pendingSave = true;
+    return;
+  }
+  isSaving = true;
   try {
     const blob = await buildZipBlob();
     const writable = await fileHandle.createWritable();
@@ -483,6 +497,14 @@ async function autoSave() {
     isDirty = false;
   } catch (e) {
     console.warn("Autosave failed:", e.message);
+    showToast("Save failed – will retry");
+    scheduleSave();
+  } finally {
+    isSaving = false;
+    if (pendingSave) {
+      pendingSave = false;
+      autoSave();
+    }
   }
 }
 
