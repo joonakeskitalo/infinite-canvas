@@ -1940,6 +1940,73 @@ function cloneElement(el) {
   return clone;
 }
 
+function duplicateSelection() {
+  if (selectedElements.length === 0) return;
+  pushUndo();
+  const DUPLICATE_OFFSET = 30;
+  const newElements = [];
+  const groupIdMap = new Map();
+
+  selectedElements.forEach((el) => {
+    const clone = cloneElement(el);
+    clone.id =
+      (clone.elementType === "image" ? "img_" : "draw_") + elementIdCounter++;
+
+    // Remap group IDs so duplicated groups are independent
+    if (clone.groupId) {
+      if (!groupIdMap.has(clone.groupId)) {
+        groupIdMap.set(clone.groupId, "group_" + groupIdCounter++);
+      }
+      clone.groupId = groupIdMap.get(clone.groupId);
+    }
+
+    // Offset the duplicated element
+    if (clone.elementType === "image") {
+      clone.x += DUPLICATE_OFFSET;
+      clone.y += DUPLICATE_OFFSET;
+      if (clone.fullBounds) {
+        clone.fullBounds = {
+          x: clone.fullBounds.x + DUPLICATE_OFFSET,
+          y: clone.fullBounds.y + DUPLICATE_OFFSET,
+          w: clone.fullBounds.w,
+          h: clone.fullBounds.h,
+        };
+      }
+    } else if (clone.type === "pen") {
+      clone.points = clone.points.map((p) => ({
+        x: p.x + DUPLICATE_OFFSET,
+        y: p.y + DUPLICATE_OFFSET,
+      }));
+    } else {
+      clone.start = {
+        x: clone.start.x + DUPLICATE_OFFSET,
+        y: clone.start.y + DUPLICATE_OFFSET,
+      };
+      if (clone.end) {
+        clone.end = {
+          x: clone.end.x + DUPLICATE_OFFSET,
+          y: clone.end.y + DUPLICATE_OFFSET,
+        };
+      }
+    }
+
+    if (clone.elementType === "image") {
+      images.push(clone);
+    } else {
+      drawings.push(clone);
+    }
+    newElements.push(clone);
+  });
+
+  // Select the duplicated elements
+  selectedElements = newElements;
+  currentTool = "select";
+  updateToolbarUI();
+  toggleAlignmentPanelVisibility();
+  render();
+  showToast(`Duplicated ${newElements.length} element(s)`);
+}
+
 function selectAllElements() {
   currentTool = "select";
   selectedElements = [];
@@ -2034,6 +2101,13 @@ window.addEventListener("keydown", (e) => {
       selectedElements = [];
       toggleAlignmentPanelVisibility();
       render();
+    }
+    return;
+  }
+  if (isMod && e.key.toLowerCase() === "d") {
+    if (selectedElements.length > 0) {
+      e.preventDefault();
+      duplicateSelection();
     }
     return;
   }
