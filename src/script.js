@@ -1724,6 +1724,15 @@ function getSnapTargets(excludeIds, bounds) {
   const targets = { x: [], y: [] };
   const excluded = new Set(excludeIds);
 
+  // Include guide lines as snap targets
+  for (const guide of guides) {
+    if (guide.axis === "x") {
+      targets.x.push(guide.position);
+    } else {
+      targets.y.push(guide.position);
+    }
+  }
+
   // If bounds provided, limit to closest neighbors (already group-aware)
   let elementBounds;
   if (bounds) {
@@ -4410,12 +4419,44 @@ function resizeRulers() {
   rulerLeft.height = window.innerHeight - RULER_SIZE;
 }
 
+function isColorDark(hex) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance < 0.5;
+}
+
+function getRulerBackground(hex) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  // Darken or lighten the bg color slightly for contrast, with transparency
+  if (isColorDark(hex)) {
+    // Dark bg: make ruler slightly lighter
+    return `rgba(${Math.min(255, r + 40)}, ${Math.min(255, g + 40)}, ${Math.min(255, b + 40)}, 0.92)`;
+  } else {
+    // Light bg: make ruler slightly darker
+    return `rgba(${Math.max(0, r - 30)}, ${Math.max(0, g - 30)}, ${Math.max(0, b - 30)}, 0.92)`;
+  }
+}
+
 function renderRulers() {
+  // Derive ruler background from the canvas bgColor with transparency
+  const rulerBg = getRulerBackground(bgColor);
+  const isDark = isColorDark(bgColor);
+  const tickColor = isDark ? "#666" : "#aaa";
+  const textColor = isDark ? "#999" : "#555";
+
+  // Update corner element background
+  const cornerEl = document.getElementById("ruler-corner");
+  cornerEl.style.background = rulerBg;
+
   // --- Top Ruler ---
   const topW = rulerTop.width;
   const topH = rulerTop.height;
   rulerTopCtx.clearRect(0, 0, topW, topH);
-  rulerTopCtx.fillStyle = "#1e1e1e";
+  rulerTopCtx.fillStyle = rulerBg;
   rulerTopCtx.fillRect(0, 0, topW, topH);
 
   // Calculate world-space tick spacing based on zoom
@@ -4424,8 +4465,8 @@ function renderRulers() {
   const endWorldX = (topW - transform.x) / transform.zoom;
   const firstTick = Math.floor(startWorldX / baseStep) * baseStep;
 
-  rulerTopCtx.fillStyle = "#999";
-  rulerTopCtx.strokeStyle = "#666";
+  rulerTopCtx.fillStyle = textColor;
+  rulerTopCtx.strokeStyle = tickColor;
   rulerTopCtx.lineWidth = 1;
   rulerTopCtx.font = "9px sans-serif";
   rulerTopCtx.textAlign = "center";
@@ -4450,15 +4491,15 @@ function renderRulers() {
   const leftW = rulerLeft.width;
   const leftH = rulerLeft.height;
   rulerLeftCtx.clearRect(0, 0, leftW, leftH);
-  rulerLeftCtx.fillStyle = "#1e1e1e";
+  rulerLeftCtx.fillStyle = rulerBg;
   rulerLeftCtx.fillRect(0, 0, leftW, leftH);
 
   const startWorldY = (0 - RULER_SIZE - transform.y) / transform.zoom;
   const endWorldY = (leftH - transform.y) / transform.zoom;
   const firstTickY = Math.floor(startWorldY / baseStep) * baseStep;
 
-  rulerLeftCtx.fillStyle = "#999";
-  rulerLeftCtx.strokeStyle = "#666";
+  rulerLeftCtx.fillStyle = textColor;
+  rulerLeftCtx.strokeStyle = tickColor;
   rulerLeftCtx.lineWidth = 1;
   rulerLeftCtx.font = "9px sans-serif";
   rulerLeftCtx.textAlign = "center";
@@ -4495,6 +4536,32 @@ function getTickStep(zoom) {
   return 5000;
 }
 
+function getGuideSnapPositions(axis) {
+  // Collect all edges and centers of canvas items for snapping guides to
+  const positions = [];
+  const prop = axis === "y" ? "y" : "x";
+  const sizeProp = axis === "y" ? "h" : "w";
+
+  images.forEach((img) => {
+    const pos = img[prop];
+    const size = img[sizeProp];
+    positions.push(pos, pos + size, pos + size / 2);
+  });
+
+  drawings.forEach((shape) => {
+    const b = getShapeBounds(shape);
+    const pos = b[prop];
+    const size = b[sizeProp];
+    positions.push(pos, pos + size, pos + size / 2);
+  });
+
+  return positions;
+}
+
+// Track last click info for manual double-click detection on guides
+let guideLastClickTime = 0;
+let guideLastClickIdx = -1;
+
 function renderGuides() {
   // Remove existing guide DOM elements
   document.querySelectorAll(".guide-line").forEach((el) => el.remove());
@@ -4512,20 +4579,25 @@ function renderGuides() {
       div.style.top = sy + "px";
     }
 
-    // Allow dragging existing guides
+    // Allow dragging existing guides, with manual double-click detection
     div.addEventListener("mousedown", (e) => {
       e.stopPropagation();
       e.preventDefault();
+
+      const now = Date.now();
+      if (now - guideLastClickTime < 400 && guideLastClickIdx === idx) {
+        // Double-click detected — remove guide
+        guideLastClickTime = 0;
+        guideLastClickIdx = -1;
+        guides.splice(idx, 1);
+        renderGuides();
+        return;
+      }
+      guideLastClickTime = now;
+      guideLastClickIdx = idx;
+
       draggingGuide = { guide, startPos: guide.axis === "x" ? e.clientX : e.clientY };
       document.body.style.cursor = guide.axis === "x" ? "ew-resize" : "ns-resize";
-    });
-
-    // Double-click to remove
-    div.addEventListener("dblclick", (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      guides.splice(idx, 1);
-      renderGuides();
     });
 
     document.body.appendChild(div);
@@ -4549,6 +4621,31 @@ rulerLeft.addEventListener("mousedown", (e) => {
 window.addEventListener("mousemove", (e) => {
   if (draggingNewGuide) {
     const axis = draggingNewGuide.axis;
+    let pos = axis === "y" ? e.clientY : e.clientX;
+
+    // Shift-snap to canvas item edges
+    if (isShiftPressed) {
+      const worldPos = axis === "y"
+        ? (e.clientY - transform.y) / transform.zoom
+        : (e.clientX - transform.x) / transform.zoom;
+      const threshold = 8 / transform.zoom;
+      const snapPositions = getGuideSnapPositions(axis);
+      let bestDist = threshold;
+      let snapped = worldPos;
+      for (const sp of snapPositions) {
+        const dist = Math.abs(worldPos - sp);
+        if (dist < bestDist) {
+          bestDist = dist;
+          snapped = sp;
+        }
+      }
+      if (axis === "y") {
+        pos = snapped * transform.zoom + transform.y;
+      } else {
+        pos = snapped * transform.zoom + transform.x;
+      }
+    }
+
     // Show a temporary preview guide
     let previewEl = document.getElementById("guide-preview");
     if (!previewEl) {
@@ -4571,10 +4668,11 @@ window.addEventListener("mousemove", (e) => {
       document.body.appendChild(previewEl);
     }
     if (axis === "y") {
-      previewEl.style.top = e.clientY + "px";
+      previewEl.style.top = pos + "px";
     } else {
-      previewEl.style.left = e.clientX + "px";
+      previewEl.style.left = pos + "px";
     }
+    draggingNewGuide.snappedPos = pos;
     return;
   }
 
@@ -4599,13 +4697,18 @@ window.addEventListener("mouseup", (e) => {
     const previewEl = document.getElementById("guide-preview");
     if (previewEl) previewEl.remove();
 
+    // Use snapped position if available, otherwise raw mouse position
+    const screenPos = draggingNewGuide.snappedPos != null
+      ? draggingNewGuide.snappedPos
+      : (axis === "y" ? e.clientY : e.clientX);
+
     // Only add if dragged far enough away from ruler
-    if (axis === "y" && e.clientY > RULER_SIZE + 5) {
-      const worldY = (e.clientY - transform.y) / transform.zoom;
+    if (axis === "y" && screenPos > RULER_SIZE + 5) {
+      const worldY = (screenPos - transform.y) / transform.zoom;
       guides.push({ axis: "y", position: worldY });
       renderGuides();
-    } else if (axis === "x" && e.clientX > RULER_SIZE + 5) {
-      const worldX = (e.clientX - transform.x) / transform.zoom;
+    } else if (axis === "x" && screenPos > RULER_SIZE + 5) {
+      const worldX = (screenPos - transform.x) / transform.zoom;
       guides.push({ axis: "x", position: worldX });
       renderGuides();
     }
