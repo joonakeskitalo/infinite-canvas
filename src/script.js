@@ -118,46 +118,78 @@ function getFilteredImage(imgData) {
 function enterCropMode(imgElement) {
   cropMode = true;
   cropTarget = imgElement;
-  // Initialize crop rect to the full image bounds (in world coords)
-  cropRect = { x: imgElement.x, y: imgElement.y, w: imgElement.w, h: imgElement.h };
+
+  if (imgElement.crop && imgElement.fullBounds) {
+    // Re-entering crop on an already-cropped image.
+    // Reconstruct full bounds relative to current element position.
+    // The element shows crop region {crop.x, crop.y, crop.w, crop.h} of the full image.
+    // So: el.x = fullX + crop.x * fullW, el.y = fullY + crop.y * fullH
+    //     el.w = crop.w * fullW, el.h = crop.h * fullH
+    const c = imgElement.crop;
+    const fullW = imgElement.w / c.w;
+    const fullH = imgElement.h / c.h;
+    const fullX = imgElement.x - c.x * fullW;
+    const fullY = imgElement.y - c.y * fullH;
+    imgElement.fullBounds = { x: fullX, y: fullY, w: fullW, h: fullH };
+    cropRect = { x: imgElement.x, y: imgElement.y, w: imgElement.w, h: imgElement.h };
+  } else {
+    // First time cropping: initialize crop rect to the full image bounds
+    cropRect = { x: imgElement.x, y: imgElement.y, w: imgElement.w, h: imgElement.h };
+    imgElement.fullBounds = { x: imgElement.x, y: imgElement.y, w: imgElement.w, h: imgElement.h };
+  }
+
   selectedElements = [imgElement];
   showToast("Crop mode — drag edges to crop, Enter to apply, Escape to cancel");
+}
+
+function getFullImageBounds(imgElement) {
+  // Returns the world-space bounds of the full (uncropped) image
+  if (imgElement.fullBounds) {
+    return { ...imgElement.fullBounds };
+  }
+  return { x: imgElement.x, y: imgElement.y, w: imgElement.w, h: imgElement.h };
 }
 
 function exitCropMode(apply) {
   if (!cropMode || !cropTarget) return;
   if (apply && cropRect) {
-    // Convert crop rect from world coords to normalized fractions of the image's display area
     const el = cropTarget;
-    // Current crop fraction (if already cropped, compose with existing crop)
-    const existingCrop = el.crop || { x: 0, y: 0, w: 1, h: 1 };
+    const full = getFullImageBounds(el);
 
-    // Compute the fraction of the displayed area that was selected
-    const fracX = Math.max(0, Math.min(1, (cropRect.x - el.x) / el.w));
-    const fracY = Math.max(0, Math.min(1, (cropRect.y - el.y) / el.h));
-    const fracW = Math.max(0.01, Math.min(1 - fracX, cropRect.w / el.w));
-    const fracH = Math.max(0.01, Math.min(1 - fracY, cropRect.h / el.h));
+    // Compute the crop rect as a fraction of the full image bounds
+    const fracX = Math.max(0, Math.min(1, (cropRect.x - full.x) / full.w));
+    const fracY = Math.max(0, Math.min(1, (cropRect.y - full.y) / full.h));
+    const fracW = Math.max(0.01, Math.min(1 - fracX, cropRect.w / full.w));
+    const fracH = Math.max(0.01, Math.min(1 - fracY, cropRect.h / full.h));
 
-    // Compose with existing crop (nested crop)
-    const newCropX = existingCrop.x + fracX * existingCrop.w;
-    const newCropY = existingCrop.y + fracY * existingCrop.h;
-    const newCropW = fracW * existingCrop.w;
-    const newCropH = fracH * existingCrop.h;
+    // Check if this is actually a crop (not the full image)
+    const isCropped = fracX > 0.001 || fracY > 0.001 || fracW < 0.999 || fracH < 0.999;
 
-    // Only apply if the crop actually changed something
-    if (fracX > 0.001 || fracY > 0.001 || fracW < 0.999 || fracH < 0.999) {
-      pushUndo();
-      el.crop = { x: newCropX, y: newCropY, w: newCropW, h: newCropH };
+    pushUndo();
 
+    if (isCropped) {
+      el.crop = { x: fracX, y: fracY, w: fracW, h: fracH };
+      // Ensure fullBounds is stored
+      if (!el.fullBounds) {
+        el.fullBounds = { ...full };
+      }
       // Update the element's display position/size to match the crop rect
       el.x = cropRect.x;
       el.y = cropRect.y;
       el.w = cropRect.w;
       el.h = cropRect.h;
-
-      showToast("Crop applied");
-      scheduleSave();
+    } else {
+      // User expanded back to full image — remove crop
+      delete el.crop;
+      el.x = full.x;
+      el.y = full.y;
+      el.w = full.w;
+      el.h = full.h;
+      // Keep fullBounds for future reference (position may have drifted)
     }
+
+    showToast(isCropped ? "Crop applied" : "Crop removed");
+    scheduleSave();
   }
   cropMode = false;
   cropTarget = null;
@@ -236,6 +268,7 @@ function serializeElement(el) {
       opacity: el.opacity != null ? el.opacity : 1,
     };
     if (el.crop) serialized.crop = { ...el.crop };
+    if (el.fullBounds) serialized.fullBounds = { ...el.fullBounds };
     return serialized;
   }
   const clone = {
@@ -376,6 +409,7 @@ async function buildZipBlob() {
       groupId: el.groupId || null,
       opacity: el.opacity != null ? el.opacity : 1,
       crop: el.crop || null,
+      fullBounds: el.fullBounds || null,
     });
   }
 
@@ -496,6 +530,7 @@ async function restoreFromZip(arrayBuf) {
             opacity: data.opacity != null ? data.opacity : 1,
           };
           if (data.crop) restored.crop = { ...data.crop };
+          if (data.fullBounds) restored.fullBounds = { ...data.fullBounds };
           resolve(restored);
         };
         img.onerror = () => resolve(null);
@@ -1741,6 +1776,14 @@ function pasteFromClipboard() {
     if (clone.elementType === "image") {
       clone.x += pasteOffset;
       clone.y += pasteOffset;
+      if (clone.fullBounds) {
+        clone.fullBounds = {
+          x: clone.fullBounds.x + pasteOffset,
+          y: clone.fullBounds.y + pasteOffset,
+          w: clone.fullBounds.w,
+          h: clone.fullBounds.h,
+        };
+      }
     } else if (clone.type === "pen") {
       clone.points = clone.points.map((p) => ({
         x: p.x + pasteOffset,
@@ -1826,6 +1869,8 @@ function cloneElement(el) {
       opacity: el.opacity != null ? el.opacity : 1,
     };
     if (el.groupId) c.groupId = el.groupId;
+    if (el.crop) c.crop = { ...el.crop };
+    if (el.fullBounds) c.fullBounds = { ...el.fullBounds };
     return c;
   }
   // Drawing/shape clone
@@ -2599,6 +2644,26 @@ function render(targetCtx = ctx, isExporting = false) {
       !isExporting && currentFilter !== "none"
         ? getFilteredImage(imgData)
         : imgData.img;
+
+    // In crop mode, the crop target is rendered by the overlay section instead
+    if (!isExporting && cropMode && cropTarget && cropTarget.id === imgData.id) {
+      // Draw the cropped portion at normal opacity (overlay will draw full image faintly behind)
+      if (imgData.crop) {
+        const c = imgData.crop;
+        const natW = imgData.img.naturalWidth || imgData.img.width;
+        const natH = imgData.img.naturalHeight || imgData.img.height;
+        const sx = c.x * natW;
+        const sy = c.y * natH;
+        const sw = c.w * natW;
+        const sh = c.h * natH;
+        targetCtx.drawImage(drawSrc, sx, sy, sw, sh, imgData.x, imgData.y, imgData.w, imgData.h);
+      } else {
+        targetCtx.drawImage(drawSrc, imgData.x, imgData.y, imgData.w, imgData.h);
+      }
+      targetCtx.restore();
+      return; // Skip selection UI for crop target
+    }
+
     // If the image has crop data, draw only the cropped portion
     if (imgData.crop) {
       const c = imgData.crop;
@@ -2645,16 +2710,44 @@ function render(targetCtx = ctx, isExporting = false) {
   if (!isExporting && cropMode && cropTarget && cropRect) {
     targetCtx.save();
     const el = cropTarget;
-    // Dark overlay on the portions outside the crop rect
-    targetCtx.fillStyle = "rgba(0, 0, 0, 0.5)";
+    const full = getFullImageBounds(el);
+    const drawSrc = currentFilter !== "none" ? getFilteredImage(el) : el.img;
+
+    // Draw the full uncropped image at reduced opacity so user can see hidden areas
+    targetCtx.globalAlpha = 0.35;
+    targetCtx.drawImage(drawSrc, full.x, full.y, full.w, full.h);
+    targetCtx.globalAlpha = 1.0;
+
+    // Draw the crop region at full brightness (overwrite the dim version)
+    const natW = el.img.naturalWidth || el.img.width;
+    const natH = el.img.naturalHeight || el.img.height;
+    const cropFracX = (cropRect.x - full.x) / full.w;
+    const cropFracY = (cropRect.y - full.y) / full.h;
+    const cropFracW = cropRect.w / full.w;
+    const cropFracH = cropRect.h / full.h;
+    targetCtx.drawImage(
+      drawSrc,
+      cropFracX * natW, cropFracY * natH, cropFracW * natW, cropFracH * natH,
+      cropRect.x, cropRect.y, cropRect.w, cropRect.h
+    );
+
+    // Dark overlay on the portions outside the crop rect (within full image bounds)
+    targetCtx.fillStyle = "rgba(0, 0, 0, 0.45)";
     // Top strip
-    targetCtx.fillRect(el.x, el.y, el.w, cropRect.y - el.y);
+    targetCtx.fillRect(full.x, full.y, full.w, cropRect.y - full.y);
     // Bottom strip
-    targetCtx.fillRect(el.x, cropRect.y + cropRect.h, el.w, (el.y + el.h) - (cropRect.y + cropRect.h));
+    targetCtx.fillRect(full.x, cropRect.y + cropRect.h, full.w, (full.y + full.h) - (cropRect.y + cropRect.h));
     // Left strip
-    targetCtx.fillRect(el.x, cropRect.y, cropRect.x - el.x, cropRect.h);
+    targetCtx.fillRect(full.x, cropRect.y, cropRect.x - full.x, cropRect.h);
     // Right strip
-    targetCtx.fillRect(cropRect.x + cropRect.w, cropRect.y, (el.x + el.w) - (cropRect.x + cropRect.w), cropRect.h);
+    targetCtx.fillRect(cropRect.x + cropRect.w, cropRect.y, (full.x + full.w) - (cropRect.x + cropRect.w), cropRect.h);
+
+    // Dashed border around full image extent
+    targetCtx.strokeStyle = "rgba(0, 191, 255, 0.4)";
+    targetCtx.lineWidth = 1 / transform.zoom;
+    targetCtx.setLineDash([6 / transform.zoom, 4 / transform.zoom]);
+    targetCtx.strokeRect(full.x, full.y, full.w, full.h);
+    targetCtx.setLineDash([]);
 
     // Draw crop border (double stroke for contrast on any background)
     targetCtx.strokeStyle = "rgba(0, 0, 0, 0.6)";
@@ -3542,12 +3635,13 @@ container.addEventListener("mousedown", (e) => {
 
   // --- Crop mode interaction ---
   if (cropMode && cropTarget && cropRect) {
-    // Check if clicking outside the image bounds exits crop mode
+    const full = getFullImageBounds(cropTarget);
+    // Check if clicking outside the full image bounds exits crop mode
     if (
-      worldPos.x < cropTarget.x - 20 / transform.zoom ||
-      worldPos.x > cropTarget.x + cropTarget.w + 20 / transform.zoom ||
-      worldPos.y < cropTarget.y - 20 / transform.zoom ||
-      worldPos.y > cropTarget.y + cropTarget.h + 20 / transform.zoom
+      worldPos.x < full.x - 20 / transform.zoom ||
+      worldPos.x > full.x + full.w + 20 / transform.zoom ||
+      worldPos.y < full.y - 20 / transform.zoom ||
+      worldPos.y > full.y + full.h + 20 / transform.zoom
     ) {
       exitCropMode(false);
       isInteracting = false;
@@ -3946,10 +4040,11 @@ container.addEventListener("mousemove", (e) => {
     const mdx = worldPos.x - cropDragStart.x;
     const mdy = worldPos.y - cropDragStart.y;
     const minSize = 20 / transform.zoom;
-    const imgLeft = cropTarget.x;
-    const imgTop = cropTarget.y;
-    const imgRight = cropTarget.x + cropTarget.w;
-    const imgBottom = cropTarget.y + cropTarget.h;
+    const full = getFullImageBounds(cropTarget);
+    const imgLeft = full.x;
+    const imgTop = full.y;
+    const imgRight = full.x + full.w;
+    const imgBottom = full.y + full.h;
 
     let newX = r.x, newY = r.y, newW = r.w, newH = r.h;
 
