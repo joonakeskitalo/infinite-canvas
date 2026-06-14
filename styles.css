@@ -391,6 +391,34 @@ input[type="color"]::-webkit-color-swatch {
   border-right: 1px solid rgba(100, 100, 100, 0.5);
   border-bottom: 1px solid rgba(100, 100, 100, 0.5);
   z-index: 21;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+#ruler-corner:hover {
+  background: rgba(60, 60, 60, 0.95);
+}
+
+#ruler-corner::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid rgba(0, 180, 255, 0.8);
+  border-radius: 1px;
+  display: block;
+}
+
+#ruler-corner.has-guides::after {
+  background: rgba(0, 180, 255, 0.3);
+}
+
+#ruler-corner.guides-hidden::after {
+  border-color: rgba(150, 150, 150, 0.5);
+  background: none;
+  border-style: dashed;
 }
 
 .ruler {

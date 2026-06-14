@@ -4409,8 +4409,28 @@ const rulerLeftCtx = rulerLeft.getContext("2d");
 
 const RULER_SIZE = 25; // px
 let guides = []; // {axis: 'x'|'y', position: number (world coords)}
+let guidesVisible = true; // toggle visibility of guide lines
 let draggingGuide = null; // {guide, axis}
 let draggingNewGuide = null; // {axis: 'x'|'y'} when pulling from ruler
+
+// Corner button: click to toggle guide visibility, shift+click to clear all
+const rulerCorner = document.getElementById("ruler-corner");
+rulerCorner.style.cursor = "pointer";
+rulerCorner.title = "Click: toggle guides · Shift+Click: remove all";
+
+rulerCorner.addEventListener("click", (e) => {
+  e.stopPropagation();
+  if (e.shiftKey) {
+    guides = [];
+    guidesVisible = true;
+    renderGuides();
+    showToast("All guides removed");
+  } else {
+    guidesVisible = !guidesVisible;
+    renderGuides();
+    showToast(guidesVisible ? "Guides visible" : "Guides hidden");
+  }
+});
 
 function resizeRulers() {
   rulerTop.width = window.innerWidth - RULER_SIZE;
@@ -4565,6 +4585,12 @@ let guideLastClickIdx = -1;
 function renderGuides() {
   // Remove existing guide DOM elements
   document.querySelectorAll(".guide-line").forEach((el) => el.remove());
+
+  // Update corner indicator
+  rulerCorner.classList.toggle("guides-hidden", !guidesVisible);
+  rulerCorner.classList.toggle("has-guides", guides.length > 0);
+
+  if (!guidesVisible) return;
 
   guides.forEach((guide, idx) => {
     const div = document.createElement("div");
