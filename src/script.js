@@ -85,6 +85,47 @@ let currentFilter = "none";
 let filteredImageCache = new WeakMap();
 let filteredImageCacheFilter = "none";
 
+// --- PERFORMANCE: requestAnimationFrame batching ---
+let _renderScheduled = false;
+let _renderAfterCallbacks = [];
+
+function scheduleRender() {
+  if (!_renderScheduled) {
+    _renderScheduled = true;
+    requestAnimationFrame(() => {
+      _renderScheduled = false;
+      _doRender(ctx, false);
+      // Run any post-render callbacks (e.g., rulers)
+      const cbs = _renderAfterCallbacks;
+      _renderAfterCallbacks = [];
+      for (let i = 0; i < cbs.length; i++) cbs[i]();
+    });
+  }
+}
+
+function addRenderCallback(cb) {
+  _renderAfterCallbacks.push(cb);
+}
+
+// --- PERFORMANCE: Viewport culling helper ---
+function getViewportBounds() {
+  // Returns the visible world-space rectangle with some padding
+  const pad = 100 / transform.zoom; // extra padding to avoid pop-in
+  return {
+    minX: -transform.x / transform.zoom - pad,
+    minY: -transform.y / transform.zoom - pad,
+    maxX: (-transform.x + canvas.width) / transform.zoom + pad,
+    maxY: (-transform.y + canvas.height) / transform.zoom + pad,
+  };
+}
+
+function isRectInViewport(x, y, w, h, vp) {
+  return !(x + w < vp.minX || x > vp.maxX || y + h < vp.minY || y > vp.maxY);
+}
+
+// --- PERFORMANCE: Text measurement cache ---
+const _textMeasureCache = new WeakMap();
+
 function getFilteredImage(imgData) {
   // Invalidate cache if filter changed
   if (filteredImageCacheFilter !== currentFilter) {
@@ -2624,6 +2665,16 @@ function getSpacingGuides(bounds, excludeIds) {
 }
 
 function render(targetCtx = ctx, isExporting = false) {
+  // For export calls, render synchronously (no batching)
+  if (isExporting || targetCtx !== ctx) {
+    _doRender(targetCtx, isExporting);
+    return;
+  }
+  // For interactive rendering, batch via requestAnimationFrame
+  scheduleRender();
+}
+
+function _doRender(targetCtx = ctx, isExporting = false) {
   if (!isExporting) {
     targetCtx.fillStyle = bgColor;
     targetCtx.fillRect(0, 0, canvas.width, canvas.height);
@@ -2635,8 +2686,15 @@ function render(targetCtx = ctx, isExporting = false) {
     targetCtx.scale(transform.zoom, transform.zoom);
   }
 
+  // Compute viewport bounds for culling (skip off-screen objects)
+  const _vp = !isExporting ? getViewportBounds() : null;
+
   // 1. Render Background Assets
   images.forEach((imgData) => {
+    // Viewport culling: skip images completely off-screen (but never skip crop target)
+    if (_vp && !(cropMode && cropTarget && cropTarget.id === imgData.id) &&
+        !isRectInViewport(imgData.x, imgData.y, imgData.w, imgData.h, _vp)) return;
+
     targetCtx.save();
     targetCtx.globalAlpha = imgData.opacity != null ? imgData.opacity : 1;
     // Use pre-rendered filtered image if a filter is active
@@ -2814,11 +2872,17 @@ function render(targetCtx = ctx, isExporting = false) {
 
   // 2. Render Vector Graphics & Text elements
   drawings.forEach((shape) => {
+    // Viewport culling: skip shapes completely off-screen
+    let shapeBounds;
+    if (_vp) {
+      shapeBounds = getShapeBounds(shape);
+      if (!isRectInViewport(shapeBounds.x, shapeBounds.y, shapeBounds.w, shapeBounds.h, _vp)) return;
+    }
     drawShape(targetCtx, shape, isExporting);
     if (!isExporting && currentTool === "select") {
       const isSelected = selectedElements.some((el) => el.id === shape.id);
       if (isSelected) {
-        const b = getShapeBounds(shape);
+        const b = shapeBounds || getShapeBounds(shape);
         const isGrouped = !!shape.groupId;
         targetCtx.save();
         targetCtx.strokeStyle = isGrouped ? "#28a745" : "#ff4444";
@@ -3556,14 +3620,19 @@ function drawShape(targetCtx, shape, isExporting) {
     const lineHeight = shape.fontSize * 1.2;
     const lines = shape.text.split("\n");
 
-    // Measure text dimensions first
-    let maxWidth = 0;
-    lines.forEach((line) => {
-      const metrics = targetCtx.measureText(line);
-      if (metrics.width > maxWidth) maxWidth = metrics.width;
-    });
-    shape.w = maxWidth;
-    shape.h = lineHeight * (lines.length - 1) + shape.fontSize;
+    // Use cached text dimensions (only remeasure if text/fontSize changed)
+    let cached = _textMeasureCache.get(shape);
+    if (!cached || cached.text !== shape.text || cached.fontSize !== shape.fontSize) {
+      let maxWidth = 0;
+      lines.forEach((line) => {
+        const metrics = targetCtx.measureText(line);
+        if (metrics.width > maxWidth) maxWidth = metrics.width;
+      });
+      cached = { text: shape.text, fontSize: shape.fontSize, w: maxWidth, h: lineHeight * (lines.length - 1) + shape.fontSize };
+      _textMeasureCache.set(shape, cached);
+    }
+    shape.w = cached.w;
+    shape.h = cached.h;
 
     // Draw background if present
     if (shape.bgColor) {
@@ -5852,12 +5921,24 @@ window.addEventListener("mouseup", (e) => {
 
 // Hook rulers into the render cycle
 const _originalRender = render;
+let _rulerCallbackScheduled = false;
 render = function (...args) {
   _originalRender(...args);
   // Only update rulers for live rendering (not exports)
   if (!args[1] && rulersVisible) {
-    renderRulers();
-    renderGuides();
+    if (args[0] && args[0] !== ctx) {
+      // Synchronous export path: render rulers immediately
+      renderRulers();
+      renderGuides();
+    } else if (!_rulerCallbackScheduled) {
+      // Interactive path: schedule ruler render after rAF (once per frame)
+      _rulerCallbackScheduled = true;
+      addRenderCallback(() => {
+        _rulerCallbackScheduled = false;
+        renderRulers();
+        renderGuides();
+      });
+    }
   }
 };
 
