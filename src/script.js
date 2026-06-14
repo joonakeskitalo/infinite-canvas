@@ -2679,8 +2679,8 @@ function render(targetCtx = ctx, isExporting = false) {
 }
 
 function computeMeasureHoverGuides(worldPos) {
-  const MAX_DIST = 500 / transform.zoom;
-  const MAX_GUIDES = 6;
+  const MAX_DIST = 800 / transform.zoom;
+  const MAX_GUIDES = 8;
   const guides = [];
 
   // Collect all element bounding boxes
@@ -2689,78 +2689,86 @@ function computeMeasureHoverGuides(worldPos) {
     allBounds.push({ x: img.x, y: img.y, w: img.w, h: img.h, id: img.id });
   });
   drawings.forEach((shape) => {
-    if (shape.type === "measure") return; // Skip other measure lines
+    if (shape.type === "measure") return;
     const b = getShapeBounds(shape);
     allBounds.push({ x: b.x, y: b.y, w: b.w, h: b.h, id: shape.id });
   });
 
-  for (const bounds of allBounds) {
-    const left = bounds.x;
-    const right = bounds.x + bounds.w;
-    const top = bounds.y;
-    const bottom = bounds.y + bounds.h;
-
-    // Skip if cursor is inside this element
-    if (worldPos.x >= left && worldPos.x <= right && worldPos.y >= top && worldPos.y <= bottom) {
-      continue;
-    }
-
-    // Horizontal distance (left or right of element, vertically overlapping)
-    if (worldPos.y >= top && worldPos.y <= bottom) {
-      if (worldPos.x < left) {
-        const dist = left - worldPos.x;
-        if (dist < MAX_DIST) {
-          guides.push({ fromX: worldPos.x, fromY: worldPos.y, toX: left, toY: worldPos.y, dist });
-        }
-      } else if (worldPos.x > right) {
-        const dist = worldPos.x - right;
-        if (dist < MAX_DIST) {
-          guides.push({ fromX: worldPos.x, fromY: worldPos.y, toX: right, toY: worldPos.y, dist });
-        }
-      }
-    }
-
-    // Vertical distance (above or below element, horizontally overlapping)
-    if (worldPos.x >= left && worldPos.x <= right) {
-      if (worldPos.y < top) {
-        const dist = top - worldPos.y;
-        if (dist < MAX_DIST) {
-          guides.push({ fromX: worldPos.x, fromY: worldPos.y, toX: worldPos.x, toY: top, dist });
-        }
-      } else if (worldPos.y > bottom) {
-        const dist = worldPos.y - bottom;
-        if (dist < MAX_DIST) {
-          guides.push({ fromX: worldPos.x, fromY: worldPos.y, toX: worldPos.x, toY: bottom, dist });
-        }
-      }
-    }
-
-    // Horizontal distance to nearest vertical edge (when not vertically overlapping)
-    if (worldPos.y < top || worldPos.y > bottom) {
-      const nearestY = worldPos.y < top ? top : bottom;
-      if (worldPos.x >= left && worldPos.x <= right) {
-        // Already handled above
-      } else {
-        // Show horizontal guide to nearest vertical edge
-        const nearestX = worldPos.x < left ? left : right;
-        const hDist = Math.abs(worldPos.x - nearestX);
-        const vDist = Math.abs(worldPos.y - nearestY);
-        if (hDist < MAX_DIST) {
-          guides.push({ fromX: worldPos.x, fromY: nearestY, toX: nearestX, toY: nearestY, dist: hDist });
-        }
-        if (vDist < MAX_DIST) {
-          guides.push({ fromX: nearestX, fromY: worldPos.y, toX: nearestX, toY: nearestY, dist: vDist });
-        }
-      }
-    }
-
-    // Vertical distance to nearest horizontal edge (when not horizontally overlapping)
-    if ((worldPos.x < left || worldPos.x > right) && worldPos.y >= top && worldPos.y <= bottom) {
-      // Already handled horizontal case above
+  // Find which element the cursor is hovering over
+  let hoveredBounds = null;
+  for (let i = allBounds.length - 1; i >= 0; i--) {
+    const b = allBounds[i];
+    if (worldPos.x >= b.x && worldPos.x <= b.x + b.w && worldPos.y >= b.y && worldPos.y <= b.y + b.h) {
+      hoveredBounds = b;
+      break;
     }
   }
 
-  // Sort by distance and deduplicate, take closest
+  if (!hoveredBounds) return guides;
+
+  const myLeft = hoveredBounds.x;
+  const myRight = hoveredBounds.x + hoveredBounds.w;
+  const myTop = hoveredBounds.y;
+  const myBottom = hoveredBounds.y + hoveredBounds.h;
+
+  // For each other element, compute axis-aligned distances between edges
+  for (const b of allBounds) {
+    if (b.id === hoveredBounds.id) continue;
+
+    const elLeft = b.x;
+    const elRight = b.x + b.w;
+    const elTop = b.y;
+    const elBottom = b.y + b.h;
+
+    // Check vertical overlap (for horizontal spacing)
+    const vOverlap = myBottom > elTop && myTop < elBottom;
+    // Check horizontal overlap (for vertical spacing)
+    const hOverlap = myRight > elLeft && myLeft < elRight;
+
+    if (vOverlap) {
+      const overlapTop = Math.max(myTop, elTop);
+      const overlapBottom = Math.min(myBottom, elBottom);
+      const midY = (overlapTop + overlapBottom) / 2;
+
+      // Element is to the left
+      if (elRight <= myLeft) {
+        const dist = myLeft - elRight;
+        if (dist < MAX_DIST) {
+          guides.push({ fromX: elRight, fromY: midY, toX: myLeft, toY: midY, dist });
+        }
+      }
+      // Element is to the right
+      if (elLeft >= myRight) {
+        const dist = elLeft - myRight;
+        if (dist < MAX_DIST) {
+          guides.push({ fromX: myRight, fromY: midY, toX: elLeft, toY: midY, dist });
+        }
+      }
+    }
+
+    if (hOverlap) {
+      const overlapLeft = Math.max(myLeft, elLeft);
+      const overlapRight = Math.min(myRight, elRight);
+      const midX = (overlapLeft + overlapRight) / 2;
+
+      // Element is above
+      if (elBottom <= myTop) {
+        const dist = myTop - elBottom;
+        if (dist < MAX_DIST) {
+          guides.push({ fromX: midX, fromY: elBottom, toX: midX, toY: myTop, dist });
+        }
+      }
+      // Element is below
+      if (elTop >= myBottom) {
+        const dist = elTop - myBottom;
+        if (dist < MAX_DIST) {
+          guides.push({ fromX: midX, fromY: myBottom, toX: midX, toY: elTop, dist });
+        }
+      }
+    }
+  }
+
+  // Sort by distance and take closest
   guides.sort((a, b) => a.dist - b.dist);
   return guides.slice(0, MAX_GUIDES);
 }
