@@ -1028,6 +1028,10 @@ window.addEventListener("keydown", (e) => {
 
   let targetTool = null;
   if (e.metaKey || e.ctrlKey) return; // Let modifier combos be handled elsewhere
+  if (key === "r" && e.shiftKey) {
+    setRulersVisible(!rulersVisible);
+    return;
+  }
   if (key === "h") targetTool = "pan";
   if (key === "v") targetTool = "select";
   if (key === "b") targetTool = "pen";
@@ -4406,15 +4410,36 @@ const rulerTop = document.getElementById("ruler-top");
 const rulerLeft = document.getElementById("ruler-left");
 const rulerTopCtx = rulerTop.getContext("2d");
 const rulerLeftCtx = rulerLeft.getContext("2d");
+const rulerCorner = document.getElementById("ruler-corner");
+const toggleRulersBtn = document.getElementById("toggle-rulers-btn");
 
 const RULER_SIZE = 20; // px
 let guides = []; // {axis: 'x'|'y', position: number (world coords)}
 let guidesVisible = true; // toggle visibility of guide lines
+let rulersVisible = false; // rulers hidden by default
 let draggingGuide = null; // {guide, axis}
 let draggingNewGuide = null; // {axis: 'x'|'y'} when pulling from ruler
 
+function setRulersVisible(visible) {
+  rulersVisible = visible;
+  rulerTop.style.display = visible ? "" : "none";
+  rulerLeft.style.display = visible ? "" : "none";
+  rulerCorner.style.display = visible ? "" : "none";
+  toggleRulersBtn.classList.toggle("active", visible);
+  if (visible) {
+    renderRulers();
+    renderGuides();
+  } else {
+    // Hide guide lines when rulers are hidden
+    document.querySelectorAll(".guide-line").forEach((el) => el.remove());
+  }
+}
+
+toggleRulersBtn.addEventListener("click", () => {
+  setRulersVisible(!rulersVisible);
+});
+
 // Corner button: click to toggle guide visibility, shift+click to clear all
-const rulerCorner = document.getElementById("ruler-corner");
 rulerCorner.style.cursor = "pointer";
 rulerCorner.title = "Click: toggle guides · Shift+Click: remove all";
 
@@ -4766,7 +4791,7 @@ const _originalRender = render;
 render = function (...args) {
   _originalRender(...args);
   // Only update rulers for live rendering (not exports)
-  if (!args[1]) {
+  if (!args[1] && rulersVisible) {
     renderRulers();
     renderGuides();
   }
@@ -4780,4 +4805,5 @@ resize = function () {
 };
 
 resizeRulers();
+setRulersVisible(false); // hidden by default
 resize();
