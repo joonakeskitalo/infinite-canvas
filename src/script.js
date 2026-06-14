@@ -180,6 +180,7 @@ function enterCropMode(imgElement) {
   }
 
   selectedElements = [imgElement];
+  toggleAlignmentPanelVisibility();
   showToast("Crop mode — drag edges to crop, Enter to apply, Escape to cancel");
 }
 
@@ -2779,19 +2780,7 @@ function _doRender(targetCtx = ctx, isExporting = false) {
 
     // In crop mode, the crop target is rendered by the overlay section instead
     if (!isExporting && cropMode && cropTarget && cropTarget.id === imgData.id) {
-      // Draw the cropped portion at normal opacity (overlay will draw full image faintly behind)
-      if (imgData.crop) {
-        const c = imgData.crop;
-        const natW = imgData.img.naturalWidth || imgData.img.width;
-        const natH = imgData.img.naturalHeight || imgData.img.height;
-        const sx = c.x * natW;
-        const sy = c.y * natH;
-        const sw = c.w * natW;
-        const sh = c.h * natH;
-        targetCtx.drawImage(drawSrc, sx, sy, sw, sh, imgData.x, imgData.y, imgData.w, imgData.h);
-      } else {
-        targetCtx.drawImage(drawSrc, imgData.x, imgData.y, imgData.w, imgData.h);
-      }
+      // Skip drawing here — the crop overlay section below handles rendering
       targetCtx.restore();
       return; // Skip selection UI for crop target
     }
@@ -2842,15 +2831,16 @@ function _doRender(targetCtx = ctx, isExporting = false) {
   if (!isExporting && cropMode && cropTarget && cropRect) {
     targetCtx.save();
     const el = cropTarget;
+    const elOpacity = el.opacity != null ? el.opacity : 1;
     const full = getFullImageBounds(el);
     const drawSrc = currentFilter !== "none" ? getFilteredImage(el) : el.img;
 
     // Draw the full uncropped image at reduced opacity so user can see hidden areas
-    targetCtx.globalAlpha = 0.35;
+    targetCtx.globalAlpha = 0.35 * elOpacity;
     targetCtx.drawImage(drawSrc, full.x, full.y, full.w, full.h);
-    targetCtx.globalAlpha = 1.0;
+    targetCtx.globalAlpha = elOpacity;
 
-    // Draw the crop region at full brightness (overwrite the dim version)
+    // Draw the crop region at element opacity (overwrite the dim version)
     const natW = el.img.naturalWidth || el.img.width;
     const natH = el.img.naturalHeight || el.img.height;
     const cropFracX = (cropRect.x - full.x) / full.w;
