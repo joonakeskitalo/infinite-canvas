@@ -60,6 +60,10 @@ let clipboardElements = []; // internal clipboard for copy/paste
 let pasteOffset = 0; // increments each paste to offset duplicates
 let internalCopyPerformed = false; // true when last copy was from canvas selection
 
+// --- MEASUREMENT TOOL STATE ---
+let measureHoverGuides = []; // distance guides shown on hover when measure tool active
+let activeMeasureLine = null; // live measurement line while dragging
+
 // --- COLOR FILTER SYSTEM ---
 let currentFilter = "none";
 
@@ -639,6 +643,7 @@ buttons.forEach((btn) => {
     if (ghostInput.style.display === "block") bakeText();
     currentTool = targetBtn.dataset.tool;
     if (currentTool !== "select") selectedElements = [];
+    if (currentTool !== "measure") { measureHoverGuides = []; activeMeasureLine = null; }
     updateToolbarUI();
     updateCursor();
     render();
@@ -885,6 +890,7 @@ function updateCursor() {
   else if (currentTool === "eraser") container.style.cursor = "pointer";
   else if (currentTool === "text") container.style.cursor = "text";
   else if (currentTool === "text-element") container.style.cursor = "text";
+  else if (currentTool === "measure") container.style.cursor = "crosshair";
   else container.style.cursor = "crosshair";
 }
 updateCursor();
@@ -892,6 +898,13 @@ updateCursor();
 window.addEventListener("mousemove", (e) => {
   lastMousePos.x = e.clientX;
   lastMousePos.y = e.clientY;
+
+  // Measure tool: show distances to nearby items on hover
+  if (currentTool === "measure" && !isInteracting) {
+    const mouseWorld = screenToWorld(e.clientX, e.clientY);
+    measureHoverGuides = computeMeasureHoverGuides(mouseWorld);
+    render();
+  }
 
   // Handle context hover cursor changes for resizer handles
   if (
@@ -1043,6 +1056,7 @@ window.addEventListener("keydown", (e) => {
   if (key === "t") targetTool = "text";
   if (key === "n") targetTool = "text-element";
   if (key === "e") targetTool = "eraser";
+  if (key === "m") targetTool = "measure";
 
   if (
     key === "g" &&
@@ -1204,7 +1218,7 @@ function isPointHittingShape(p, shape) {
       )
         return true;
     }
-  } else if (shape.type === "line" || shape.type === "arrow") {
+  } else if (shape.type === "line" || shape.type === "arrow" || shape.type === "measure") {
     return getPtToSegmentDist(p, shape.start, shape.end) < threshold;
   } else if (shape.type === "rect-border" || shape.type === "rect-fill") {
     const b = getShapeBounds(shape);
@@ -2588,12 +2602,244 @@ function render(targetCtx = ctx, isExporting = false) {
     targetCtx.restore();
   }
 
+  // 4. Draw measurement tool overlays
+  if (!isExporting && currentTool === "measure") {
+    targetCtx.save();
+    targetCtx.translate(transform.x, transform.y);
+    targetCtx.scale(transform.zoom, transform.zoom);
+
+    // Draw active measurement line (during drag)
+    if (activeMeasureLine) {
+      drawMeasureLine(targetCtx, activeMeasureLine.start, activeMeasureLine.end, "#00bcd4", false);
+    }
+
+    // Draw hover distance guides to nearby items
+    if (measureHoverGuides.length > 0) {
+      measureHoverGuides.forEach((g) => {
+        const zf = transform.zoom;
+        const lineWidth = 1 / zf;
+        const capSize = 4 / zf;
+        const fontSize = Math.max(9, 10 / zf);
+
+        targetCtx.save();
+        targetCtx.strokeStyle = "rgba(0, 188, 212, 0.6)";
+        targetCtx.fillStyle = "rgba(0, 188, 212, 0.6)";
+        targetCtx.lineWidth = lineWidth;
+        targetCtx.setLineDash([3 / zf, 2 / zf]);
+
+        // Draw guide line from cursor to element edge
+        targetCtx.beginPath();
+        targetCtx.moveTo(g.fromX, g.fromY);
+        targetCtx.lineTo(g.toX, g.toY);
+        targetCtx.stroke();
+
+        // End caps
+        targetCtx.setLineDash([]);
+        const angle = Math.atan2(g.toY - g.fromY, g.toX - g.fromX);
+        const perpX = -Math.sin(angle) * capSize;
+        const perpY = Math.cos(angle) * capSize;
+
+        targetCtx.beginPath();
+        targetCtx.moveTo(g.toX + perpX, g.toY + perpY);
+        targetCtx.lineTo(g.toX - perpX, g.toY - perpY);
+        targetCtx.stroke();
+
+        // Distance label
+        const midX = (g.fromX + g.toX) / 2;
+        const midY = (g.fromY + g.toY) / 2;
+        const labelText = `${Math.round(g.dist)}`;
+        targetCtx.font = `bold ${fontSize}px sans-serif`;
+        targetCtx.textAlign = "center";
+        targetCtx.textBaseline = "bottom";
+
+        const metrics = targetCtx.measureText(labelText);
+        const labelW = metrics.width + 4 / zf;
+        const labelH = fontSize + 4 / zf;
+        const labelOffset = 8 / zf;
+        const lx = midX + Math.sin(angle) * labelOffset;
+        const ly = midY - Math.cos(angle) * labelOffset;
+
+        targetCtx.fillStyle = "rgba(0, 40, 50, 0.75)";
+        targetCtx.fillRect(lx - labelW / 2, ly - labelH, labelW, labelH);
+        targetCtx.fillStyle = "#fff";
+        targetCtx.fillText(labelText, lx, ly - 1 / zf);
+        targetCtx.restore();
+      });
+    }
+
+    targetCtx.restore();
+  }
+
   if (!isExporting && ghostInput.style.display === "block" && activeTextCoord) {
     const screenPos = worldToScreen(activeTextCoord.x, activeTextCoord.y);
     ghostInput.style.left = `${screenPos.x}px`;
     ghostInput.style.top = `${screenPos.y - currentFontSize * transform.zoom * 0.2}px`;
     ghostInput.style.fontSize = `${currentFontSize * transform.zoom}px`;
   }
+}
+
+function computeMeasureHoverGuides(worldPos) {
+  const MAX_DIST = 500 / transform.zoom;
+  const MAX_GUIDES = 6;
+  const guides = [];
+
+  // Collect all element bounding boxes
+  const allBounds = [];
+  images.forEach((img) => {
+    allBounds.push({ x: img.x, y: img.y, w: img.w, h: img.h, id: img.id });
+  });
+  drawings.forEach((shape) => {
+    if (shape.type === "measure") return; // Skip other measure lines
+    const b = getShapeBounds(shape);
+    allBounds.push({ x: b.x, y: b.y, w: b.w, h: b.h, id: shape.id });
+  });
+
+  for (const bounds of allBounds) {
+    const left = bounds.x;
+    const right = bounds.x + bounds.w;
+    const top = bounds.y;
+    const bottom = bounds.y + bounds.h;
+
+    // Skip if cursor is inside this element
+    if (worldPos.x >= left && worldPos.x <= right && worldPos.y >= top && worldPos.y <= bottom) {
+      continue;
+    }
+
+    // Horizontal distance (left or right of element, vertically overlapping)
+    if (worldPos.y >= top && worldPos.y <= bottom) {
+      if (worldPos.x < left) {
+        const dist = left - worldPos.x;
+        if (dist < MAX_DIST) {
+          guides.push({ fromX: worldPos.x, fromY: worldPos.y, toX: left, toY: worldPos.y, dist });
+        }
+      } else if (worldPos.x > right) {
+        const dist = worldPos.x - right;
+        if (dist < MAX_DIST) {
+          guides.push({ fromX: worldPos.x, fromY: worldPos.y, toX: right, toY: worldPos.y, dist });
+        }
+      }
+    }
+
+    // Vertical distance (above or below element, horizontally overlapping)
+    if (worldPos.x >= left && worldPos.x <= right) {
+      if (worldPos.y < top) {
+        const dist = top - worldPos.y;
+        if (dist < MAX_DIST) {
+          guides.push({ fromX: worldPos.x, fromY: worldPos.y, toX: worldPos.x, toY: top, dist });
+        }
+      } else if (worldPos.y > bottom) {
+        const dist = worldPos.y - bottom;
+        if (dist < MAX_DIST) {
+          guides.push({ fromX: worldPos.x, fromY: worldPos.y, toX: worldPos.x, toY: bottom, dist });
+        }
+      }
+    }
+
+    // Horizontal distance to nearest vertical edge (when not vertically overlapping)
+    if (worldPos.y < top || worldPos.y > bottom) {
+      const nearestY = worldPos.y < top ? top : bottom;
+      if (worldPos.x >= left && worldPos.x <= right) {
+        // Already handled above
+      } else {
+        // Show horizontal guide to nearest vertical edge
+        const nearestX = worldPos.x < left ? left : right;
+        const hDist = Math.abs(worldPos.x - nearestX);
+        const vDist = Math.abs(worldPos.y - nearestY);
+        if (hDist < MAX_DIST) {
+          guides.push({ fromX: worldPos.x, fromY: nearestY, toX: nearestX, toY: nearestY, dist: hDist });
+        }
+        if (vDist < MAX_DIST) {
+          guides.push({ fromX: nearestX, fromY: worldPos.y, toX: nearestX, toY: nearestY, dist: vDist });
+        }
+      }
+    }
+
+    // Vertical distance to nearest horizontal edge (when not horizontally overlapping)
+    if ((worldPos.x < left || worldPos.x > right) && worldPos.y >= top && worldPos.y <= bottom) {
+      // Already handled horizontal case above
+    }
+  }
+
+  // Sort by distance and deduplicate, take closest
+  guides.sort((a, b) => a.dist - b.dist);
+  return guides.slice(0, MAX_GUIDES);
+}
+
+function drawMeasureLine(targetCtx, start, end, color, isExporting) {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist < 0.1) return;
+
+  const zoomFactor = isExporting ? 1 : transform.zoom;
+  const lineWidth = (isExporting ? 2 : 1.5) / zoomFactor;
+  const capSize = 6 / zoomFactor;
+  const fontSize = Math.max(11, 13 / zoomFactor);
+
+  targetCtx.save();
+  targetCtx.strokeStyle = color || "#00bcd4";
+  targetCtx.fillStyle = color || "#00bcd4";
+  targetCtx.lineWidth = lineWidth;
+  targetCtx.setLineDash([4 / zoomFactor, 3 / zoomFactor]);
+
+  // Main measurement line
+  targetCtx.beginPath();
+  targetCtx.moveTo(start.x, start.y);
+  targetCtx.lineTo(end.x, end.y);
+  targetCtx.stroke();
+
+  // End caps (perpendicular ticks)
+  targetCtx.setLineDash([]);
+  const angle = Math.atan2(dy, dx);
+  const perpX = -Math.sin(angle) * capSize;
+  const perpY = Math.cos(angle) * capSize;
+
+  targetCtx.beginPath();
+  targetCtx.moveTo(start.x + perpX, start.y + perpY);
+  targetCtx.lineTo(start.x - perpX, start.y - perpY);
+  targetCtx.stroke();
+
+  targetCtx.beginPath();
+  targetCtx.moveTo(end.x + perpX, end.y + perpY);
+  targetCtx.lineTo(end.x - perpX, end.y - perpY);
+  targetCtx.stroke();
+
+  // Start/end point dots
+  const dotR = 3 / zoomFactor;
+  targetCtx.beginPath();
+  targetCtx.arc(start.x, start.y, dotR, 0, Math.PI * 2);
+  targetCtx.fill();
+  targetCtx.beginPath();
+  targetCtx.arc(end.x, end.y, dotR, 0, Math.PI * 2);
+  targetCtx.fill();
+
+  // Distance label at midpoint
+  const midX = (start.x + end.x) / 2;
+  const midY = (start.y + end.y) / 2;
+  const labelText = `${Math.round(dist)}px`;
+
+  targetCtx.font = `bold ${fontSize}px sans-serif`;
+  targetCtx.textAlign = "center";
+  targetCtx.textBaseline = "bottom";
+
+  const metrics = targetCtx.measureText(labelText);
+  const labelW = metrics.width + 8 / zoomFactor;
+  const labelH = fontSize + 6 / zoomFactor;
+
+  // Offset label perpendicular to the line
+  const labelOffset = 12 / zoomFactor;
+  const labelCx = midX + Math.sin(angle) * labelOffset;
+  const labelCy = midY - Math.cos(angle) * labelOffset;
+
+  // Label background
+  targetCtx.fillStyle = "rgba(0, 40, 50, 0.85)";
+  targetCtx.fillRect(labelCx - labelW / 2, labelCy - labelH, labelW, labelH);
+
+  // Label text
+  targetCtx.fillStyle = "#fff";
+  targetCtx.fillText(labelText, labelCx, labelCy - 2 / zoomFactor);
+
+  targetCtx.restore();
 }
 
 function drawShape(targetCtx, shape, isExporting) {
@@ -2678,6 +2924,8 @@ function drawShape(targetCtx, shape, isExporting) {
       shape.end.x - shape.start.x,
       shape.end.y - shape.start.y,
     );
+  } else if (shape.type === "measure") {
+    drawMeasureLine(targetCtx, shape.start, shape.end, shape.color, isExporting);
   } else if (shape.type === "text") {
     targetCtx.font = `${shape.fontSize}px sans-serif`;
     targetCtx.textBaseline = "top";
@@ -2768,6 +3016,15 @@ container.addEventListener("mousedown", (e) => {
 
   if (currentTool === "eraser") {
     checkAndEraseAtPosition(worldPos);
+    return;
+  }
+
+  if (currentTool === "measure") {
+    activeMeasureLine = {
+      start: { ...worldPos },
+      end: { ...worldPos },
+    };
+    measureHoverGuides = [];
     return;
   }
 
@@ -3434,6 +3691,10 @@ container.addEventListener("mousemove", (e) => {
 
       render();
     }
+  } else if (activeMeasureLine) {
+    if (e.shiftKey) worldPos = constraintToAngle(activeMeasureLine.start, worldPos);
+    activeMeasureLine.end = { ...worldPos };
+    render();
   } else if (activeShape) {
     if (activeShape.type === "pen") {
       if (e.shiftKey && activeShape.points.length > 0)
@@ -3455,6 +3716,31 @@ container.addEventListener("mouseup", (e) => {
   activeSnapGuides = [];
   activeProximityGuides = [];
   activeSpacingGuides = [];
+
+  if (currentTool === "measure" && activeMeasureLine) {
+    const dx = activeMeasureLine.end.x - activeMeasureLine.start.x;
+    const dy = activeMeasureLine.end.y - activeMeasureLine.start.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist > 5 / transform.zoom) {
+      pushUndo();
+      drawings.push({
+        id: "draw_" + elementIdCounter++,
+        elementType: "drawing",
+        type: "measure",
+        color: "#00bcd4",
+        width: CONSTANT_LINE_WIDTH,
+        start: { ...activeMeasureLine.start },
+        end: { ...activeMeasureLine.end },
+      });
+    }
+    activeMeasureLine = null;
+    render();
+    scheduleSave();
+    isMiddleClick = false;
+    isRightClickHand = false;
+    updateCursor();
+    return;
+  }
 
   if (currentTool === "select" && isRegionSelecting) {
     isRegionSelecting = false;
