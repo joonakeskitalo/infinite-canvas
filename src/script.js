@@ -4413,7 +4413,7 @@ const rulerLeftCtx = rulerLeft.getContext("2d");
 const rulerCorner = document.getElementById("ruler-corner");
 const toggleRulersBtn = document.getElementById("toggle-rulers-btn");
 
-const RULER_SIZE = 20; // px
+const RULER_SIZE = 12; // px
 let guides = []; // {axis: 'x'|'y', position: number (world coords)}
 let guidesVisible = true; // toggle visibility of guide lines
 let rulersVisible = false; // rulers hidden by default
@@ -4458,10 +4458,16 @@ rulerCorner.addEventListener("click", (e) => {
 });
 
 function resizeRulers() {
-  rulerTop.width = window.innerWidth - RULER_SIZE;
+  const topW = window.innerWidth - RULER_SIZE;
+  const leftH = window.innerHeight - RULER_SIZE;
+  rulerTop.width = topW;
   rulerTop.height = RULER_SIZE;
+  rulerTop.style.width = topW + "px";
+  rulerTop.style.height = RULER_SIZE + "px";
   rulerLeft.width = RULER_SIZE;
-  rulerLeft.height = window.innerHeight - RULER_SIZE;
+  rulerLeft.height = leftH;
+  rulerLeft.style.width = RULER_SIZE + "px";
+  rulerLeft.style.height = leftH + "px";
 }
 
 function isColorDark(hex) {
@@ -4803,6 +4809,8 @@ resize = function () {
   resizeRulers();
   _originalResize();
 };
+
+window.addEventListener("resize", resizeRulers);
 
 resizeRulers();
 setRulersVisible(false); // hidden by default

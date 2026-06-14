@@ -69,7 +69,7 @@ input[type="color"]::-webkit-color-swatch {
   align-items: center;
   z-index: 10;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-  max-width: calc(100vw - 20px);
+  max-width: calc(100vw - 36px);
   overflow-x: auto;
   overflow-y: hidden;
 }
@@ -430,8 +430,8 @@ input[type="color"]::-webkit-color-swatch {
   position: fixed;
   top: 0;
   left: 0;
-  width: 20px;
-  height: 20px;
+  width: 12px;
+  height: 12px;
   background: rgba(30, 30, 30, 0.92);
   border-right: 1px solid rgba(100, 100, 100, 0.5);
   border-bottom: 1px solid rgba(100, 100, 100, 0.5);
@@ -473,18 +473,16 @@ input[type="color"]::-webkit-color-swatch {
 
 #ruler-top {
   top: 0;
-  left: 20px;
-  height: 20px;
-  width: calc(100% - 20px);
+  left: 12px;
+  height: 12px;
   border-bottom: 1px solid rgba(100, 100, 100, 0.5);
   cursor: s-resize;
 }
 
 #ruler-left {
-  top: 20px;
+  top: 12px;
   left: 0;
-  width: 20px;
-  height: calc(100% - 20px);
+  width: 12px;
   border-right: 1px solid rgba(100, 100, 100, 0.5);
   cursor: e-resize;
 }
