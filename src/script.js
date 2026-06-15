@@ -1838,10 +1838,7 @@ window.addEventListener("paste", (e) => {
     // System clipboard has image(s) from an external source
     e.preventDefault();
     pushUndo();
-    const worldCenter = screenToWorld(
-      window.innerWidth / 2,
-      window.innerHeight / 2,
-    );
+    const cursorWorld = screenToWorld(lastMousePos.x, lastMousePos.y);
     // Sort blobs by filename for consistent ordering
     const sortedBlobs = [...imageBlobs].sort((a, b) => {
       const nameA = (a.name || "").toLowerCase();
@@ -1863,8 +1860,8 @@ window.addEventListener("paste", (e) => {
             id: "img_" + elementIdCounter++,
             elementType: "image",
             img: img,
-            x: worldCenter.x - img.width / 2 + offsetX,
-            y: worldCenter.y - img.height / 2 + offsetY,
+            x: cursorWorld.x - img.width / 2 + offsetX,
+            y: cursorWorld.y - img.height / 2 + offsetY,
             w: img.width,
             h: img.height,
           };
@@ -1943,6 +1940,29 @@ function pasteFromClipboard() {
   if (clipboardElements.length === 0) return;
   pushUndo();
   pasteOffset += 30;
+
+  // Compute the bounding box of clipboard elements to center them at the cursor
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  clipboardElements.forEach((el) => {
+    let bounds;
+    if (el.elementType === "image") {
+      bounds = { x: el.x, y: el.y, w: el.w, h: el.h };
+    } else {
+      bounds = getShapeBounds(el);
+    }
+    if (bounds.x < minX) minX = bounds.x;
+    if (bounds.y < minY) minY = bounds.y;
+    if (bounds.x + bounds.w > maxX) maxX = bounds.x + bounds.w;
+    if (bounds.y + bounds.h > maxY) maxY = bounds.y + bounds.h;
+  });
+  const clipCenterX = (minX + maxX) / 2;
+  const clipCenterY = (minY + maxY) / 2;
+
+  // Paste at cursor position with a small cascade offset for repeated pastes
+  const cursorWorld = screenToWorld(lastMousePos.x, lastMousePos.y);
+  const deltaX = cursorWorld.x - clipCenterX + pasteOffset;
+  const deltaY = cursorWorld.y - clipCenterY + pasteOffset;
+
   const newElements = [];
   // Remap group IDs so pasted groups are independent from originals
   const groupIdMap = new Map();
@@ -1956,32 +1976,32 @@ function pasteFromClipboard() {
       }
       clone.groupId = groupIdMap.get(clone.groupId);
     }
-    // Offset the pasted element
+    // Offset the pasted element to cursor position
     if (clone.elementType === "image") {
-      clone.x += pasteOffset;
-      clone.y += pasteOffset;
+      clone.x += deltaX;
+      clone.y += deltaY;
       if (clone.fullBounds) {
         clone.fullBounds = {
-          x: clone.fullBounds.x + pasteOffset,
-          y: clone.fullBounds.y + pasteOffset,
+          x: clone.fullBounds.x + deltaX,
+          y: clone.fullBounds.y + deltaY,
           w: clone.fullBounds.w,
           h: clone.fullBounds.h,
         };
       }
     } else if (clone.type === "pen") {
       clone.points = clone.points.map((p) => ({
-        x: p.x + pasteOffset,
-        y: p.y + pasteOffset,
+        x: p.x + deltaX,
+        y: p.y + deltaY,
       }));
     } else {
       clone.start = {
-        x: clone.start.x + pasteOffset,
-        y: clone.start.y + pasteOffset,
+        x: clone.start.x + deltaX,
+        y: clone.start.y + deltaY,
       };
       if (clone.end) {
         clone.end = {
-          x: clone.end.x + pasteOffset,
-          y: clone.end.y + pasteOffset,
+          x: clone.end.x + deltaX,
+          y: clone.end.y + deltaY,
         };
       }
     }
@@ -2003,10 +2023,7 @@ function pasteFromClipboard() {
 
 function pasteTextToCanvas(text) {
   pushUndo();
-  const worldCenter = screenToWorld(
-    window.innerWidth / 2,
-    window.innerHeight / 2,
-  );
+  const cursorWorld = screenToWorld(lastMousePos.x, lastMousePos.y);
   const lines = text.split("\n");
   const pastedElements = [];
   let yOffset = 0;
@@ -2023,7 +2040,7 @@ function pasteTextToCanvas(text) {
       text: line,
       color: textDrawColor,
       fontSize: currentFontSize,
-      start: { x: worldCenter.x, y: worldCenter.y + yOffset },
+      start: { x: cursorWorld.x, y: cursorWorld.y + yOffset },
     };
     drawings.push(textEl);
     pastedElements.push(textEl);
