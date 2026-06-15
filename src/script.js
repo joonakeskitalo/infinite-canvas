@@ -2165,6 +2165,16 @@ window.addEventListener("keydown", (e) => {
     selectAllElements();
     return;
   }
+  if (isMod && e.key.toLowerCase() === "e" && !e.shiftKey) {
+    e.preventDefault();
+    executePNGExport(1.0);
+    return;
+  }
+  if (isMod && e.key.toLowerCase() === "e" && e.shiftKey) {
+    e.preventDefault();
+    executePNGExport(0.5);
+    return;
+  }
 });
 
 const SNAP_THRESHOLD = 8; // pixels in world space (adjusted by zoom)
