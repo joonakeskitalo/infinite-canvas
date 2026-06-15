@@ -2172,7 +2172,7 @@ window.addEventListener("keydown", (e) => {
   }
   if (isMod && e.key.toLowerCase() === "e" && e.shiftKey) {
     e.preventDefault();
-    executePNGExport(0.5);
+    executePNGExport(1.0, { download: true });
     return;
   }
 });
@@ -5498,7 +5498,7 @@ function getCanvasContentBounds() {
   };
 }
 
-async function executePNGExport(scaleFactor = 1.0) {
+async function executePNGExport(scaleFactor = 1.0, { download = false } = {}) {
   const exportingSelection = selectedElements.length > 0;
 
   if (!exportingSelection && images.length === 0 && drawings.length === 0) {
@@ -5637,6 +5637,30 @@ async function executePNGExport(scaleFactor = 1.0) {
       showToast("Failed to compile image asset");
       return;
     }
+    if (download) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `canvas_export_${Date.now()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (exportingSelection) {
+        showToast(
+          scaleFactor === 0.5
+            ? `Selection (${selectedElements.length}) downloaded at 50%!`
+            : `Selection (${selectedElements.length}) downloaded as PNG!`,
+        );
+      } else {
+        showToast(
+          scaleFactor === 0.5
+            ? "50% scale PNG downloaded!"
+            : "Full scale PNG downloaded!",
+        );
+      }
+      return;
+    }
     try {
       await navigator.clipboard.write([
         new ClipboardItem({ "image/png": blob }),
@@ -5670,6 +5694,8 @@ async function executePNGExport(scaleFactor = 1.0) {
 }
 
 exportBtn.addEventListener("click", (e) => executePNGExport(e.shiftKey ? 0.5 : 1.0));
+
+document.getElementById("download-png-btn").addEventListener("click", (e) => executePNGExport(e.shiftKey ? 0.5 : 1.0, { download: true }));
 
 downloadImagesBtn.addEventListener("click", () => {
   if (images.length === 0) {
