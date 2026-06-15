@@ -2213,6 +2213,16 @@ window.addEventListener("keydown", (e) => {
     executePNGExport(1.0, { download: true });
     return;
   }
+  if (isMod && e.key.toLowerCase() === "p" && !e.shiftKey) {
+    e.preventDefault();
+    executePNGExport(1.0);
+    return;
+  }
+  if (isMod && e.key.toLowerCase() === "p" && e.shiftKey) {
+    e.preventDefault();
+    executePNGExport(0.5);
+    return;
+  }
 });
 
 const SNAP_THRESHOLD = 8; // pixels in world space (adjusted by zoom)
