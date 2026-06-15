@@ -1385,6 +1385,21 @@ window.addEventListener("keydown", (e) => {
     return;
   }
 
+  // Escape key: deselect/blur current selection
+  if (e.key === "Escape") {
+    e.preventDefault();
+    if (selectedElements.length > 0) {
+      selectedElements = [];
+      toggleAlignmentPanelVisibility();
+      render();
+    }
+    // Blur any focused element in the document
+    if (document.activeElement && document.activeElement !== document.body) {
+      document.activeElement.blur();
+    }
+    return;
+  }
+
   const key = e.key.toLowerCase();
   if (e.key === "+" || e.key === "=") {
     e.preventDefault();
