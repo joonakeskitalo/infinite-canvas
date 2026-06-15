@@ -1475,6 +1475,32 @@ window.addEventListener("keydown", (e) => {
     return;
   }
 
+  // I key activates the EyeDropper color picker and copies HEX to clipboard
+  if (key === "i" && !e.shiftKey) {
+    if (window.EyeDropper) {
+      const dropper = new EyeDropper();
+      dropper
+        .open()
+        .then((result) => {
+          const hex = result.sRGBHex;
+          drawColor = hex;
+          colorPicker.value = hex;
+          applyColorToSelectedElements(hex);
+          navigator.clipboard.writeText(hex).then(() => {
+            showToast(`Copied ${hex} to clipboard`);
+          }).catch(() => {
+            showToast(`Picked ${hex}`);
+          });
+        })
+        .catch(() => {
+          // User cancelled the dropper
+        });
+    } else {
+      showToast("EyeDropper not supported in this browser");
+    }
+    return;
+  }
+
   // Number keys 0-9 set opacity on selected elements
   if (
     key >= "0" &&
