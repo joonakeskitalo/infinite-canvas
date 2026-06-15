@@ -1478,6 +1478,9 @@ window.addEventListener("keydown", (e) => {
   // I key activates the EyeDropper color picker and copies HEX to clipboard
   if (key === "i" && !e.shiftKey) {
     if (window.EyeDropper) {
+      // Save the tool the user was on before the dropper opens,
+      // since the window blur event may clobber preSpaceTool/currentTool.
+      const toolBeforeDropper = preSpaceTool || currentTool;
       const dropper = new EyeDropper();
       dropper
         .open()
@@ -1494,6 +1497,18 @@ window.addEventListener("keydown", (e) => {
         })
         .catch(() => {
           // User cancelled the dropper
+        })
+        .finally(() => {
+          // Reset keyboard state — keyup events are lost while dropper is open
+          isShiftPressed = false;
+          isSpacePressed = false;
+          panLockDirection = null;
+          preSpaceTool = null;
+          // Restore the tool that was active before the dropper opened
+          currentTool = toolBeforeDropper;
+          updateToolbarUI();
+          updateCursor();
+          render();
         });
     } else {
       showToast("EyeDropper not supported in this browser");
