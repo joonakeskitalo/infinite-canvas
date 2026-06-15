@@ -49,9 +49,9 @@ const toolbarMenuBtn = document.getElementById("toolbar-menu-btn");
 const toolbarMenu = document.getElementById("toolbar-menu");
 
 function positionToolbarMenu() {
-  const rect = toolbarMenuBtn.getBoundingClientRect();
-  toolbarMenu.style.top = (rect.bottom + 6) + "px";
-  toolbarMenu.style.left = rect.left + "px";
+  const toolbarRect = document.getElementById("toolbar").getBoundingClientRect();
+  toolbarMenu.style.top = (toolbarRect.bottom + 6) + "px";
+  toolbarMenu.style.left = toolbarRect.left + "px";
 }
 
 toolbarMenuBtn.addEventListener("click", (e) => {

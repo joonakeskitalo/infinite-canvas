@@ -434,7 +434,7 @@ input[type="color"]::-webkit-color-swatch {
   display: none;
   position: fixed;
   top: 60px;
-  left: 20px;
+  left: 0;
   background: rgba(30, 30, 30, 0.97);
   backdrop-filter: blur(10px);
   border: 1px solid #444;
