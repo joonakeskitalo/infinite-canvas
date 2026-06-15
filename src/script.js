@@ -2144,6 +2144,11 @@ window.addEventListener("keydown", (e) => {
     redo();
     return;
   }
+  if (isMod && e.key.toLowerCase() === "y") {
+    e.preventDefault();
+    redo();
+    return;
+  }
   if (isMod && e.key.toLowerCase() === "g" && !e.shiftKey) {
     e.preventDefault();
     groupSelection();
