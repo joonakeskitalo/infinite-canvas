@@ -132,6 +132,10 @@ let cropRect = null; // {x, y, w, h} in world coords — the crop region
 let cropDragEdge = null; // which edge/corner is being dragged: 'n','s','e','w','ne','nw','se','sw'
 let cropDragStart = null; // starting mouse world position for crop drag
 
+// --- CONNECTOR ARROW TOOL STATE ---
+let activeConnector = null; // live connector being drawn
+let connectorHoverTarget = null; // element under cursor during connector drawing
+
 // --- COLOR FILTER SYSTEM ---
 let currentFilter = "none";
 
@@ -388,6 +392,10 @@ function serializeElement(el) {
   } else {
     clone.start = { x: el.start.x, y: el.start.y };
     if (el.end) clone.end = { x: el.end.x, y: el.end.y };
+    if (el.type === "connector") {
+      clone.startConn = el.startConn ? { ...el.startConn } : null;
+      clone.endConn = el.endConn ? { ...el.endConn } : null;
+    }
   }
   return clone;
 }
@@ -399,6 +407,10 @@ function restoreState(state) {
     if (d.type === "pen") d.points = el.points.map((p) => ({ ...p }));
     else if (d.start) d.start = { ...el.start };
     if (d.end) d.end = { ...el.end };
+    if (d.type === "connector") {
+      d.startConn = el.startConn ? { ...el.startConn } : null;
+      d.endConn = el.endConn ? { ...el.endConn } : null;
+    }
     return d;
   });
   selectedElements = [];
@@ -619,6 +631,10 @@ async function restoreFromZip(arrayBuf) {
     if (d.type === "pen") d.points = el.points.map((p) => ({ ...p }));
     else if (d.start) d.start = { ...el.start };
     if (d.end) d.end = { ...el.end };
+    if (d.type === "connector") {
+      d.startConn = el.startConn ? { ...el.startConn } : null;
+      d.endConn = el.endConn ? { ...el.endConn } : null;
+    }
     return d;
   });
 
@@ -1415,6 +1431,16 @@ window.addEventListener("keydown", (e) => {
     if (currentTool === "select" && selectedElements.length > 0) {
       pushUndo();
       const idsToRemove = selectedElements.map((el) => el.id);
+      // Detach connectors referencing deleted elements
+      for (const shape of drawings) {
+        if (shape.type !== "connector") continue;
+        if (shape.startConn && idsToRemove.includes(shape.startConn.elementId)) {
+          shape.startConn = null;
+        }
+        if (shape.endConn && idsToRemove.includes(shape.endConn.elementId)) {
+          shape.endConn = null;
+        }
+      }
       images = images.filter((img) => !idsToRemove.includes(img.id));
       drawings = drawings.filter((d) => !idsToRemove.includes(d.id));
       showToast(`Removed ${selectedElements.length} selected asset(s)`);
@@ -1444,6 +1470,7 @@ window.addEventListener("keydown", (e) => {
     if (e.key === "ArrowRight") dx = step;
     pushUndo();
     selectedElements.forEach((el) => translateElement(el, dx, dy));
+    updateConnectorsForElements(selectedElements.map((el) => el.id));
     render();
     return;
   }
@@ -1459,6 +1486,7 @@ window.addEventListener("keydown", (e) => {
   if (key === "b") targetTool = "pen";
   if (key === "l") targetTool = "line";
   if (key === "a") targetTool = "arrow";
+  if (key === "c") targetTool = "connector";
   if (key === "r") targetTool = "rect-border";
   if (key === "f") targetTool = "rect-fill";
   if (key === "t") targetTool = "text";
@@ -1672,7 +1700,7 @@ function isPointHittingShape(p, shape) {
       )
         return true;
     }
-  } else if (shape.type === "line" || shape.type === "arrow" || shape.type === "measure") {
+  } else if (shape.type === "line" || shape.type === "arrow" || shape.type === "measure" || shape.type === "connector") {
     return getPtToSegmentDist(p, shape.start, shape.end) < threshold;
   } else if (shape.type === "rect-border" || shape.type === "rect-fill") {
     const b = getShapeBounds(shape);
@@ -1702,6 +1730,13 @@ function isPointHittingShape(p, shape) {
 
 function getElementResizeHandles(el) {
   // Returns array of {x, y, cursor, position} for each handle
+  // For connector/line/arrow types, use start/end point handles
+  if (el.type === "connector" || el.type === "line" || el.type === "arrow") {
+    return [
+      { x: el.start.x, y: el.start.y, cursor: "move", position: "start" },
+      { x: el.end.x, y: el.end.y, cursor: "move", position: "end" },
+    ];
+  }
   let b;
   if (el.elementType === "image") {
     b = {
@@ -1767,6 +1802,80 @@ function getElementAtWorldPos(worldPos, excludeElement) {
     }
   }
   return null;
+}
+
+// --- CONNECTOR ARROW HELPERS ---
+
+function getElementBounds(el) {
+  if (el.elementType === "image") {
+    return { x: el.x, y: el.y, w: el.w, h: el.h };
+  }
+  return getShapeBounds(el);
+}
+
+function findElementById(id) {
+  for (let i = 0; i < drawings.length; i++) {
+    if (drawings[i].id === id) return drawings[i];
+  }
+  for (let i = 0; i < images.length; i++) {
+    if (images[i].id === id) return images[i];
+  }
+  return null;
+}
+
+// Compute the world-space point for a connector endpoint given its connection data
+function getConnectorAnchorPoint(conn) {
+  // conn: { elementId, ratioX, ratioY } or null
+  if (!conn || !conn.elementId) return null;
+  const el = findElementById(conn.elementId);
+  if (!el) return null;
+  const b = getElementBounds(el);
+  return {
+    x: b.x + b.w * conn.ratioX,
+    y: b.y + b.h * conn.ratioY,
+  };
+}
+
+// Given a world point and an element, compute the ratio within its bounds
+function computeAnchorRatio(worldPos, el) {
+  const b = getElementBounds(el);
+  const rx = b.w > 0 ? (worldPos.x - b.x) / b.w : 0.5;
+  const ry = b.h > 0 ? (worldPos.y - b.y) / b.h : 0.5;
+  return { ratioX: Math.max(0, Math.min(1, rx)), ratioY: Math.max(0, Math.min(1, ry)) };
+}
+
+// Find closest edge midpoint (connection port) on an element to a world point
+function getClosestConnectionPort(worldPos, el) {
+  const b = getElementBounds(el);
+  const ports = [
+    { x: b.x + b.w / 2, y: b.y, ratioX: 0.5, ratioY: 0 },         // top
+    { x: b.x + b.w / 2, y: b.y + b.h, ratioX: 0.5, ratioY: 1 },   // bottom
+    { x: b.x, y: b.y + b.h / 2, ratioX: 0, ratioY: 0.5 },         // left
+    { x: b.x + b.w, y: b.y + b.h / 2, ratioX: 1, ratioY: 0.5 },   // right
+  ];
+  let closest = ports[0];
+  let minDist = Infinity;
+  for (const p of ports) {
+    const d = (p.x - worldPos.x) ** 2 + (p.y - worldPos.y) ** 2;
+    if (d < minDist) { minDist = d; closest = p; }
+  }
+  return closest;
+}
+
+// Update all connector endpoints that reference any of the given element IDs
+function updateConnectorsForElements(elementIds) {
+  const idSet = new Set(elementIds);
+  for (const shape of drawings) {
+    if (shape.type !== "connector") continue;
+    if (shape.startConn && idSet.has(shape.startConn.elementId)) {
+      const pt = getConnectorAnchorPoint(shape.startConn);
+      if (pt) { shape.start.x = pt.x; shape.start.y = pt.y; }
+    }
+    if (shape.endConn && idSet.has(shape.endConn.elementId)) {
+      const pt = getConnectorAnchorPoint(shape.endConn);
+      if (pt) { shape.end.x = pt.x; shape.end.y = pt.y; }
+    }
+  }
 }
 
 function swapElementPositions(elA, elB) {
@@ -2112,6 +2221,10 @@ function cloneElement(el) {
   } else {
     clone.start = { x: el.start.x, y: el.start.y };
     if (el.end) clone.end = { x: el.end.x, y: el.end.y };
+    if (el.type === "connector") {
+      clone.startConn = el.startConn ? { ...el.startConn } : null;
+      clone.endConn = el.endConn ? { ...el.endConn } : null;
+    }
   }
   return clone;
 }
@@ -3180,15 +3293,36 @@ function _doRender(targetCtx = ctx, isExporting = false) {
         targetCtx.strokeStyle = isGrouped ? "#28a745" : "#ff4444";
         targetCtx.lineWidth = 1.5 / transform.zoom;
         targetCtx.setLineDash([4 / transform.zoom, 4 / transform.zoom]);
-        targetCtx.strokeRect(b.x - 4, b.y - 4, b.w + 8, b.h + 8);
+
+        // For connector/line/arrow, skip the bounding rect — just show endpoint handles
+        if (shape.type === "connector" || shape.type === "line" || shape.type === "arrow") {
+          // No bounding rect for line-like elements
+        } else {
+          targetCtx.strokeRect(b.x - 4, b.y - 4, b.w + 8, b.h + 8);
+        }
 
         if (selectedElements.length === 1) {
-          targetCtx.fillStyle = "#ff4444";
-          const hSize = RESIZE_HANDLE_SIZE / transform.zoom;
           const handles = getElementResizeHandles(shape);
-          handles.forEach((h) => {
-            targetCtx.fillRect(h.x - hSize / 2, h.y - hSize / 2, hSize, hSize);
-          });
+          if (shape.type === "connector" || shape.type === "line" || shape.type === "arrow") {
+            // Draw circles at start/end points
+            const radius = 5 / transform.zoom;
+            targetCtx.setLineDash([]);
+            targetCtx.fillStyle = "#ffffff";
+            targetCtx.strokeStyle = "#ff4444";
+            targetCtx.lineWidth = 2 / transform.zoom;
+            handles.forEach((h) => {
+              targetCtx.beginPath();
+              targetCtx.arc(h.x, h.y, radius, 0, Math.PI * 2);
+              targetCtx.fill();
+              targetCtx.stroke();
+            });
+          } else {
+            targetCtx.fillStyle = "#ff4444";
+            const hSize = RESIZE_HANDLE_SIZE / transform.zoom;
+            handles.forEach((h) => {
+              targetCtx.fillRect(h.x - hSize / 2, h.y - hSize / 2, hSize, hSize);
+            });
+          }
         }
         targetCtx.restore();
       }
@@ -3198,6 +3332,36 @@ function _doRender(targetCtx = ctx, isExporting = false) {
   // Live preview layer
   if (!isExporting && activeShape) {
     drawShape(targetCtx, activeShape, false);
+  }
+
+  // Live preview for connector arrow being drawn
+  if (!isExporting && activeConnector) {
+    drawShape(targetCtx, activeConnector, false);
+    // Draw connection port highlights on hovered target
+    if (connectorHoverTarget) {
+      const b = getElementBounds(connectorHoverTarget);
+      const ports = [
+        { x: b.x + b.w / 2, y: b.y },
+        { x: b.x + b.w / 2, y: b.y + b.h },
+        { x: b.x, y: b.y + b.h / 2 },
+        { x: b.x + b.w, y: b.y + b.h / 2 },
+      ];
+      const portRadius = 5 / transform.zoom;
+      targetCtx.save();
+      targetCtx.fillStyle = "#007acc";
+      targetCtx.globalAlpha = 0.7;
+      for (const p of ports) {
+        targetCtx.beginPath();
+        targetCtx.arc(p.x, p.y, portRadius, 0, Math.PI * 2);
+        targetCtx.fill();
+      }
+      // Highlight the element border
+      targetCtx.strokeStyle = "#007acc";
+      targetCtx.lineWidth = 2 / transform.zoom;
+      targetCtx.setLineDash([4 / transform.zoom, 4 / transform.zoom]);
+      targetCtx.strokeRect(b.x, b.y, b.w, b.h);
+      targetCtx.restore();
+    }
   }
 
   targetCtx.restore();
@@ -3906,6 +4070,55 @@ function drawShape(targetCtx, shape, isExporting) {
     );
   } else if (shape.type === "measure") {
     drawMeasureLine(targetCtx, shape.start, shape.end, shape.color, isExporting);
+  } else if (shape.type === "connector") {
+    // Draw connector arrow (same as arrow but with connection indicators)
+    const dx = shape.end.x - shape.start.x;
+    const dy = shape.end.y - shape.start.y;
+    const len = Math.sqrt(dx * dx + dy * dy);
+
+    if (len > 0.1) {
+      const ux = dx / len;
+      const uy = dy / len;
+      const headLength = Math.max(
+        16 / (isExporting ? 1 : transform.zoom),
+        calculatedWidth * 3.5,
+      );
+      const headWidth = Math.max(
+        10 / (isExporting ? 1 : transform.zoom),
+        calculatedWidth * 2.2,
+      );
+      const cx = shape.end.x - headLength * ux;
+      const cy = shape.end.y - headLength * uy;
+      const nx = -uy * headWidth;
+      const ny = ux * headWidth;
+
+      targetCtx.beginPath();
+      targetCtx.moveTo(shape.start.x, shape.start.y);
+      targetCtx.lineTo(cx, cy);
+      targetCtx.stroke();
+
+      targetCtx.beginPath();
+      targetCtx.moveTo(shape.end.x, shape.end.y);
+      targetCtx.lineTo(cx + nx, cy + ny);
+      targetCtx.lineTo(cx - nx, cy - ny);
+      targetCtx.closePath();
+      targetCtx.fill();
+    } else {
+      targetCtx.beginPath();
+      targetCtx.moveTo(shape.start.x, shape.start.y);
+      targetCtx.lineTo(shape.end.x, shape.end.y);
+      targetCtx.stroke();
+    }
+
+    // Draw connection point indicators (small circles at anchored ends)
+    if (!isExporting) {
+      const dotRadius = 4 / transform.zoom;
+      if (shape.startConn) {
+        targetCtx.beginPath();
+        targetCtx.arc(shape.start.x, shape.start.y, dotRadius, 0, Math.PI * 2);
+        targetCtx.fill();
+      }
+    }
   } else if (shape.type === "text") {
     targetCtx.font = `${shape.fontSize}px sans-serif`;
     targetCtx.textBaseline = "top";
@@ -3964,14 +4177,26 @@ function drawShape(targetCtx, shape, isExporting) {
 
 function checkAndEraseAtPosition(worldPos) {
   let erasedSomething = false;
+  const erasedIds = [];
   for (let i = drawings.length - 1; i >= 0; i--) {
     if (isPointHittingShape(worldPos, drawings[i])) {
       if (!erasedSomething) pushUndo();
+      erasedIds.push(drawings[i].id);
       drawings.splice(i, 1);
       erasedSomething = true;
     }
   }
   if (erasedSomething) {
+    // Detach connectors referencing erased elements
+    for (const shape of drawings) {
+      if (shape.type !== "connector") continue;
+      if (shape.startConn && erasedIds.includes(shape.startConn.elementId)) {
+        shape.startConn = null;
+      }
+      if (shape.endConn && erasedIds.includes(shape.endConn.elementId)) {
+        shape.endConn = null;
+      }
+    }
     render();
   }
 }
@@ -4247,6 +4472,34 @@ container.addEventListener("mousedown", (e) => {
     }
     toggleAlignmentPanelVisibility();
     render();
+  } else if (currentTool === "connector") {
+    // Start connector arrow — snap to nearest element port if hovering one
+    const snapThreshold = 30 / transform.zoom;
+    let startConn = null;
+    const hitEl = getElementAtWorldPos(worldPos, null);
+    if (hitEl && hitEl.type !== "connector") {
+      const port = getClosestConnectionPort(worldPos, hitEl);
+      const dist = Math.sqrt((port.x - worldPos.x) ** 2 + (port.y - worldPos.y) ** 2);
+      if (dist < snapThreshold) {
+        worldPos = { x: port.x, y: port.y };
+        startConn = { elementId: hitEl.id, ratioX: port.ratioX, ratioY: port.ratioY };
+      } else {
+        const ratio = computeAnchorRatio(worldPos, hitEl);
+        startConn = { elementId: hitEl.id, ratioX: ratio.ratioX, ratioY: ratio.ratioY };
+      }
+    }
+    activeConnector = {
+      id: "draw_" + elementIdCounter++,
+      type: "connector",
+      elementType: "drawing",
+      color: drawColor,
+      width: CONSTANT_LINE_WIDTH,
+      start: { ...worldPos },
+      end: { ...worldPos },
+      startConn: startConn,
+      endConn: null,
+    };
+    connectorHoverTarget = null;
   } else if (
     ["pen", "line", "arrow", "rect-border", "rect-fill"].includes(currentTool)
   ) {
@@ -4519,6 +4772,59 @@ container.addEventListener("mousemove", (e) => {
       const mouseDx = worldPos.x - sb.startMouse.x;
       const mouseDy = worldPos.y - sb.startMouse.y;
 
+      if ((el.type === "connector" || el.type === "line" || el.type === "arrow") && (hp === "start" || hp === "end")) {
+        // Direct endpoint dragging for line-like elements
+        let targetPos = { ...worldPos };
+        if (e.shiftKey) {
+          // Constrain angle relative to the other endpoint
+          const anchor = hp === "start" ? el.end : el.start;
+          targetPos = constraintToAngle(anchor, worldPos);
+        }
+        if (hp === "start") {
+          el.start = targetPos;
+          // For connectors, update or detach start connection
+          if (el.type === "connector") {
+            const snapThreshold = 30 / transform.zoom;
+            const hitEl = getElementAtWorldPos(targetPos, el);
+            if (hitEl && hitEl.type !== "connector") {
+              const port = getClosestConnectionPort(targetPos, hitEl);
+              const dist = Math.sqrt((port.x - targetPos.x) ** 2 + (port.y - targetPos.y) ** 2);
+              if (dist < snapThreshold) {
+                el.start = { x: port.x, y: port.y };
+                el.startConn = { elementId: hitEl.id, ratioX: port.ratioX, ratioY: port.ratioY };
+              } else {
+                const ratio = computeAnchorRatio(targetPos, hitEl);
+                el.startConn = { elementId: hitEl.id, ratioX: ratio.ratioX, ratioY: ratio.ratioY };
+              }
+            } else {
+              el.startConn = null;
+            }
+          }
+        } else {
+          el.end = targetPos;
+          // For connectors, update or detach end connection
+          if (el.type === "connector") {
+            const snapThreshold = 30 / transform.zoom;
+            const hitEl = getElementAtWorldPos(targetPos, el);
+            if (hitEl && hitEl.type !== "connector") {
+              const port = getClosestConnectionPort(targetPos, hitEl);
+              const dist = Math.sqrt((port.x - targetPos.x) ** 2 + (port.y - targetPos.y) ** 2);
+              if (dist < snapThreshold) {
+                el.end = { x: port.x, y: port.y };
+                el.endConn = { elementId: hitEl.id, ratioX: port.ratioX, ratioY: port.ratioY };
+              } else {
+                const ratio = computeAnchorRatio(targetPos, hitEl);
+                el.endConn = { elementId: hitEl.id, ratioX: ratio.ratioX, ratioY: ratio.ratioY };
+              }
+            } else {
+              el.endConn = null;
+            }
+          }
+        }
+        render();
+        return;
+      }
+
       if (el.elementType === "image") {
         // Proportional resize for images from any corner
         let newW, newH, newX, newY;
@@ -4689,6 +4995,7 @@ container.addEventListener("mousemove", (e) => {
           };
         }
       }
+      updateConnectorsForElements([el.id]);
       render();
       return;
     }
@@ -4834,11 +5141,46 @@ container.addEventListener("mousemove", (e) => {
         activeSpacingGuides = getSpacingGuides(groupBounds, excludeIds);
       }
 
+      // Update any connectors attached to the dragged elements
+      updateConnectorsForElements(selectedElements.map((el) => el.id));
+
+      // Detach connectors that are being dragged independently of their targets
+      const draggedIds = new Set(selectedElements.map((el) => el.id));
+      for (const el of selectedElements) {
+        if (el.type === "connector") {
+          if (el.startConn && !draggedIds.has(el.startConn.elementId)) {
+            el.startConn = null;
+          }
+          if (el.endConn && !draggedIds.has(el.endConn.elementId)) {
+            el.endConn = null;
+          }
+        }
+      }
+
       render();
     }
   } else if (activeMeasureLine) {
     if (e.shiftKey) worldPos = constraintToAngle(activeMeasureLine.start, worldPos);
     activeMeasureLine.end = { ...worldPos };
+    render();
+  } else if (activeConnector) {
+    // Update connector end point, snap to elements
+    const snapThreshold = 30 / transform.zoom;
+    const hitEl = getElementAtWorldPos(worldPos, null);
+    connectorHoverTarget = null;
+    if (hitEl && hitEl.type !== "connector" && (!activeConnector.startConn || hitEl.id !== activeConnector.startConn.elementId)) {
+      connectorHoverTarget = hitEl;
+      const port = getClosestConnectionPort(worldPos, hitEl);
+      const dist = Math.sqrt((port.x - worldPos.x) ** 2 + (port.y - worldPos.y) ** 2);
+      if (dist < snapThreshold) {
+        activeConnector.end = { x: port.x, y: port.y };
+      } else {
+        activeConnector.end = { ...worldPos };
+      }
+    } else {
+      if (e.shiftKey) worldPos = constraintToAngle(activeConnector.start, worldPos);
+      activeConnector.end = { ...worldPos };
+    }
     render();
   } else if (activeShape) {
     if (activeShape.type === "pen") {
@@ -4931,6 +5273,36 @@ container.addEventListener("mouseup", (e) => {
     expandSelectionToGroups();
     if (selectedElements.length > 0)
       showToast(`Selected group of ${selectedElements.length} assets`);
+  }
+
+  if (activeConnector) {
+    // Finalize connector — snap end to element if close
+    const snapThreshold = 30 / transform.zoom;
+    const worldPos = screenToWorld(e.clientX, e.clientY);
+    const hitEl = getElementAtWorldPos(worldPos, null);
+    if (hitEl && hitEl.type !== "connector" && (!activeConnector.startConn || hitEl.id !== activeConnector.startConn.elementId)) {
+      const port = getClosestConnectionPort(worldPos, hitEl);
+      const dist = Math.sqrt((port.x - worldPos.x) ** 2 + (port.y - worldPos.y) ** 2);
+      if (dist < snapThreshold) {
+        activeConnector.end = { x: port.x, y: port.y };
+        activeConnector.endConn = { elementId: hitEl.id, ratioX: port.ratioX, ratioY: port.ratioY };
+      } else {
+        const ratio = computeAnchorRatio(worldPos, hitEl);
+        activeConnector.end = { ...worldPos };
+        activeConnector.endConn = { elementId: hitEl.id, ratioX: ratio.ratioX, ratioY: ratio.ratioY };
+      }
+    }
+    // Only commit if line has meaningful length
+    const dx = activeConnector.end.x - activeConnector.start.x;
+    const dy = activeConnector.end.y - activeConnector.start.y;
+    if (Math.sqrt(dx * dx + dy * dy) > 5 / transform.zoom) {
+      pushUndo();
+      drawings.push(activeConnector);
+      scheduleSave();
+    }
+    activeConnector = null;
+    connectorHoverTarget = null;
+    render();
   }
 
   if (activeShape) {
