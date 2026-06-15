@@ -1,6 +1,34 @@
 import { applyFilterToImageData } from "./filter-kernels.js";
 import { FILTER_OPTIONS, FILTER_LABELS } from "./color-filter.js";
 
+// --- Platform-aware keyboard shortcut labels ---
+const isMacPlatform = /Mac|iPhone|iPad|iPod/.test(navigator.userAgent);
+
+function formatShortcut(shortcutStr) {
+  // Converts a generic shortcut like "mod+shift+Z" to platform symbols/text
+  const parts = shortcutStr.split("+");
+  return parts.map((part) => {
+    const lower = part.toLowerCase();
+    if (lower === "mod") return isMacPlatform ? "⌘" : "Ctrl+";
+    if (lower === "shift") return isMacPlatform ? "⇧" : "Shift+";
+    if (lower === "alt") return isMacPlatform ? "⌥" : "Alt+";
+    return part;
+  }).join("");
+}
+
+// Populate all <kbd data-shortcut="..."> elements with platform-appropriate labels
+document.querySelectorAll("kbd[data-shortcut]").forEach((kbd) => {
+  kbd.textContent = formatShortcut(kbd.dataset.shortcut);
+});
+
+// Populate elements with data-title-template (contains {mod}, {shift}, {alt} placeholders)
+document.querySelectorAll("[data-title-template]").forEach((el) => {
+  el.title = el.dataset.titleTemplate
+    .replace(/\{mod\}/g, isMacPlatform ? "⌘" : "Ctrl+")
+    .replace(/\{shift\}/g, isMacPlatform ? "⇧" : "Shift+")
+    .replace(/\{alt\}/g, isMacPlatform ? "⌥" : "Alt+");
+});
+
 const container = document.getElementById("canvas-container");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
