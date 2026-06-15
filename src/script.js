@@ -76,6 +76,7 @@ const RESIZE_HANDLE_SIZE = 10;
 let currentTool = "pan";
 let preSpaceTool = null;
 let drawColor = "#ff4444";
+let textDrawColor = "#000000";
 let bgColor = "#f0f0f0";
 let currentFontSize = 48;
 let transform = { x: 0, y: 0, zoom: 1 };
@@ -522,6 +523,7 @@ async function buildZipBlob() {
     transform: transform,
     bgColor: bgColor,
     drawColor: drawColor,
+    textDrawColor: textDrawColor,
     currentFilter: currentFilter,
   };
 
@@ -676,6 +678,9 @@ function restoreViewState(state, imageData) {
     drawColor = state.drawColor;
     colorPicker.value = drawColor;
   }
+  if (state.textDrawColor) {
+    textDrawColor = state.textDrawColor;
+  }
   if (state.currentFilter) {
     currentFilter = state.currentFilter;
     const filterSel = document.getElementById("filter-select");
@@ -793,6 +798,13 @@ function updateToolbarUI() {
     if (b.dataset.tool === currentTool) b.classList.add("active");
     else b.classList.remove("active");
   });
+  // Update color label to reflect text vs draw color
+  const colorLabel = document.getElementById("color-label");
+  if (currentTool === "text") {
+    colorLabel.textContent = "Text";
+  } else {
+    colorLabel.textContent = "Color";
+  }
   toggleAlignmentPanelVisibility();
 }
 
@@ -911,6 +923,12 @@ buttons.forEach((btn) => {
     if (currentTool !== "select") selectedElements = [];
     if (currentTool !== "select") { swapHoveredElement = null; isSwapDragging = false; swapSourceElement = null; swapDragWorldPos = null; swapTargetElement = null; }
     if (currentTool !== "measure") { measureHoverGuides = []; activeMeasureLine = null; }
+    // Switch color picker to show text color or draw color
+    if (currentTool === "text") {
+      colorPicker.value = textDrawColor;
+    } else {
+      colorPicker.value = drawColor;
+    }
     updateToolbarUI();
     updateCursor();
     render();
@@ -919,8 +937,12 @@ buttons.forEach((btn) => {
 
 const colorPicker = document.getElementById("color-picker");
 colorPicker.addEventListener("input", (e) => {
-  drawColor = e.target.value;
-  applyColorToSelectedElements(drawColor);
+  if (currentTool === "text") {
+    textDrawColor = e.target.value;
+  } else {
+    drawColor = e.target.value;
+  }
+  applyColorToSelectedElements(e.target.value);
 });
 
 const presetBtns = document.querySelectorAll(".preset-btn");
@@ -932,9 +954,13 @@ presetBtns.forEach((btn) => {
       bgColorPicker.value = color;
       render();
     } else {
-      drawColor = color;
-      colorPicker.value = drawColor;
-      applyColorToSelectedElements(drawColor);
+      if (currentTool === "text") {
+        textDrawColor = color;
+      } else {
+        drawColor = color;
+      }
+      colorPicker.value = color;
+      applyColorToSelectedElements(color);
     }
   });
 });
@@ -1486,7 +1512,11 @@ window.addEventListener("keydown", (e) => {
         .open()
         .then((result) => {
           const hex = result.sRGBHex;
-          drawColor = hex;
+          if (toolBeforeDropper === "text") {
+            textDrawColor = hex;
+          } else {
+            drawColor = hex;
+          }
           colorPicker.value = hex;
           applyColorToSelectedElements(hex);
           navigator.clipboard.writeText(hex).then(() => {
@@ -1991,7 +2021,7 @@ function pasteTextToCanvas(text) {
       elementType: "text",
       type: "text",
       text: line,
-      color: drawColor,
+      color: textDrawColor,
       fontSize: currentFontSize,
       start: { x: worldCenter.x, y: worldCenter.y + yOffset },
     };
@@ -3981,7 +4011,7 @@ container.addEventListener("mousedown", (e) => {
     activeTextCoord = worldPos;
     ghostInput.value = "";
     ghostInput.style.display = "block";
-    ghostInput.style.color = drawColor;
+    ghostInput.style.color = textDrawColor;
     ghostInput.dataset.bgColor = "";
     const screenPos = worldToScreen(worldPos.x, worldPos.y);
     ghostInput.style.left = `${screenPos.x}px`;
@@ -4893,7 +4923,7 @@ function bakeText() {
       elementType: "text",
       type: "text",
       text: val,
-      color: ghostInput.style.color || drawColor,
+      color: ghostInput.style.color || textDrawColor,
       fontSize: currentFontSize,
       start: { x: activeTextCoord.x, y: activeTextCoord.y },
     };
