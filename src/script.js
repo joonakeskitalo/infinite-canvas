@@ -1534,10 +1534,11 @@ window.addEventListener("keydown", (e) => {
           }
           colorPicker.value = hex;
           applyColorToSelectedElements(hex);
-          navigator.clipboard.writeText(hex).then(() => {
-            showToast(`Copied ${hex} to clipboard`);
+          const hexAllCaps = hex.toUpperCase();
+          navigator.clipboard.writeText(hexAllCaps).then(() => {
+            showToast(`Copied ${hexAllCaps} to clipboard`);
           }).catch(() => {
-            showToast(`Picked ${hex}`);
+            showToast(`Picked ${hexAllCaps}`);
           });
         })
         .catch(() => {
