@@ -16,6 +16,31 @@ const alignmentPanel = document.getElementById("alignment-panel");
 const toast = document.getElementById("toast");
 const bgColorPicker = document.getElementById("bg-color-picker");
 
+// --- Toolbar Menu ---
+const toolbarMenuBtn = document.getElementById("toolbar-menu-btn");
+const toolbarMenu = document.getElementById("toolbar-menu");
+
+function positionToolbarMenu() {
+  const rect = toolbarMenuBtn.getBoundingClientRect();
+  toolbarMenu.style.top = (rect.bottom + 6) + "px";
+  toolbarMenu.style.left = rect.left + "px";
+}
+
+toolbarMenuBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  const isOpen = toolbarMenu.classList.toggle("open");
+  toolbarMenuBtn.classList.toggle("menu-open", isOpen);
+  if (isOpen) positionToolbarMenu();
+});
+
+document.addEventListener("click", (e) => {
+  if (!toolbarMenu.contains(e.target) && !toolbarMenuBtn.contains(e.target)) {
+    toolbarMenu.classList.remove("open");
+    toolbarMenuBtn.classList.remove("menu-open");
+  }
+});
+
+
 const GRID_SIZE = 100;
 const CONSTANT_LINE_WIDTH = 4;
 const RESIZE_HANDLE_SIZE = 10;
@@ -385,10 +410,8 @@ function redo() {
 function updateUndoRedoButtons() {
   const undoBtn = document.getElementById("undo-btn");
   const redoBtn = document.getElementById("redo-btn");
-  undoBtn.style.opacity = undoStack.length > 0 ? "1" : "0.4";
-  undoBtn.style.pointerEvents = undoStack.length > 0 ? "auto" : "none";
-  redoBtn.style.opacity = redoStack.length > 0 ? "1" : "0.4";
-  redoBtn.style.pointerEvents = redoStack.length > 0 ? "auto" : "none";
+  undoBtn.classList.toggle("disabled", undoStack.length === 0);
+  redoBtn.classList.toggle("disabled", redoStack.length === 0);
 }
 
 document.getElementById("undo-btn").addEventListener("click", undo);
@@ -710,10 +733,8 @@ function updateGroupButtons() {
   const ungroupBtn = document.getElementById("ungroup-btn");
   const canGroup = currentTool === "select" && selectedElements.length >= 2;
   const hasGroup = selectedElements.some((el) => el.groupId);
-  groupBtn.style.opacity = canGroup ? "1" : "0.4";
-  groupBtn.style.pointerEvents = canGroup ? "auto" : "none";
-  ungroupBtn.style.opacity = hasGroup ? "1" : "0.4";
-  ungroupBtn.style.pointerEvents = hasGroup ? "auto" : "none";
+  groupBtn.classList.toggle("disabled", !canGroup);
+  ungroupBtn.classList.toggle("disabled", !hasGroup);
 }
 
 document.getElementById("group-btn").addEventListener("click", groupSelection);

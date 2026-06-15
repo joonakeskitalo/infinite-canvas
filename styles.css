@@ -130,8 +130,6 @@ input[type="color"]::-webkit-color-swatch {
 
 #toggle-rulers-btn.active {
   color: #4fc3f7;
-  background: transparent;
-  border-color: transparent;
 }
 
 .separator {
@@ -430,6 +428,85 @@ input[type="color"]::-webkit-color-swatch {
   display: block;
 }
 
+
+/* --- Toolbar Menu --- */
+.toolbar-menu {
+  display: none;
+  position: fixed;
+  top: 60px;
+  left: 20px;
+  background: rgba(30, 30, 30, 0.97);
+  backdrop-filter: blur(10px);
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 4px 0;
+  min-width: 200px;
+  z-index: 100;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+}
+
+.toolbar-menu.open {
+  display: block;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 14px;
+  background: transparent;
+  border: none;
+  color: #ccc;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.menu-item:hover {
+  background: #333;
+  color: #fff;
+}
+
+.menu-item.active {
+  color: #4fc3f7;
+}
+
+.menu-item.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.menu-item svg {
+  flex-shrink: 0;
+}
+
+.menu-item span {
+  flex: 1;
+}
+
+.menu-item kbd {
+  font-size: 10px;
+  color: #888;
+  background: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-family: inherit;
+}
+
+.menu-separator {
+  height: 1px;
+  background: #444;
+  margin: 4px 8px;
+}
+
+#toolbar-menu-btn.menu-open {
+  background: #333;
+  color: #fff;
+}
 
 /* --- Rulers --- */
 #ruler-corner {

@@ -14,9 +14,9 @@
   </head>
   <body style="background-color: #f0f0f0">
     <div id="toolbar">
-      <button class="tool-btn" id="toggle-rulers-btn" title="Toggle Rulers [Shift+R]">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/></svg>
-        </button>
+      <button class="tool-btn" id="toolbar-menu-btn" title="Menu">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+      </button>
 
       <div class="separator"></div>
 
@@ -285,31 +285,6 @@
       <div class="separator"></div>
 
       <div class="action-container">
-        <button class="tool-btn" id="undo-btn" title="Undo [Mod+Z]" style="opacity:0.4;pointer-events:none;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M9 14l-4 -4l4 -4" /><path d="M5 10h11a4 4 0 1 1 0 8h-1" /></svg>
-        </button>
-        <button class="tool-btn" id="redo-btn" title="Redo [Mod+Shift+Z]" style="opacity:0.4;pointer-events:none;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M15 14l4 -4l-4 -4" /><path d="M19 10h-11a4 4 0 1 0 0 8h1" /></svg>
-        </button>
-        <button class="tool-btn" id="group-btn" title="Group [Mod+G]" style="opacity:0.4;pointer-events:none;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5c0-1.1.9-2 2-2h2"/><path d="M17 3h2c1.1 0 2 .9 2 2v2"/><path d="M21 17v2c0 1.1-.9 2-2 2h-2"/><path d="M7 21H5c-1.1 0-2-.9-2-2v-2"/><rect width="7" height="5" x="7" y="7" rx="1"/><rect width="7" height="5" x="10" y="12" rx="1"/></svg>
-        </button>
-        <button class="tool-btn" id="ungroup-btn" title="Ungroup [Mod+Shift+G]" style="opacity:0.4;pointer-events:none;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="6" x="5" y="4" rx="1"/><rect width="8" height="6" x="11" y="14" rx="1"/></svg>
-        </button>
-        <button class="action-btn dark-action" id="center-canvas-btn" title="Center view on selection or origin">
-          Center
-        </button>
-        <button class="action-btn" id="export-btn" title="Export canvas (or selection) as PNG [Shift: 50% scale]">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-        </button>
-
-        <button class="action-btn blue-action" id="download-images-btn" title="Download pasted images as files">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17V3"/><path d="m6 11 6 6 6-6"/><path d="M19 21H5"/></svg>
-        </button>
-
-        <div class="separator"></div>
-
         <div class="control-group" title="Color Vision Filter">
           <select id="filter-select">
             <option value="none">No filter</option>
@@ -323,16 +298,62 @@
             <option value="low-quality-display">Low quality</option>
           </select>
         </div>
-
-        <div class="separator"></div>
-
-        <button class="action-btn dark-action" id="open-file-btn" title="Open canvas file [Mod+O]">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4l2 2h4a2 2 0 0 1 2 2v1"/><path d="M20 19a2 2 0 0 0 2-2l-1.5-5a2 2 0 0 0-2-2H6.5a2 2 0 0 0-2 2L3 17a2 2 0 0 0 2 2h15z"/></svg>
-        </button>
-        <button class="action-btn dark-action" id="save-file-btn" title="Save canvas file [Mod+S]">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>
-        </button>
       </div>
+    </div>
+
+    <div class="toolbar-menu" id="toolbar-menu">
+      <button class="menu-item" id="toggle-rulers-btn" title="Toggle Rulers [Shift+R]">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/></svg>
+        <span>Toggle Rulers</span>
+        <kbd>Shift+R</kbd>
+      </button>
+      <div class="menu-separator"></div>
+      <button class="menu-item" id="undo-btn" title="Undo [Mod+Z]">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M9 14l-4 -4l4 -4" /><path d="M5 10h11a4 4 0 1 1 0 8h-1" /></svg>
+        <span>Undo</span>
+        <kbd>⌘Z</kbd>
+      </button>
+      <button class="menu-item" id="redo-btn" title="Redo [Mod+Shift+Z]">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M15 14l4 -4l-4 -4" /><path d="M19 10h-11a4 4 0 1 0 0 8h1" /></svg>
+        <span>Redo</span>
+        <kbd>⌘⇧Z</kbd>
+      </button>
+      <div class="menu-separator"></div>
+      <button class="menu-item" id="group-btn" title="Group [Mod+G]">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5c0-1.1.9-2 2-2h2"/><path d="M17 3h2c1.1 0 2 .9 2 2v2"/><path d="M21 17v2c0 1.1-.9 2-2 2h-2"/><path d="M7 21H5c-1.1 0-2-.9-2-2v-2"/><rect width="7" height="5" x="7" y="7" rx="1"/><rect width="7" height="5" x="10" y="12" rx="1"/></svg>
+        <span>Group</span>
+        <kbd>⌘G</kbd>
+      </button>
+      <button class="menu-item" id="ungroup-btn" title="Ungroup [Mod+Shift+G]">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="6" x="5" y="4" rx="1"/><rect width="8" height="6" x="11" y="14" rx="1"/></svg>
+        <span>Ungroup</span>
+        <kbd>⌘⇧G</kbd>
+      </button>
+      <div class="menu-separator"></div>
+      <button class="menu-item" id="open-file-btn" title="Open canvas file [Mod+O]">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4l2 2h4a2 2 0 0 1 2 2v1"/><path d="M20 19a2 2 0 0 0 2-2l-1.5-5a2 2 0 0 0-2-2H6.5a2 2 0 0 0-2 2L3 17a2 2 0 0 0 2 2h15z"/></svg>
+        <span>Open</span>
+        <kbd>⌘O</kbd>
+      </button>
+      <button class="menu-item" id="save-file-btn" title="Save canvas file [Mod+S]">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>
+        <span>Save</span>
+        <kbd>⌘S</kbd>
+      </button>
+      <div class="menu-separator"></div>
+      <button class="menu-item" id="export-btn" title="Export canvas (or selection) as PNG [Shift: 50% scale]">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+        <span>Export PNG</span>
+      </button>
+      <button class="menu-item" id="download-images-btn" title="Download pasted images as files">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17V3"/><path d="m6 11 6 6 6-6"/><path d="M19 21H5"/></svg>
+        <span>Download Assets</span>
+      </button>
+      <div class="menu-separator"></div>
+      <button class="menu-item" id="center-canvas-btn" title="Center view on selection or origin">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M2 12h4"/><path d="M18 12h4"/></svg>
+        <span>Center View</span>
+      </button>
     </div>
 
     <div id="alignment-panel">
