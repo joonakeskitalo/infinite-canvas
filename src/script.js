@@ -77,7 +77,7 @@ let currentTool = "pan";
 let preSpaceTool = null;
 let drawColor = "#ff4444";
 let bgColor = "#f0f0f0";
-let currentFontSize = 32;
+let currentFontSize = 48;
 let transform = { x: 0, y: 0, zoom: 1 };
 
 let isInteracting = false;
