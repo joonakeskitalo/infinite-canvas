@@ -2165,9 +2165,14 @@ window.addEventListener("keydown", (e) => {
     selectAllElements();
     return;
   }
-  if (isMod && e.key.toLowerCase() === "e" && !e.shiftKey) {
+  if (isMod && e.key.toLowerCase() === "e" && !e.shiftKey && !e.altKey) {
     e.preventDefault();
     executePNGExport(1.0);
+    return;
+  }
+  if (isMod && e.altKey && e.code === "KeyE") {
+    e.preventDefault();
+    executePNGExport(0.5);
     return;
   }
   if (isMod && e.key.toLowerCase() === "e" && e.shiftKey) {
