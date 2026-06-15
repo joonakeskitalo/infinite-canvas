@@ -281,27 +281,23 @@
         </datalist>
         <span id="zoom-val">100%</span>
       </div>
-
-      <div class="separator"></div>
-
-      <div class="action-container">
-        <div class="control-group" title="Color Vision Filter">
-          <select id="filter-select">
-            <option value="none">No filter</option>
-            <option value="grayscale">Grayscale</option>
-            <option value="protanopia">Protanopia</option>
-            <option value="deuteranopia">Deuteranopia</option>
-            <option value="tritanopia">Tritanopia</option>
-            <option value="achromatopsia">Achromatopsia</option>
-            <option value="low-contrast">Low contrast</option>
-            <option value="high-contrast">High contrast</option>
-            <option value="low-quality-display">Low quality</option>
-          </select>
-        </div>
-      </div>
     </div>
 
     <div class="toolbar-menu" id="toolbar-menu">
+      <div class="menu-item menu-item-select" title="Color Vision Filter">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-glasses-icon lucide-glasses"><circle cx="6" cy="15" r="4"/><circle cx="18" cy="15" r="4"/><path d="M14 15a2 2 0 0 0-2-2 2 2 0 0 0-2 2"/><path d="M2.5 13 5 7c.7-1.3 1.4-2 3-2"/><path d="M21.5 13 19 7c-.7-1.3-1.5-2-3-2"/></svg>
+        <select id="filter-select">
+          <option value="none">No filter</option>
+          <option value="grayscale">Grayscale</option>
+          <option value="protanopia">Protanopia</option>
+          <option value="deuteranopia">Deuteranopia</option>
+          <option value="tritanopia">Tritanopia</option>
+          <option value="achromatopsia">Achromatopsia</option>
+          <option value="low-contrast">Low contrast</option>
+          <option value="high-contrast">High contrast</option>
+          <option value="low-quality-display">Low quality</option>
+        </select>
+      </div>
       <button class="menu-item" id="toggle-rulers-btn" title="Toggle Rulers [Shift+R]">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/></svg>
         <span>Toggle Rulers</span>

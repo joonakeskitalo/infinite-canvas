@@ -503,6 +503,22 @@ input[type="color"]::-webkit-color-swatch {
   margin: 4px 8px;
 }
 
+.menu-item-select {
+  cursor: default;
+}
+
+.menu-item-select select {
+  flex: 1;
+  background: #2d2d2d;
+  color: #fff;
+  border: 1px solid #555;
+  padding: 4px 6px;
+  border-radius: 4px;
+  outline: none;
+  cursor: pointer;
+  font-size: 11px;
+}
+
 #toolbar-menu-btn.menu-open {
   background: #333;
   color: #fff;
