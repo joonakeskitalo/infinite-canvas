@@ -904,7 +904,8 @@ export async function executePNGExport(scaleFactor = 1.0, { download = false } =
     if (download) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url; a.download = `canvas_export_${Date.now()}.png`;
+      const now = new Date(); const dtPrefix = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`;
+      a.href = url; a.download = `${dtPrefix}_canvas_export.png`;
       document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
       if (exportingSelection) {
         showToast(scaleFactor === 0.5 ? `Selection (${state.selectedElements.length}) downloaded at 50%!` : `Selection (${state.selectedElements.length}) downloaded as PNG!`);
@@ -924,7 +925,8 @@ export async function executePNGExport(scaleFactor = 1.0, { download = false } =
     } catch (err) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url; a.download = `canvas_export_${Date.now()}.png`;
+      const now2 = new Date(); const dtPrefix2 = `${now2.getFullYear()}-${String(now2.getMonth()+1).padStart(2,'0')}-${String(now2.getDate()).padStart(2,'0')}_${String(now2.getHours()).padStart(2,'0')}${String(now2.getMinutes()).padStart(2,'0')}${String(now2.getSeconds()).padStart(2,'0')}`;
+      a.href = url; a.download = `${dtPrefix2}_canvas_export.png`;
       document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
       showToast("Downloaded PNG File");
     }

@@ -357,7 +357,8 @@ export function initEventHandlers() {
       }
       const a = document.createElement("a");
       a.href = tempCanvas.toDataURL("image/png");
-      a.download = `pasted_asset_${index + 1}.png`;
+      const now = new Date(); const dtPrefix = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`;
+      a.download = `${dtPrefix}_pasted_asset_${index + 1}.png`;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
     });
     showToast(`Downloading ${state.images.length} asset files${state.currentFilter !== "none" ? ` (${state.currentFilter})` : ""}...`);
