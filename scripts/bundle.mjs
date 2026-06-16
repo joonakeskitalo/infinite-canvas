@@ -65,4 +65,7 @@ html = html.replace(
 const outPath = resolve(root, "dist", "infinite-canvas.html");
 await Bun.write(outPath, html);
 
+const docsPath = resolve(root, "docs", "index.html");
+await Bun.write(docsPath, html);
+
 console.log(`✓ Bundled to ${outPath}`);
