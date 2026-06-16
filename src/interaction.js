@@ -1,0 +1,1606 @@
+/**
+ * Interaction — Mouse/Keyboard Event Handlers
+ *
+ * Sets up all event listeners for the canvas application.
+ */
+
+import { state, CONSTANTS, getDom } from "./state.js";
+import { screenToWorld, worldToScreen, showToast, constraintToAngle } from "./utils.js";
+import {
+  getShapeBounds, isPointHittingShape, getElementResizeHandles,
+  getElementAtWorldPos, isPointOnSwapHandle, translateElement,
+} from "./elements.js";
+import { pushUndo, undo, redo } from "./history.js";
+import { scheduleSave, saveFile, saveAs, openFile } from "./persistence.js";
+import { render, executePNGExport } from "./rendering.js";
+import {
+  getSnapTargets, snapToElements, snapToSpacing,
+  getProximityGuides, getSpacingGuides, computeMeasureHoverGuides,
+} from "./snap-guides.js";
+import {
+  getConnectorAnchorPoint, computeAnchorRatio,
+  getClosestConnectionPort, updateConnectorsForElements,
+} from "./connectors.js";
+import { enterCropMode, exitCropMode, getCropEdgeAtPoint, getCropCursor, getFullImageBounds } from "./crop.js";
+import {
+  expandSelectionToGroups, groupSelection, ungroupSelection,
+  copySelectionToClipboard, pasteFromClipboard, pasteTextToCanvas,
+  duplicateSelection, selectAllElements, swapElementPositions,
+  buildAlignmentUnits, translateUnit,
+  applyRowLayout, applyColumnLayout, applyGridLayout,
+} from "./selection.js";
+import {
+  updateToolbarUI, toggleAlignmentPanelVisibility,
+  updateCursor, applyZoom, updateZoomSliderValue,
+  syncFontSizeFromSelection, syncOpacityFromSelection,
+  updateSpacingInputs, updateGroupButtons,
+} from "./toolbar.js";
+import { setRulersVisible, resizeRulers } from "./rulers.js";
+import { FILTER_OPTIONS, FILTER_LABELS } from "./color-filter.js";
+import { applyFilterToImageData } from "./filter-kernels.js";
+
+export function initEventHandlers() {
+  const dom = getDom();
+  const { container, canvas, ctx, ghostInput, fontSizeSelect, zoomSlider,
+    exportBtn, downloadImagesBtn, centerCanvasBtn, bgColorPicker, colorPicker,
+    toolbarMenuBtn, toolbarMenu, filterSelect, opacitySlider, opacityValDisplay } = dom;
+
+  // --- Toolbar Menu ---
+  function positionToolbarMenu() {
+    const toolbarRect = document.getElementById("toolbar").getBoundingClientRect();
+    toolbarMenu.style.top = (toolbarRect.bottom + 6) + "px";
+    toolbarMenu.style.left = toolbarRect.left + "px";
+  }
+
+  toolbarMenuBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const isOpen = toolbarMenu.classList.toggle("open");
+    toolbarMenuBtn.classList.toggle("menu-open", isOpen);
+    if (isOpen) positionToolbarMenu();
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!toolbarMenu.contains(e.target) && !toolbarMenuBtn.contains(e.target)) {
+      toolbarMenu.classList.remove("open");
+      toolbarMenuBtn.classList.remove("menu-open");
+    }
+  });
+
+  // --- Tool buttons ---
+  const buttons = document.querySelectorAll(".tool-btn");
+  buttons.forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      const targetBtn = e.target.closest(".tool-btn");
+      if (!targetBtn.dataset.tool) return;
+      if (ghostInput.style.display === "block") bakeText();
+      if (state.cropMode) exitCropMode(false);
+      state.currentTool = targetBtn.dataset.tool;
+      if (state.currentTool !== "select") state.selectedElements = [];
+      if (state.currentTool !== "select") { state.swapHoveredElement = null; state.isSwapDragging = false; state.swapSourceElement = null; state.swapDragWorldPos = null; state.swapTargetElement = null; }
+      if (state.currentTool !== "measure") { state.measureHoverGuides = []; state.activeMeasureLine = null; }
+      if (state.currentTool === "text") { colorPicker.value = state.textDrawColor; }
+      else { colorPicker.value = state.drawColor; }
+      updateToolbarUI();
+      updateCursor();
+      render();
+    });
+  });
+
+  // --- Color picker ---
+  colorPicker.addEventListener("input", (e) => {
+    if (state.currentTool === "text") { state.textDrawColor = e.target.value; }
+    else { state.drawColor = e.target.value; }
+    applyColorToSelectedElements(e.target.value);
+  });
+
+  const presetBtns = document.querySelectorAll(".preset-btn");
+  presetBtns.forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      const color = e.target.dataset.color;
+      if (e.shiftKey) {
+        state.bgColor = color; bgColorPicker.value = color; render();
+      } else {
+        if (state.currentTool === "text") { state.textDrawColor = color; }
+        else { state.drawColor = color; }
+        colorPicker.value = color;
+        applyColorToSelectedElements(color);
+      }
+    });
+  });
+
+  function applyColorToSelectedElements(color) {
+    if (state.selectedElements.length === 0) return;
+    let changed = false;
+    state.selectedElements.forEach((el) => {
+      if (el.elementType === "text" || el.elementType === "drawing") { el.color = color; changed = true; }
+    });
+    if (changed) render();
+  }
+
+  bgColorPicker.addEventListener("input", (e) => {
+    state.bgColor = e.target.value;
+    document.body.style.backgroundColor = state.bgColor;
+    render();
+    scheduleSave();
+  });
+
+  // --- Filter select ---
+  filterSelect.addEventListener("change", (e) => {
+    state.currentFilter = e.target.value;
+    state.filteredImageCache = new WeakMap();
+    filterSelect.classList.toggle("filter-active", state.currentFilter !== "none");
+    render();
+    if (state.currentFilter !== "none") {
+      showToast(`Filter: ${e.target.options[e.target.selectedIndex].text}`);
+    }
+  });
+
+  // --- Font size ---
+  fontSizeSelect.addEventListener("change", (e) => {
+    state.currentFontSize = parseInt(e.target.value);
+    if (ghostInput.style.display === "block") {
+      ghostInput.style.fontSize = `${state.currentFontSize * state.transform.zoom}px`;
+    }
+    applyFontSizeToSelectedText(state.currentFontSize);
+  });
+
+  function applyFontSizeToSelectedText(size) {
+    if (state.selectedElements.length === 0) return;
+    let changed = false;
+    state.selectedElements.forEach((el) => { if (el.elementType === "text") { el.fontSize = size; changed = true; } });
+    if (changed) render();
+  }
+
+  function setFontSizeAndSync(size) {
+    size = Math.max(4, size);
+    state.currentFontSize = size;
+    let option = fontSizeSelect.querySelector(`option[value="${size}"]`);
+    if (!option) {
+      option = document.createElement("option");
+      option.value = size; option.textContent = size + "px";
+      const options = Array.from(fontSizeSelect.options);
+      let inserted = false;
+      for (let i = 0; i < options.length; i++) {
+        if (parseInt(options[i].value) > size) { fontSizeSelect.insertBefore(option, options[i]); inserted = true; break; }
+      }
+      if (!inserted) fontSizeSelect.appendChild(option);
+    }
+    fontSizeSelect.value = size;
+    if (ghostInput.style.display === "block") { ghostInput.style.fontSize = `${state.currentFontSize * state.transform.zoom}px`; }
+    applyFontSizeToSelectedText(size);
+  }
+
+  document.getElementById("font-size-minus").addEventListener("click", (e) => { e.stopPropagation(); setFontSizeAndSync(state.currentFontSize - 16); });
+  document.getElementById("font-size-plus").addEventListener("click", (e) => { e.stopPropagation(); setFontSizeAndSync(state.currentFontSize + 16); });
+
+  // --- Spacing inputs ---
+  const spacingInputX = dom.spacingInputX;
+  const spacingInputY = dom.spacingInputY;
+  [spacingInputX, spacingInputY].forEach((input) => {
+    input.addEventListener("mousedown", (e) => e.stopPropagation());
+    input.addEventListener("click", (e) => e.stopPropagation());
+    input.addEventListener("focus", (e) => e.stopPropagation());
+    input.addEventListener("keydown", (e) => e.stopPropagation());
+    input.addEventListener("input", () => {
+      if (input === spacingInputX) applyExactSpacing("x");
+      else applyExactSpacing("y");
+    });
+  });
+
+  function applyExactSpacing(axis) {
+    if (state.selectedElements.length < 2) return;
+    const gap = Math.max(0, parseInt(axis === "x" ? spacingInputX.value : spacingInputY.value) || 10);
+    const units = buildAlignmentUnits(state.selectedElements);
+    if (units.length < 2) return;
+    if (axis === "x") {
+      units.sort((a, b) => a.b.x - b.b.x);
+      let currentX = units[0].b.x;
+      for (let i = 0; i < units.length; i++) {
+        const shiftX = currentX - units[i].b.x;
+        if (shiftX !== 0) translateUnit(units[i], shiftX, 0);
+        currentX += units[i].b.w + gap;
+      }
+    } else {
+      units.sort((a, b) => a.b.y - b.b.y);
+      let currentY = units[0].b.y;
+      for (let i = 0; i < units.length; i++) {
+        const shiftY = currentY - units[i].b.y;
+        if (shiftY !== 0) translateUnit(units[i], 0, shiftY);
+        currentY += units[i].b.h + gap;
+      }
+    }
+    render();
+    showToast(`${axis === "x" ? "Horizontal" : "Vertical"} spacing set to ${gap}px`);
+  }
+
+  // --- Scale buttons ---
+  document.querySelectorAll(".scale-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      const scale = parseFloat(e.target.dataset.scale);
+      if (!scale || state.selectedElements.length === 0) return;
+      pushUndo();
+      state.selectedElements.forEach((el) => {
+        if (el.elementType === "image") {
+          const naturalW = el.img.naturalWidth || el.w;
+          const naturalH = el.img.naturalHeight || el.h;
+          const newW = naturalW * scale, newH = naturalH * scale;
+          const centerX = el.x + el.w / 2, centerY = el.y + el.h / 2;
+          el.w = newW; el.h = newH; el.x = centerX - newW / 2; el.y = centerY - newH / 2;
+        }
+      });
+      render();
+      showToast(`Scaled to ${scale * 100}%`);
+    });
+  });
+
+  // --- Opacity slider ---
+  let opacityUndoPushed = false;
+  opacitySlider.addEventListener("input", (e) => {
+    const val = parseInt(e.target.value);
+    opacityValDisplay.textContent = val + "%";
+    if (state.selectedElements.length === 0) return;
+    if (!opacityUndoPushed) { pushUndo(); opacityUndoPushed = true; }
+    state.selectedElements.forEach((el) => { el.opacity = val / 100; });
+    render();
+  });
+  opacitySlider.addEventListener("mousedown", (e) => { e.stopPropagation(); opacityUndoPushed = false; });
+  opacitySlider.addEventListener("change", () => { opacityUndoPushed = false; });
+
+  // --- Undo/Redo/Group buttons ---
+  document.getElementById("undo-btn").addEventListener("click", undo);
+  document.getElementById("redo-btn").addEventListener("click", redo);
+  document.getElementById("group-btn").addEventListener("click", groupSelection);
+  document.getElementById("ungroup-btn").addEventListener("click", ungroupSelection);
+  document.getElementById("open-file-btn").addEventListener("click", openFile);
+  document.getElementById("save-file-btn").addEventListener("click", saveFile);
+
+  // --- Alignment buttons ---
+  const alignButtons = document.querySelectorAll(".align-btn");
+  alignButtons.forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      const targetBtn = e.target.closest(".align-btn");
+      if (!targetBtn) return;
+      const alignType = targetBtn.dataset.align;
+      if (state.selectedElements.length < 2) return;
+      pushUndo();
+      const units = buildAlignmentUnits(state.selectedElements);
+      let groupMinX = Infinity, groupMinY = Infinity, groupMaxX = -Infinity, groupMaxY = -Infinity;
+      units.forEach((unit) => {
+        const b = unit.b;
+        if (b.x < groupMinX) groupMinX = b.x;
+        if (b.y < groupMinY) groupMinY = b.y;
+        if (b.maxX > groupMaxX) groupMaxX = b.maxX;
+        if (b.maxY > groupMaxY) groupMaxY = b.maxY;
+      });
+      const groupCenterX = (groupMinX + groupMaxX) / 2;
+      const groupCenterY = (groupMinY + groupMaxY) / 2;
+
+      if (alignType === "distributeX" || alignType === "distributeY") {
+        if (units.length < 3) { showToast("Requires at least 3 units to distribute spacing"); return; }
+        if (alignType === "distributeX") {
+          units.sort((a, b) => a.b.x + a.b.w / 2 - (b.b.x + b.b.w / 2));
+          const totalWidth = units.reduce((sum, u) => sum + u.b.w, 0);
+          const gap = (groupMaxX - groupMinX - totalWidth) / (units.length - 1);
+          let currentX = groupMinX;
+          units.forEach((unit, i) => { if (i > 0 && i < units.length - 1) translateUnit(unit, currentX - unit.b.x, 0); currentX += unit.b.w + gap; });
+        } else {
+          units.sort((a, b) => a.b.y + a.b.h / 2 - (b.b.y + b.b.h / 2));
+          const totalHeight = units.reduce((sum, u) => sum + u.b.h, 0);
+          const gap = (groupMaxY - groupMinY - totalHeight) / (units.length - 1);
+          let currentY = groupMinY;
+          units.forEach((unit, i) => { if (i > 0 && i < units.length - 1) translateUnit(unit, 0, currentY - unit.b.y); currentY += unit.b.h + gap; });
+        }
+      } else if (alignType.startsWith("spacing")) {
+        const isX = alignType.includes("X"), isPlus = alignType.includes("Plus");
+        const SPACING_STEP = 50;
+        if (isX) {
+          units.sort((a, b) => a.b.x - b.b.x);
+          let totalGap = 0; for (let i = 1; i < units.length; i++) totalGap += units[i].b.x - (units[i - 1].b.x + units[i - 1].b.w);
+          const newGap = Math.max(0, totalGap / (units.length - 1) + (isPlus ? SPACING_STEP : -SPACING_STEP));
+          let currentX = units[0].b.x;
+          for (let i = 0; i < units.length; i++) { const shiftX = currentX - units[i].b.x; if (shiftX !== 0) translateUnit(units[i], shiftX, 0); currentX += units[i].b.w + newGap; }
+        } else {
+          units.sort((a, b) => a.b.y - b.b.y);
+          let totalGap = 0; for (let i = 1; i < units.length; i++) totalGap += units[i].b.y - (units[i - 1].b.y + units[i - 1].b.h);
+          const newGap = Math.max(0, totalGap / (units.length - 1) + (isPlus ? SPACING_STEP : -SPACING_STEP));
+          let currentY = units[0].b.y;
+          for (let i = 0; i < units.length; i++) { const shiftY = currentY - units[i].b.y; if (shiftY !== 0) translateUnit(units[i], 0, shiftY); currentY += units[i].b.h + newGap; }
+        }
+        showToast(`${isX ? "Horizontal" : "Vertical"} spacing ${isPlus ? "increased" : "decreased"}`);
+      } else if (alignType === "gridLayout") { applyGridLayout(units); }
+      else if (alignType === "rowLayout") { applyRowLayout(units); }
+      else if (alignType === "columnLayout") { applyColumnLayout(units); }
+      else {
+        units.forEach((unit) => {
+          const b = unit.b;
+          let shiftX = 0, shiftY = 0;
+          if (alignType === "left") shiftX = groupMinX - b.x;
+          else if (alignType === "centerX") shiftX = groupCenterX - (b.x + b.w / 2);
+          else if (alignType === "right") shiftX = groupMaxX - b.maxX;
+          else if (alignType === "top") shiftY = groupMinY - b.y;
+          else if (alignType === "centerY") shiftY = groupCenterY - (b.y + b.h / 2);
+          else if (alignType === "bottom") shiftY = groupMaxY - b.maxY;
+          translateUnit(unit, shiftX, shiftY);
+        });
+      }
+      render();
+      updateSpacingInputs();
+      showToast(`Executed selection ${alignType}`);
+    });
+  });
+
+  // --- Context menu ---
+  container.addEventListener("contextmenu", (e) => e.preventDefault());
+
+  // --- Resize ---
+  function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; render(); }
+  window.addEventListener("resize", () => { resizeRulers(); resize(); });
+
+  // --- beforeunload ---
+  window.addEventListener("beforeunload", (e) => { if (state.isDirty) { e.preventDefault(); e.returnValue = ""; } });
+
+  // --- Export and download buttons ---
+  exportBtn.addEventListener("click", (e) => executePNGExport(e.shiftKey ? 0.5 : 1.0));
+  document.getElementById("download-png-btn").addEventListener("click", (e) => executePNGExport(e.shiftKey ? 0.5 : 1.0, { download: true }));
+  downloadImagesBtn.addEventListener("click", () => {
+    if (state.images.length === 0) { showToast("No pasted images found to download!"); return; }
+    state.images.forEach((imgData, index) => {
+      const tempCanvas = document.createElement("canvas");
+      tempCanvas.width = imgData.img.naturalWidth || imgData.w;
+      tempCanvas.height = imgData.img.naturalHeight || imgData.h;
+      tempCanvas.getContext("2d").drawImage(imgData.img, 0, 0);
+      if (state.currentFilter !== "none") {
+        const tempCtx = tempCanvas.getContext("2d");
+        const imgDataPixels = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+        applyFilterToImageData(imgDataPixels, state.currentFilter);
+        tempCtx.putImageData(imgDataPixels, 0, 0);
+      }
+      const a = document.createElement("a");
+      a.href = tempCanvas.toDataURL("image/png");
+      a.download = `pasted_asset_${index + 1}.png`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    });
+    showToast(`Downloading ${state.images.length} asset files${state.currentFilter !== "none" ? ` (${state.currentFilter})` : ""}...`);
+  });
+
+  // --- Center canvas button ---
+  centerCanvasBtn.addEventListener("click", () => {
+    if (state.selectedElements.length > 0) {
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      state.selectedElements.forEach((el) => {
+        let b = el.elementType === "image" ? { x: el.x, y: el.y, w: el.w, h: el.h } : getShapeBounds(el);
+        if (b.x < minX) minX = b.x; if (b.y < minY) minY = b.y;
+        if (b.x + b.w > maxX) maxX = b.x + b.w; if (b.y + b.h > maxY) maxY = b.y + b.h;
+      });
+      const centerX = (minX + maxX) / 2, centerY = (minY + maxY) / 2;
+      state.transform.x = -centerX * state.transform.zoom + canvas.width / 2;
+      state.transform.y = -centerY * state.transform.zoom + canvas.height / 2;
+      render();
+      showToast("Centered view on selected item" + (state.selectedElements.length > 1 ? "s" : ""));
+    } else {
+      state.transform.x = 0; state.transform.y = 0; render();
+      showToast("Centered camera view to coordinate (0,0)");
+    }
+  });
+
+  // --- Zoom slider ---
+  zoomSlider.addEventListener("input", (e) => {
+    const targetZoom = parseFloat(e.target.value) / 100;
+    applyZoom(targetZoom, window.innerWidth / 2, window.innerHeight / 2);
+    scheduleSave();
+  });
+  zoomSlider.addEventListener("change", () => zoomSlider.blur());
+
+  // --- Wheel ---
+  container.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    if (e.ctrlKey || e.metaKey) {
+      const zoomFactor = 1 - e.deltaY * 0.01;
+      applyZoom(state.transform.zoom * zoomFactor, e.clientX, e.clientY);
+    } else {
+      state.transform.x -= e.deltaX; state.transform.y -= e.deltaY;
+      updateZoomSliderValue(); render();
+    }
+    scheduleSave();
+  }, { passive: false });
+
+  // --- Paste/Drop ---
+  window.addEventListener("paste", handlePaste);
+  window.addEventListener("dragover", (e) => e.preventDefault());
+  window.addEventListener("drop", (e) => {
+    e.preventDefault();
+    if (e.dataTransfer && e.dataTransfer.files.length > 0) {
+      const dropWorldPos = screenToWorld(e.clientX, e.clientY);
+      for (let file of e.dataTransfer.files) {
+        if (file.type.indexOf("image/") === 0) handleImageFile(file, dropWorldPos.x, dropWorldPos.y);
+      }
+    }
+  });
+
+  // Copy event to write internal marker
+  document.addEventListener("copy", (e) => {
+    if (state.pendingInternalCopy) { e.preventDefault(); e.clipboardData.setData("text/plain", CONSTANTS.INTERNAL_COPY_MIME); }
+  });
+
+  // --- Keyboard shortcuts ---
+  setupKeyboardHandlers();
+
+  // --- Mouse events ---
+  setupMouseHandlers();
+
+  // --- Ghost input ---
+  ghostInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); bakeText(); container.focus(); }
+    else if (e.key === "Escape") { ghostInput.style.display = "none"; state.activeTextCoord = null; container.focus(); render(); }
+  });
+  ghostInput.addEventListener("input", () => autoResizeGhostInput());
+
+  // --- Initial setup ---
+  updateCursor();
+  resizeRulers();
+  setRulersVisible(false);
+  resize();
+}
+
+// --- Helper functions used within initEventHandlers ---
+
+function bakeText() {
+  const dom = getDom();
+  const { ghostInput } = dom;
+  const val = ghostInput.value.trim();
+  if (val && state.activeTextCoord) {
+    pushUndo();
+    const textEl = {
+      id: "text_" + state.elementIdCounter++,
+      elementType: "text",
+      type: "text",
+      text: val,
+      color: ghostInput.style.color || state.textDrawColor,
+      fontSize: state.currentFontSize,
+      start: { x: state.activeTextCoord.x, y: state.activeTextCoord.y },
+    };
+    if (ghostInput.dataset.bgColor) {
+      textEl.bgColor = ghostInput.dataset.bgColor;
+    }
+    state.drawings.push(textEl);
+  }
+  ghostInput.style.display = "none";
+  ghostInput.style.background = "transparent";
+  ghostInput.style.border = "1px dashed #007acc";
+  ghostInput.dataset.bgColor = "";
+  state.activeTextCoord = null;
+  render();
+}
+
+function autoResizeGhostInput() {
+  const { ghostInput } = getDom();
+  ghostInput.style.height = "auto";
+  ghostInput.style.height = ghostInput.scrollHeight + "px";
+}
+
+function handleImageFile(file, worldX, worldY) {
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    const img = new Image();
+    img.onload = () => {
+      pushUndo();
+      state.images.push({
+        id: "img_" + state.elementIdCounter++,
+        elementType: "image",
+        img: img,
+        x: worldX - img.width / 2,
+        y: worldY - img.height / 2,
+        w: img.width,
+        h: img.height,
+      });
+      render();
+    };
+    img.src = event.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function checkAndEraseAtPosition(worldPos) {
+  let erasedSomething = false;
+  const erasedIds = [];
+  for (let i = state.drawings.length - 1; i >= 0; i--) {
+    if (isPointHittingShape(worldPos, state.drawings[i])) {
+      if (!erasedSomething) pushUndo();
+      erasedIds.push(state.drawings[i].id);
+      state.drawings.splice(i, 1);
+      erasedSomething = true;
+    }
+  }
+  if (erasedSomething) {
+    for (const shape of state.drawings) {
+      if (shape.type !== "connector") continue;
+      if (shape.startConn && erasedIds.includes(shape.startConn.elementId)) {
+        shape.startConn = null;
+      }
+      if (shape.endConn && erasedIds.includes(shape.endConn.elementId)) {
+        shape.endConn = null;
+      }
+    }
+    render();
+  }
+}
+
+function handlePaste(e) {
+  const dom = getDom();
+  const { ghostInput } = dom;
+  if (ghostInput.style.display === "block" && document.activeElement === ghostInput) return;
+
+  const clipboardData = e.clipboardData || e.originalEvent.clipboardData;
+  const items = clipboardData.items;
+  const imageBlobs = [];
+  for (let item of items) {
+    if (item.type.indexOf("image") === 0) {
+      imageBlobs.push(item.getAsFile());
+    }
+  }
+
+  if (state.internalCopyPerformed && state.clipboardElements.length > 0) {
+    const text = clipboardData.getData("text/plain");
+    const isStillInternal = !imageBlobs.length && text === CONSTANTS.INTERNAL_COPY_MIME;
+    if (isStillInternal) {
+      e.preventDefault();
+      pasteFromClipboard();
+      return;
+    }
+    state.internalCopyPerformed = false;
+    state.clipboardElements = [];
+  }
+
+  if (imageBlobs.length > 0) {
+    e.preventDefault();
+    pushUndo();
+    const cursorWorld = screenToWorld(state.lastMousePos.x, state.lastMousePos.y);
+    const sortedBlobs = [...imageBlobs].sort((a, b) => {
+      const nameA = (a.name || "").toLowerCase();
+      const nameB = (b.name || "").toLowerCase();
+      return nameA.localeCompare(nameB, undefined, { numeric: true });
+    });
+    const pastedElements = new Array(sortedBlobs.length);
+    let loadedCount = 0;
+    const STAGGER_X = 150, STAGGER_Y = 80;
+    sortedBlobs.forEach((blob, index) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const offsetX = index * STAGGER_X;
+          const offsetY = index * STAGGER_Y;
+          const element = {
+            id: "img_" + state.elementIdCounter++,
+            elementType: "image",
+            img: img,
+            x: cursorWorld.x - img.width / 2 + offsetX,
+            y: cursorWorld.y - img.height / 2 + offsetY,
+            w: img.width,
+            h: img.height,
+          };
+          pastedElements[index] = element;
+          loadedCount++;
+          if (loadedCount === sortedBlobs.length) {
+            for (const el of pastedElements) state.images.push(el);
+            state.selectedElements = pastedElements;
+            state.currentTool = "select";
+            updateToolbarUI();
+            toggleAlignmentPanelVisibility();
+            render();
+            showToast(`Pasted ${pastedElements.length} image(s)`);
+          }
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(blob);
+    });
+  } else if (state.clipboardElements.length > 0) {
+    e.preventDefault();
+    pasteFromClipboard();
+  } else {
+    const text = clipboardData.getData("text/plain");
+    if (text && text.trim().length > 0) {
+      e.preventDefault();
+      pasteTextToCanvas(text.trim());
+    }
+  }
+}
+
+function setupKeyboardHandlers() {
+  const dom = getDom();
+  const { container, ghostInput, colorPicker } = dom;
+
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Shift") state.isShiftPressed = true;
+    if (e.key === " " || e.code === "Space") {
+      if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA") return;
+      e.preventDefault();
+      if (!state.isSpacePressed) {
+        state.isSpacePressed = true;
+        if (state.currentTool !== "pan") {
+          state.preSpaceTool = state.currentTool;
+          state.currentTool = "pan";
+          updateToolbarUI();
+          updateCursor();
+        }
+      }
+    }
+  });
+
+  window.addEventListener("keyup", (e) => {
+    if (e.key === "Shift") {
+      state.isShiftPressed = false;
+      state.panLockDirection = null;
+      if (state.activeSnapGuides.length > 0) {
+        state.activeSnapGuides = [];
+        state.activeProximityGuides = [];
+        state.activeSpacingGuides = [];
+        render();
+      }
+    }
+    if (e.key === " " || e.code === "Space") {
+      if (state.isSpacePressed) {
+        state.isSpacePressed = false;
+        if (state.preSpaceTool !== null) {
+          state.currentTool = state.preSpaceTool;
+          state.preSpaceTool = null;
+          updateToolbarUI();
+          updateCursor();
+          render();
+        }
+      }
+    }
+  });
+
+  window.addEventListener("blur", () => {
+    state.isShiftPressed = false;
+    state.isSpacePressed = false;
+    state.panLockDirection = null;
+    if (state.preSpaceTool !== null) {
+      state.currentTool = state.preSpaceTool;
+      state.preSpaceTool = null;
+      updateToolbarUI();
+      updateCursor();
+    }
+    render();
+  });
+
+  // Intercept Cmd/Ctrl+O
+  window.addEventListener("keydown", (e) => {
+    const isMod = e.metaKey || e.ctrlKey;
+    if (isMod && e.key.toLowerCase() === "o") {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }, true);
+
+  window.addEventListener("keydown", (e) => {
+    if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA") return;
+
+    // Crop mode keyboard shortcuts
+    if (state.cropMode) {
+      if (e.key === "Enter") { e.preventDefault(); exitCropMode(true); return; }
+      if (e.key === "Escape") { e.preventDefault(); exitCropMode(false); return; }
+      return;
+    }
+
+    // Escape
+    if (e.key === "Escape") {
+      e.preventDefault();
+      if (state.selectedElements.length > 0) {
+        state.selectedElements = [];
+        toggleAlignmentPanelVisibility();
+        render();
+      }
+      if (document.activeElement && document.activeElement !== document.body) {
+        document.activeElement.blur();
+      }
+      return;
+    }
+
+    const key = e.key.toLowerCase();
+
+    if (e.key === "+" || e.key === "=") { e.preventDefault(); applyZoom(state.transform.zoom * 1.1, state.lastMousePos.x, state.lastMousePos.y); return; }
+    if (e.key === "-" || e.key === "_") { e.preventDefault(); applyZoom(state.transform.zoom / 1.1, state.lastMousePos.x, state.lastMousePos.y); return; }
+
+    if (e.key === "Delete" || e.key === "Backspace") {
+      if (state.currentTool === "select" && state.selectedElements.length > 0) {
+        pushUndo();
+        const idsToRemove = state.selectedElements.map((el) => el.id);
+        for (const shape of state.drawings) {
+          if (shape.type !== "connector") continue;
+          if (shape.startConn && idsToRemove.includes(shape.startConn.elementId)) shape.startConn = null;
+          if (shape.endConn && idsToRemove.includes(shape.endConn.elementId)) shape.endConn = null;
+        }
+        state.images = state.images.filter((img) => !idsToRemove.includes(img.id));
+        state.drawings = state.drawings.filter((d) => !idsToRemove.includes(d.id));
+        showToast(`Removed ${state.selectedElements.length} selected asset(s)`);
+        state.selectedElements = [];
+        toggleAlignmentPanelVisibility();
+        render();
+      }
+      return;
+    }
+
+    // Arrow keys
+    if ((e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowRight") &&
+        state.currentTool === "select" && state.selectedElements.length > 0) {
+      e.preventDefault();
+      const step = e.altKey ? 500 : e.metaKey || e.ctrlKey ? 100 : e.shiftKey ? 10 : 1;
+      let dx = 0, dy = 0;
+      if (e.key === "ArrowUp") dy = -step;
+      if (e.key === "ArrowDown") dy = step;
+      if (e.key === "ArrowLeft") dx = -step;
+      if (e.key === "ArrowRight") dx = step;
+      pushUndo();
+      state.selectedElements.forEach((el) => translateElement(el, dx, dy));
+      updateConnectorsForElements(state.selectedElements.map((el) => el.id));
+      render();
+      return;
+    }
+
+    let targetTool = null;
+    if (e.metaKey || e.ctrlKey) return;
+    if (key === "r" && e.shiftKey) { setRulersVisible(!state.rulersVisible); return; }
+    if (key === "h") targetTool = "pan";
+    if (key === "v") targetTool = "select";
+    if (key === "b") targetTool = "pen";
+    if (key === "l") targetTool = "line";
+    if (key === "a") targetTool = "arrow";
+    if (key === "c") targetTool = "connector";
+    if (key === "r") targetTool = "rect-border";
+    if (key === "f") targetTool = "rect-fill";
+    if (key === "t") targetTool = "text";
+    if (key === "n") targetTool = "text-element";
+    if (key === "e") targetTool = "eraser";
+    if (key === "m") targetTool = "measure";
+
+    if (key === "g" && !e.shiftKey && state.currentTool === "select" && state.selectedElements.length >= 2) {
+      const gridBtn = document.querySelector('[data-align="gridLayout"]');
+      if (gridBtn) gridBtn.click();
+      return;
+    }
+    if (key === "g" && e.shiftKey && state.currentTool === "select" && state.selectedElements.length >= 2) {
+      const rowBtn = document.querySelector('[data-align="rowLayout"]');
+      if (rowBtn) rowBtn.click();
+      return;
+    }
+
+    if (targetTool) {
+      state.preSpaceTool = null;
+      const btn = document.querySelector(`[data-tool="${targetTool}"]`);
+      if (btn) btn.click();
+      return;
+    }
+
+    // P / Shift+P to cycle color filters
+    if (key === "p") {
+      const idx = FILTER_OPTIONS.indexOf(state.currentFilter);
+      let newIdx;
+      if (e.shiftKey) { newIdx = (idx - 1 + FILTER_OPTIONS.length) % FILTER_OPTIONS.length; }
+      else { newIdx = (idx + 1) % FILTER_OPTIONS.length; }
+      state.currentFilter = FILTER_OPTIONS[newIdx];
+      state.filteredImageCache = new WeakMap();
+      const filterSel = document.getElementById("filter-select");
+      if (filterSel) { filterSel.value = state.currentFilter; filterSel.classList.toggle("filter-active", state.currentFilter !== "none"); }
+      render();
+      showToast(`Filter: ${FILTER_LABELS[state.currentFilter]}`);
+      return;
+    }
+
+    // I key — EyeDropper
+    if (key === "i" && !e.shiftKey) {
+      if (window.EyeDropper) {
+        const toolBeforeDropper = state.preSpaceTool || state.currentTool;
+        const dropper = new EyeDropper();
+        dropper.open().then((result) => {
+          const hex = result.sRGBHex;
+          if (toolBeforeDropper === "text") { state.textDrawColor = hex; }
+          else { state.drawColor = hex; }
+          colorPicker.value = hex;
+          applyColorToSelectedElements(hex);
+          const hexAllCaps = hex.toUpperCase();
+          navigator.clipboard.writeText(hexAllCaps).then(() => showToast(`Copied ${hexAllCaps} to clipboard`)).catch(() => showToast(`Picked ${hexAllCaps}`));
+        }).catch(() => {}).finally(() => {
+          state.isShiftPressed = false; state.isSpacePressed = false; state.panLockDirection = null; state.preSpaceTool = null;
+          state.currentTool = toolBeforeDropper;
+          updateToolbarUI(); updateCursor(); render();
+        });
+      } else {
+        showToast("EyeDropper not supported in this browser");
+      }
+      return;
+    }
+
+    // Number keys 0-9 set opacity
+    if (key >= "0" && key <= "9" && state.currentTool === "select" && state.selectedElements.length > 0) {
+      const opacity = key === "0" ? 1 : parseInt(key) / 10;
+      pushUndo();
+      state.selectedElements.forEach((el) => { el.opacity = opacity; });
+      syncOpacityFromSelection();
+      render();
+      showToast(`Opacity ${Math.round(opacity * 100)}%`);
+      return;
+    }
+  });
+
+  // Cmd/Ctrl modifier shortcuts
+  window.addEventListener("keydown", (e) => {
+    if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA") return;
+    const isMod = e.metaKey || e.ctrlKey;
+    if (!isMod) return;
+
+    if (e.key.toLowerCase() === "s" && !e.shiftKey) { e.preventDefault(); saveFile(); return; }
+    if (e.key.toLowerCase() === "s" && e.shiftKey) { e.preventDefault(); saveAs(); return; }
+    if (e.key.toLowerCase() === "o") { e.preventDefault(); openFile(); return; }
+    if (e.key.toLowerCase() === "z" && !e.shiftKey) { e.preventDefault(); undo(); return; }
+    if (e.key.toLowerCase() === "z" && e.shiftKey) { e.preventDefault(); redo(); return; }
+    if (e.key.toLowerCase() === "y") { e.preventDefault(); redo(); return; }
+    if (e.key.toLowerCase() === "g" && !e.shiftKey) { e.preventDefault(); groupSelection(); return; }
+    if (e.key.toLowerCase() === "g" && e.shiftKey) { e.preventDefault(); ungroupSelection(); return; }
+    if (e.key.toLowerCase() === "c") {
+      if (state.selectedElements.length > 0) { e.preventDefault(); copySelectionToClipboard(); }
+      return;
+    }
+    if (e.key.toLowerCase() === "x") {
+      if (state.selectedElements.length > 0) {
+        e.preventDefault();
+        pushUndo();
+        copySelectionToClipboard();
+        const idsToRemove = state.selectedElements.map((el) => el.id);
+        state.images = state.images.filter((img) => !idsToRemove.includes(img.id));
+        state.drawings = state.drawings.filter((d) => !idsToRemove.includes(d.id));
+        showToast(`Cut ${state.selectedElements.length} element(s)`);
+        state.selectedElements = [];
+        toggleAlignmentPanelVisibility();
+        render();
+      }
+      return;
+    }
+    if (e.key.toLowerCase() === "d") {
+      if (state.selectedElements.length > 0) { e.preventDefault(); duplicateSelection(); }
+      return;
+    }
+    if (e.key.toLowerCase() === "v") { return; } // Let native paste fire
+    if (e.key.toLowerCase() === "a") { e.preventDefault(); selectAllElements(); return; }
+    if (e.key.toLowerCase() === "e" && !e.shiftKey && !e.altKey) { e.preventDefault(); executePNGExport(1.0); return; }
+    if (e.altKey && e.code === "KeyE") { e.preventDefault(); executePNGExport(0.5); return; }
+    if (e.key.toLowerCase() === "e" && e.shiftKey) { e.preventDefault(); executePNGExport(1.0, { download: true }); return; }
+    if (e.key.toLowerCase() === "p" && !e.shiftKey) { e.preventDefault(); executePNGExport(1.0); return; }
+    if (e.key.toLowerCase() === "p" && e.shiftKey) { e.preventDefault(); executePNGExport(0.5); return; }
+  });
+
+  function applyColorToSelectedElements(color) {
+    if (state.selectedElements.length === 0) return;
+    let changed = false;
+    state.selectedElements.forEach((el) => {
+      if (el.elementType === "text" || el.elementType === "drawing") { el.color = color; changed = true; }
+    });
+    if (changed) render();
+  }
+}
+
+function setupMouseHandlers() {
+  const dom = getDom();
+  const { container, canvas, ghostInput } = dom;
+
+  // Global mousemove for swap detection and measure hover
+  window.addEventListener("mousemove", (e) => {
+    state.lastMousePos.x = e.clientX;
+    state.lastMousePos.y = e.clientY;
+
+    // Handle swap drag in progress
+    if (state.isSwapDragging) {
+      const mouseWorld = screenToWorld(e.clientX, e.clientY);
+      state.swapDragWorldPos = mouseWorld;
+      state.swapTargetElement = getElementAtWorldPos(mouseWorld, state.swapSourceElement);
+      if (state.swapTargetElement && !state.selectedElements.some((el) => el.id === state.swapTargetElement.id)) {
+        state.swapTargetElement = null;
+      }
+      container.style.cursor = "grabbing";
+      render();
+      return;
+    }
+
+    // Measure tool hover
+    if (state.currentTool === "measure" && !state.isInteracting) {
+      const mouseWorld = screenToWorld(e.clientX, e.clientY);
+      state.measureHoverGuides = computeMeasureHoverGuides(mouseWorld);
+      render();
+    }
+
+    // Resize handle cursor
+    if (state.currentTool === "select" && !state.isInteracting && !state.cropMode && state.selectedElements.length === 1) {
+      const el = state.selectedElements[0];
+      const mouseWorld = screenToWorld(e.clientX, e.clientY);
+      const threshold = CONSTANTS.RESIZE_HANDLE_SIZE / state.transform.zoom;
+      let handleHit = false;
+      const handles = getElementResizeHandles(el);
+      for (const h of handles) {
+        if (Math.abs(mouseWorld.x - h.x) <= threshold && Math.abs(mouseWorld.y - h.y) <= threshold) {
+          container.style.cursor = h.cursor;
+          handleHit = true;
+          break;
+        }
+      }
+      if (!handleHit) container.style.cursor = "default";
+      if (handleHit) return;
+    }
+
+    // Swap handle hover detection
+    if (state.currentTool === "select" && !state.isInteracting && !state.isSwapDragging && state.selectedElements.length >= 2) {
+      const mouseWorld = screenToWorld(e.clientX, e.clientY);
+      let newHovered = null;
+      for (let i = state.selectedElements.length - 1; i >= 0; i--) {
+        const el = state.selectedElements[i];
+        let isOver = false;
+        if (el.elementType === "image") {
+          isOver = mouseWorld.x >= el.x && mouseWorld.x <= el.x + el.w && mouseWorld.y >= el.y && mouseWorld.y <= el.y + el.h;
+        } else {
+          isOver = isPointHittingShape(mouseWorld, el);
+        }
+        if (isOver) { newHovered = el; break; }
+      }
+      if (newHovered !== state.swapHoveredElement) { state.swapHoveredElement = newHovered; render(); }
+      if (state.swapHoveredElement && isPointOnSwapHandle(mouseWorld, state.swapHoveredElement)) {
+        container.style.cursor = "grab";
+        return;
+      }
+    } else if (!state.isSwapDragging && state.swapHoveredElement) {
+      state.swapHoveredElement = null;
+      render();
+    }
+  });
+
+  // Global mouseup for swap completion
+  window.addEventListener("mouseup", (e) => {
+    if (state.isSwapDragging) {
+      if (state.swapTargetElement && state.swapSourceElement && state.swapTargetElement.id !== state.swapSourceElement.id) {
+        swapElementPositions(state.swapSourceElement, state.swapTargetElement);
+      }
+      state.isSwapDragging = false;
+      state.swapSourceElement = null;
+      state.swapDragWorldPos = null;
+      state.swapTargetElement = null;
+      state.swapHoveredElement = null;
+      container.style.cursor = "default";
+      render();
+      return;
+    }
+  });
+
+  // Container mousedown
+  container.addEventListener("mousedown", (e) => {
+    if (ghostInput.style.display === "block") {
+      if (e.target === ghostInput) return;
+      bakeText();
+    }
+
+    state.isInteracting = true;
+    state.startX = e.clientX;
+    state.startY = e.clientY;
+    state.panLockDirection = null;
+    state.resizingElement = null;
+
+    state.isMiddleClick = e.button === 1;
+    state.isRightClickHand = e.button === 2;
+
+    let worldPos = screenToWorld(e.clientX, e.clientY);
+
+    // Crop mode interaction
+    if (state.cropMode && state.cropTarget && state.cropRect) {
+      const full = getFullImageBounds(state.cropTarget);
+      if (worldPos.x < full.x - 20 / state.transform.zoom || worldPos.x > full.x + full.w + 20 / state.transform.zoom ||
+          worldPos.y < full.y - 20 / state.transform.zoom || worldPos.y > full.y + full.h + 20 / state.transform.zoom) {
+        exitCropMode(false);
+        state.isInteracting = false;
+        return;
+      }
+      const edge = getCropEdgeAtPoint(worldPos);
+      if (edge) {
+        state.cropDragEdge = edge;
+        state.cropDragStart = { ...worldPos, rect: { ...state.cropRect } };
+        state.isInteracting = true;
+        return;
+      }
+      state.isInteracting = false;
+      return;
+    }
+
+    if (state.isMiddleClick || state.isRightClickHand || state.currentTool === "pan") {
+      updateCursor();
+      return;
+    }
+
+    if (state.currentTool === "eraser") { checkAndEraseAtPosition(worldPos); return; }
+
+    if (state.currentTool === "measure") {
+      state.activeMeasureLine = { start: { ...worldPos }, end: { ...worldPos } };
+      state.measureHoverGuides = [];
+      return;
+    }
+
+    if (state.currentTool === "text") {
+      state.isInteracting = false;
+      state.activeTextCoord = worldPos;
+      ghostInput.value = "";
+      ghostInput.style.display = "block";
+      ghostInput.style.color = state.textDrawColor;
+      ghostInput.dataset.bgColor = "";
+      const screenPos = worldToScreen(worldPos.x, worldPos.y);
+      ghostInput.style.left = `${screenPos.x}px`;
+      ghostInput.style.top = `${screenPos.y - state.currentFontSize * state.transform.zoom * 0.2}px`;
+      ghostInput.style.fontSize = `${state.currentFontSize * state.transform.zoom}px`;
+      ghostInput.style.lineHeight = "1.2";
+      ghostInput.style.height = "auto";
+      ghostInput.style.background = "transparent";
+      setTimeout(() => { ghostInput.focus(); autoResizeGhostInput(); }, 20);
+      return;
+    }
+
+    if (state.currentTool === "text-element") {
+      state.isInteracting = false;
+      state.activeTextCoord = worldPos;
+      ghostInput.value = "";
+      ghostInput.style.display = "block";
+      ghostInput.style.color = "#333333";
+      ghostInput.dataset.bgColor = "#f5e642";
+      const screenPos = worldToScreen(worldPos.x, worldPos.y);
+      ghostInput.style.left = `${screenPos.x}px`;
+      ghostInput.style.top = `${screenPos.y - state.currentFontSize * state.transform.zoom * 0.2}px`;
+      ghostInput.style.fontSize = `${state.currentFontSize * state.transform.zoom}px`;
+      ghostInput.style.lineHeight = "1.2";
+      ghostInput.style.height = "auto";
+      ghostInput.style.background = "#f5e642";
+      ghostInput.style.border = "1px dashed #c4b800";
+      setTimeout(() => { ghostInput.focus(); autoResizeGhostInput(); }, 20);
+      return;
+    }
+
+    if (state.currentTool === "select") {
+      // Swap handle hit
+      if (state.selectedElements.length >= 2 && state.swapHoveredElement && isPointOnSwapHandle(worldPos, state.swapHoveredElement)) {
+        state.isSwapDragging = true;
+        state.swapSourceElement = state.swapHoveredElement;
+        state.swapDragWorldPos = { ...worldPos };
+        state.swapTargetElement = null;
+        container.style.cursor = "grabbing";
+        state.isInteracting = false;
+        return;
+      }
+
+      // Resize handle hits
+      if (state.selectedElements.length === 1) {
+        const el = state.selectedElements[0];
+        const threshold = CONSTANTS.RESIZE_HANDLE_SIZE / state.transform.zoom;
+        const handles = getElementResizeHandles(el);
+        for (const h of handles) {
+          if (Math.abs(worldPos.x - h.x) <= threshold && Math.abs(worldPos.y - h.y) <= threshold) {
+            if (!el.originalBounds) {
+              if (el.elementType === "image") el.originalBounds = { w: el.w, h: el.h };
+              else if (el.type === "text") el.originalBounds = { fontSize: el.fontSize };
+              else if (el.type === "pen") el.originalBounds = { points: el.points.map((p) => ({ ...p })) };
+              else el.originalBounds = { start: { ...el.start }, end: el.end ? { ...el.end } : null };
+            }
+            pushUndo();
+            state.resizingElement = el;
+            const b = el.elementType === "image" ? { x: el.x, y: el.y, w: el.w, h: el.h } : getShapeBounds(el);
+            state.resizeStartBounds = {
+              x: b.x, y: b.y, w: b.w, h: b.h, ratio: b.w / b.h || 1,
+              handlePosition: h.position, startMouse: { ...worldPos },
+              origStart: el.start ? { ...el.start } : null,
+              origEnd: el.end ? { ...el.end } : null,
+              origPoints: el.points ? el.points.map((p) => ({ ...p })) : null,
+              origFontSize: el.fontSize || null,
+              origW: el.w || null, origH: el.h || null,
+              origX: el.x !== undefined ? el.x : null, origY: el.y !== undefined ? el.y : null,
+            };
+            return;
+          }
+        }
+      }
+
+      // Normal element selection
+      let clickedElement = null;
+      const isModifierActive = e.metaKey || e.shiftKey || e.ctrlKey;
+
+      for (let i = state.drawings.length - 1; i >= 0; i--) {
+        if (isPointHittingShape(worldPos, state.drawings[i])) {
+          clickedElement = state.drawings[i];
+          if (clickedElement.type !== "text") clickedElement.elementType = "drawing";
+          break;
+        }
+      }
+
+      if (!clickedElement) {
+        for (let i = state.images.length - 1; i >= 0; i--) {
+          const img = state.images[i];
+          if (worldPos.x >= img.x && worldPos.x <= img.x + img.w && worldPos.y >= img.y && worldPos.y <= img.y + img.h) {
+            clickedElement = img;
+            clickedElement.elementType = "image";
+            if (!isModifierActive) state.images.push(state.images.splice(i, 1)[0]);
+            break;
+          }
+        }
+      }
+
+      if (clickedElement) {
+        state.isRegionSelecting = false;
+        if (isModifierActive) {
+          const idx = state.selectedElements.findIndex((el) => el.id === clickedElement.id);
+          if (idx !== -1) state.selectedElements.splice(idx, 1);
+          else state.selectedElements.push(clickedElement);
+        } else {
+          const isAlreadyInSelection = state.selectedElements.some((el) => el.id === clickedElement.id);
+          if (!isAlreadyInSelection) state.selectedElements = [clickedElement];
+        }
+        expandSelectionToGroups();
+        pushUndo();
+        state.dragOffsets = state.selectedElements.map((el) => {
+          if (el.elementType === "image") {
+            return { id: el.id, type: "image", x: el.x, y: el.y, startMouse: { ...worldPos } };
+          } else if (el.type === "pen") {
+            return { id: el.id, type: "points", points: el.points.map((p) => ({ ...p })), startMouse: { ...worldPos } };
+          } else {
+            return { id: el.id, type: "shape", start: { ...el.start }, end: el.end ? { ...el.end } : null, startMouse: { ...worldPos } };
+          }
+        });
+        toggleAlignmentPanelVisibility();
+      } else {
+        // Start region selection
+        if (!isModifierActive) state.selectedElements = [];
+        state.isRegionSelecting = true;
+        state.regionStart = { ...worldPos };
+        state.regionEnd = { ...worldPos };
+        toggleAlignmentPanelVisibility();
+      }
+      return;
+    }
+
+    // Connector tool
+    if (state.currentTool === "connector") {
+      const snapThreshold = 30 / state.transform.zoom;
+      const hitEl = getElementAtWorldPos(worldPos, null);
+      let startConn = null;
+      let startPos = { ...worldPos };
+      if (hitEl && hitEl.type !== "connector") {
+        const port = getClosestConnectionPort(worldPos, hitEl);
+        const dist = Math.sqrt((port.x - worldPos.x) ** 2 + (port.y - worldPos.y) ** 2);
+        if (dist < snapThreshold) {
+          startPos = { x: port.x, y: port.y };
+          startConn = { elementId: hitEl.id, ratioX: port.ratioX, ratioY: port.ratioY };
+        } else {
+          const ratio = computeAnchorRatio(worldPos, hitEl);
+          startConn = { elementId: hitEl.id, ratioX: ratio.ratioX, ratioY: ratio.ratioY };
+        }
+      }
+      state.activeConnector = {
+        id: "draw_" + state.elementIdCounter++,
+        elementType: "drawing",
+        type: "connector",
+        color: state.drawColor,
+        width: CONSTANTS.CONSTANT_LINE_WIDTH,
+        start: startPos,
+        end: { ...startPos },
+        startConn,
+        endConn: null,
+      };
+      return;
+    }
+
+    // Drawing tools
+    if (state.currentTool === "pen") {
+      state.activeShape = {
+        id: "draw_" + state.elementIdCounter++,
+        elementType: "drawing",
+        type: "pen",
+        color: state.drawColor,
+        width: CONSTANTS.CONSTANT_LINE_WIDTH,
+        points: [worldPos],
+      };
+    } else {
+      state.activeShape = {
+        id: "draw_" + state.elementIdCounter++,
+        elementType: "drawing",
+        type: state.currentTool,
+        color: state.drawColor,
+        width: CONSTANTS.CONSTANT_LINE_WIDTH,
+        start: worldPos,
+        end: worldPos,
+      };
+    }
+  });
+
+  // Container mousemove
+  container.addEventListener("mousemove", (e) => {
+    // Crop mode cursor
+    if (state.cropMode && state.cropTarget && state.cropRect && !state.isInteracting) {
+      const worldPos = screenToWorld(e.clientX, e.clientY);
+      const edge = getCropEdgeAtPoint(worldPos);
+      container.style.cursor = edge ? getCropCursor(edge) : "default";
+      return;
+    }
+
+    if (!state.isInteracting) return;
+    state.isShiftPressed = e.shiftKey;
+
+    let dx = e.clientX - state.startX;
+    let dy = e.clientY - state.startY;
+    let worldPos = screenToWorld(e.clientX, e.clientY);
+
+    // Crop drag handling
+    if (state.cropMode && state.cropDragEdge && state.cropDragStart && state.cropTarget) {
+      const r = state.cropDragStart.rect;
+      const mdx = worldPos.x - state.cropDragStart.x;
+      const mdy = worldPos.y - state.cropDragStart.y;
+      const minSize = 20 / state.transform.zoom;
+      const full = getFullImageBounds(state.cropTarget);
+      const imgLeft = full.x, imgTop = full.y, imgRight = full.x + full.w, imgBottom = full.y + full.h;
+      let newX = r.x, newY = r.y, newW = r.w, newH = r.h;
+
+      if (state.cropDragEdge.includes("w")) { const moved = Math.max(-(r.x - imgLeft), Math.min(mdx, r.w - minSize)); newX = r.x + moved; newW = r.w - moved; }
+      if (state.cropDragEdge.includes("e")) { const moved = Math.max(-(r.w - minSize), Math.min(mdx, imgRight - (r.x + r.w))); newW = r.w + moved; }
+      if (state.cropDragEdge.includes("n")) { const moved = Math.max(-(r.y - imgTop), Math.min(mdy, r.h - minSize)); newY = r.y + moved; newH = r.h - moved; }
+      if (state.cropDragEdge.includes("s")) { const moved = Math.max(-(r.h - minSize), Math.min(mdy, imgBottom - (r.y + r.h))); newH = r.h + moved; }
+
+      if (e.shiftKey) {
+        const snapThreshold = 10 / state.transform.zoom;
+        const xSnaps = [0, 0.25, 0.5, 0.75, 1].map(f => full.x + f * full.w);
+        const ySnaps = [0, 0.25, 0.5, 0.75, 1].map(f => full.y + f * full.h);
+        if (state.cropDragEdge.includes("w")) { for (const sx of xSnaps) { if (Math.abs(newX - sx) < snapThreshold) { newW += newX - sx; newX = sx; break; } } }
+        if (state.cropDragEdge.includes("e")) { for (const sx of xSnaps) { if (Math.abs((newX + newW) - sx) < snapThreshold) { newW = sx - newX; break; } } }
+        if (state.cropDragEdge.includes("n")) { for (const sy of ySnaps) { if (Math.abs(newY - sy) < snapThreshold) { newH += newY - sy; newY = sy; break; } } }
+        if (state.cropDragEdge.includes("s")) { for (const sy of ySnaps) { if (Math.abs((newY + newH) - sy) < snapThreshold) { newH = sy - newY; break; } } }
+      }
+
+      state.cropRect = { x: newX, y: newY, w: newW, h: newH };
+      render();
+      return;
+    }
+
+    if (state.isMiddleClick || state.isRightClickHand || state.currentTool === "pan") {
+      if (e.shiftKey) {
+        if (!state.panLockDirection) {
+          if (Math.abs(dx) > 4 || Math.abs(dy) > 4) state.panLockDirection = Math.abs(dx) >= Math.abs(dy) ? "x" : "y";
+        }
+        if (state.panLockDirection === "x") dy = 0;
+        else if (state.panLockDirection === "y") dx = 0;
+      } else { state.panLockDirection = null; }
+      state.transform.x += dx; state.transform.y += dy;
+      state.startX = e.clientX; state.startY = e.clientY;
+      updateZoomSliderValue(); render();
+      return;
+    }
+
+    if (state.currentTool === "eraser") { checkAndEraseAtPosition(worldPos); return; }
+
+    if (state.currentTool === "select") {
+      if (state.resizingElement) {
+        const el = state.resizingElement;
+        const sb = state.resizeStartBounds;
+        const hp = sb.handlePosition;
+        const mouseDx = worldPos.x - sb.startMouse.x;
+        const mouseDy = worldPos.y - sb.startMouse.y;
+
+        if ((el.type === "connector" || el.type === "line" || el.type === "arrow") && (hp === "start" || hp === "end")) {
+          let targetPos = { ...worldPos };
+          if (e.shiftKey) { const anchor = hp === "start" ? el.end : el.start; targetPos = constraintToAngle(anchor, worldPos); }
+          if (hp === "start") {
+            el.start = targetPos;
+            if (el.type === "connector") {
+              const snapTh = 30 / state.transform.zoom;
+              const hitEl = getElementAtWorldPos(targetPos, el);
+              if (hitEl && hitEl.type !== "connector") {
+                const port = getClosestConnectionPort(targetPos, hitEl);
+                const dist = Math.sqrt((port.x - targetPos.x) ** 2 + (port.y - targetPos.y) ** 2);
+                if (dist < snapTh) { el.start = { x: port.x, y: port.y }; el.startConn = { elementId: hitEl.id, ratioX: port.ratioX, ratioY: port.ratioY }; }
+                else { const ratio = computeAnchorRatio(targetPos, hitEl); el.startConn = { elementId: hitEl.id, ratioX: ratio.ratioX, ratioY: ratio.ratioY }; }
+              } else { el.startConn = null; }
+            }
+          } else {
+            el.end = targetPos;
+            if (el.type === "connector") {
+              const snapTh = 30 / state.transform.zoom;
+              const hitEl = getElementAtWorldPos(targetPos, el);
+              if (hitEl && hitEl.type !== "connector") {
+                const port = getClosestConnectionPort(targetPos, hitEl);
+                const dist = Math.sqrt((port.x - targetPos.x) ** 2 + (port.y - targetPos.y) ** 2);
+                if (dist < snapTh) { el.end = { x: port.x, y: port.y }; el.endConn = { elementId: hitEl.id, ratioX: port.ratioX, ratioY: port.ratioY }; }
+                else { const ratio = computeAnchorRatio(targetPos, hitEl); el.endConn = { elementId: hitEl.id, ratioX: ratio.ratioX, ratioY: ratio.ratioY }; }
+              } else { el.endConn = null; }
+            }
+          }
+          render(); return;
+        }
+
+        if (el.elementType === "image") {
+          let newW, newH, newX, newY;
+          if (hp === "br") { newW = Math.max(20, sb.w + mouseDx); newH = newW / sb.ratio; newX = sb.x; newY = sb.y; }
+          else if (hp === "bl") { newW = Math.max(20, sb.w - mouseDx); newH = newW / sb.ratio; newX = sb.x + sb.w - newW; newY = sb.y; }
+          else if (hp === "tr") { newW = Math.max(20, sb.w + mouseDx); newH = newW / sb.ratio; newX = sb.x; newY = sb.y + sb.h - newH; }
+          else { newW = Math.max(20, sb.w - mouseDx); newH = newW / sb.ratio; newX = sb.x + sb.w - newW; newY = sb.y + sb.h - newH; }
+          if (e.shiftKey) {
+            const naturalW = el.img.naturalWidth || sb.w;
+            const naturalH = el.img.naturalHeight || sb.h;
+            const stepW = naturalW * 0.25, stepH = naturalH * 0.25;
+            newW = Math.max(stepW, Math.round(newW / stepW) * stepW);
+            newH = Math.max(stepH, Math.round(newH / stepH) * stepH);
+            if (hp === "bl" || hp === "tl") newX = sb.x + sb.w - newW;
+            if (hp === "tr" || hp === "tl") newY = sb.y + sb.h - newH;
+          }
+          el.x = newX; el.y = newY; el.w = newW; el.h = newH;
+        } else if (el.type === "text") {
+          let scaleFactor;
+          const initialW = sb.w || 50;
+          if (hp === "br" || hp === "tr") scaleFactor = (initialW + mouseDx) / initialW;
+          else scaleFactor = (initialW - mouseDx) / initialW;
+          scaleFactor = Math.max(0.2, scaleFactor);
+          el.fontSize = Math.max(8, Math.round(sb.origFontSize * scaleFactor));
+        } else if (el.type === "pen") {
+          const origBounds = { x: sb.x, y: sb.y, w: sb.w, h: sb.h };
+          let scaleX = 1, scaleY = 1, anchorX, anchorY;
+          if (hp === "br") { anchorX = origBounds.x; anchorY = origBounds.y; scaleX = origBounds.w > 0 ? (origBounds.w + mouseDx) / origBounds.w : 1; scaleY = origBounds.h > 0 ? (origBounds.h + mouseDy) / origBounds.h : 1; }
+          else if (hp === "bl") { anchorX = origBounds.x + origBounds.w; anchorY = origBounds.y; scaleX = origBounds.w > 0 ? (origBounds.w - mouseDx) / origBounds.w : 1; scaleY = origBounds.h > 0 ? (origBounds.h + mouseDy) / origBounds.h : 1; }
+          else if (hp === "tr") { anchorX = origBounds.x; anchorY = origBounds.y + origBounds.h; scaleX = origBounds.w > 0 ? (origBounds.w + mouseDx) / origBounds.w : 1; scaleY = origBounds.h > 0 ? (origBounds.h - mouseDy) / origBounds.h : 1; }
+          else { anchorX = origBounds.x + origBounds.w; anchorY = origBounds.y + origBounds.h; scaleX = origBounds.w > 0 ? (origBounds.w - mouseDx) / origBounds.w : 1; scaleY = origBounds.h > 0 ? (origBounds.h - mouseDy) / origBounds.h : 1; }
+          if (e.shiftKey) { const u = Math.max(scaleX, scaleY); scaleX = u; scaleY = u; }
+          scaleX = Math.max(0.1, scaleX); scaleY = Math.max(0.1, scaleY);
+          el.points = sb.origPoints.map((p) => ({ x: anchorX + (p.x - anchorX) * scaleX, y: anchorY + (p.y - anchorY) * scaleY }));
+        } else {
+          const origStart = sb.origStart, origEnd = sb.origEnd;
+          const origBounds = { x: sb.x, y: sb.y, w: sb.w, h: sb.h };
+          let scaleX = 1, scaleY = 1, anchorX, anchorY;
+          if (hp === "br") { anchorX = origBounds.x; anchorY = origBounds.y; scaleX = origBounds.w > 0 ? (origBounds.w + mouseDx) / origBounds.w : 1; scaleY = origBounds.h > 0 ? (origBounds.h + mouseDy) / origBounds.h : 1; }
+          else if (hp === "bl") { anchorX = origBounds.x + origBounds.w; anchorY = origBounds.y; scaleX = origBounds.w > 0 ? (origBounds.w - mouseDx) / origBounds.w : 1; scaleY = origBounds.h > 0 ? (origBounds.h + mouseDy) / origBounds.h : 1; }
+          else if (hp === "tr") { anchorX = origBounds.x; anchorY = origBounds.y + origBounds.h; scaleX = origBounds.w > 0 ? (origBounds.w + mouseDx) / origBounds.w : 1; scaleY = origBounds.h > 0 ? (origBounds.h - mouseDy) / origBounds.h : 1; }
+          else { anchorX = origBounds.x + origBounds.w; anchorY = origBounds.y + origBounds.h; scaleX = origBounds.w > 0 ? (origBounds.w - mouseDx) / origBounds.w : 1; scaleY = origBounds.h > 0 ? (origBounds.h - mouseDy) / origBounds.h : 1; }
+          if (e.shiftKey) { const u = Math.max(scaleX, scaleY); scaleX = u; scaleY = u; }
+          scaleX = Math.max(0.1, scaleX); scaleY = Math.max(0.1, scaleY);
+          el.start = { x: anchorX + (origStart.x - anchorX) * scaleX, y: anchorY + (origStart.y - anchorY) * scaleY };
+          if (origEnd) el.end = { x: anchorX + (origEnd.x - anchorX) * scaleX, y: anchorY + (origEnd.y - anchorY) * scaleY };
+        }
+        updateConnectorsForElements([el.id]);
+        render(); return;
+      }
+
+      if (state.isRegionSelecting) { state.regionEnd = { ...worldPos }; render(); }
+      else if (state.selectedElements.length > 0) {
+        const excludeIds = state.selectedElements.map((el) => el.id);
+        state.selectedElements.forEach((el) => {
+          const offset = state.dragOffsets.find((o) => o.id === el.id);
+          if (!offset) return;
+          const curDx = worldPos.x - offset.startMouse.x;
+          const curDy = worldPos.y - offset.startMouse.y;
+          if (offset.type === "image") { el.x = offset.x + curDx; el.y = offset.y + curDy; }
+          else if (offset.type === "points") { el.points = offset.points.map((p) => ({ x: p.x + curDx, y: p.y + curDy })); }
+          else { el.start = { x: offset.start.x + curDx, y: offset.start.y + curDy }; if (el.end && offset.end) el.end = { x: offset.end.x + curDx, y: offset.end.y + curDy }; }
+        });
+
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        state.selectedElements.forEach((el) => {
+          let b = el.elementType === "image" ? { x: el.x, y: el.y, w: el.w, h: el.h } : getShapeBounds(el);
+          if (b.x < minX) minX = b.x; if (b.y < minY) minY = b.y;
+          if (b.x + b.w > maxX) maxX = b.x + b.w; if (b.y + b.h > maxY) maxY = b.y + b.h;
+        });
+        let groupBounds = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+
+        if (e.shiftKey) {
+          const targets = getSnapTargets(excludeIds, groupBounds);
+          const threshold = CONSTANTS.SNAP_THRESHOLD / state.transform.zoom;
+          const snap = snapToElements(groupBounds, targets, threshold);
+          const spacingSnap = snapToSpacing(groupBounds, excludeIds, threshold);
+          let finalDx = snap.dx, finalDy = snap.dy;
+          if (Math.abs(spacingSnap.dx) > 0 && (Math.abs(snap.dx) === 0 || Math.abs(spacingSnap.dx) < Math.abs(snap.dx))) finalDx = spacingSnap.dx;
+          if (Math.abs(spacingSnap.dy) > 0 && (Math.abs(snap.dy) === 0 || Math.abs(spacingSnap.dy) < Math.abs(snap.dy))) finalDy = spacingSnap.dy;
+          if (finalDx !== 0 || finalDy !== 0) {
+            state.selectedElements.forEach((el) => {
+              if (el.elementType === "image") { el.x += finalDx; el.y += finalDy; }
+              else if (el.type === "pen") { el.points = el.points.map((p) => ({ x: p.x + finalDx, y: p.y + finalDy })); }
+              else { el.start.x += finalDx; el.start.y += finalDy; if (el.end) { el.end.x += finalDx; el.end.y += finalDy; } }
+            });
+          }
+          // Recompute
+          minX = Infinity; minY = Infinity; maxX = -Infinity; maxY = -Infinity;
+          state.selectedElements.forEach((el) => {
+            let b = el.elementType === "image" ? { x: el.x, y: el.y, w: el.w, h: el.h } : getShapeBounds(el);
+            if (b.x < minX) minX = b.x; if (b.y < minY) minY = b.y;
+            if (b.x + b.w > maxX) maxX = b.x + b.w; if (b.y + b.h > maxY) maxY = b.y + b.h;
+          });
+          groupBounds = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+          state.activeSnapGuides = snap.guides;
+          state.activeProximityGuides = [];
+          state.activeSpacingGuides = getSpacingGuides(groupBounds, excludeIds);
+        } else {
+          state.activeSnapGuides = [];
+          state.activeProximityGuides = getProximityGuides(groupBounds, excludeIds);
+          state.activeSpacingGuides = getSpacingGuides(groupBounds, excludeIds);
+        }
+        updateConnectorsForElements(state.selectedElements.map((el) => el.id));
+        const draggedIds = new Set(state.selectedElements.map((el) => el.id));
+        for (const el of state.selectedElements) {
+          if (el.type === "connector") {
+            if (el.startConn && !draggedIds.has(el.startConn.elementId)) el.startConn = null;
+            if (el.endConn && !draggedIds.has(el.endConn.elementId)) el.endConn = null;
+          }
+        }
+        render();
+      }
+    } else if (state.activeMeasureLine) {
+      if (e.shiftKey) worldPos = constraintToAngle(state.activeMeasureLine.start, worldPos);
+      state.activeMeasureLine.end = { ...worldPos };
+      render();
+    } else if (state.activeConnector) {
+      const snapThreshold = 30 / state.transform.zoom;
+      const hitEl = getElementAtWorldPos(worldPos, null);
+      state.connectorHoverTarget = null;
+      if (hitEl && hitEl.type !== "connector" && (!state.activeConnector.startConn || hitEl.id !== state.activeConnector.startConn.elementId)) {
+        state.connectorHoverTarget = hitEl;
+        const port = getClosestConnectionPort(worldPos, hitEl);
+        const dist = Math.sqrt((port.x - worldPos.x) ** 2 + (port.y - worldPos.y) ** 2);
+        if (dist < snapThreshold) state.activeConnector.end = { x: port.x, y: port.y };
+        else state.activeConnector.end = { ...worldPos };
+      } else {
+        if (e.shiftKey) worldPos = constraintToAngle(state.activeConnector.start, worldPos);
+        state.activeConnector.end = { ...worldPos };
+      }
+      render();
+    } else if (state.activeShape) {
+      if (state.activeShape.type === "pen") {
+        if (e.shiftKey && state.activeShape.points.length > 0) worldPos = constraintToAngle(state.activeShape.points[0], worldPos);
+        state.activeShape.points.push(worldPos);
+      } else {
+        if (e.shiftKey) worldPos = constraintToAngle(state.activeShape.start, worldPos);
+        state.activeShape.end = worldPos;
+      }
+      render();
+    }
+  });
+
+  // Container mouseup
+  container.addEventListener("mouseup", (e) => {
+    if (!state.isInteracting) return;
+    state.isInteracting = false;
+    state.panLockDirection = null;
+    state.resizingElement = null;
+    state.activeSnapGuides = [];
+    state.activeProximityGuides = [];
+    state.activeSpacingGuides = [];
+
+    if (state.cropMode && state.cropDragEdge) {
+      state.cropDragEdge = null;
+      state.cropDragStart = null;
+      render(); return;
+    }
+
+    if (state.currentTool === "measure" && state.activeMeasureLine) {
+      const dx2 = state.activeMeasureLine.end.x - state.activeMeasureLine.start.x;
+      const dy2 = state.activeMeasureLine.end.y - state.activeMeasureLine.start.y;
+      if (Math.sqrt(dx2 * dx2 + dy2 * dy2) > 5 / state.transform.zoom) {
+        pushUndo();
+        state.drawings.push({
+          id: "draw_" + state.elementIdCounter++,
+          elementType: "drawing", type: "measure",
+          color: "#00bcd4", width: CONSTANTS.CONSTANT_LINE_WIDTH,
+          start: { ...state.activeMeasureLine.start }, end: { ...state.activeMeasureLine.end },
+        });
+      }
+      state.activeMeasureLine = null;
+      render(); scheduleSave();
+      state.isMiddleClick = false; state.isRightClickHand = false; updateCursor();
+      return;
+    }
+
+    if (state.currentTool === "select" && state.isRegionSelecting) {
+      state.isRegionSelecting = false;
+      const rx = Math.min(state.regionStart.x, state.regionEnd.x);
+      const ry = Math.min(state.regionStart.y, state.regionEnd.y);
+      const rw = Math.abs(state.regionEnd.x - state.regionStart.x);
+      const rh = Math.abs(state.regionEnd.y - state.regionStart.y);
+      const isModifierActive = e.metaKey || e.ctrlKey;
+      if (!isModifierActive) state.selectedElements = [];
+      state.images.forEach((img) => {
+        if (img.x >= rx && img.x + img.w <= rx + rw && img.y >= ry && img.y + img.h <= ry + rh) {
+          if (!state.selectedElements.some((el) => el.id === img.id)) state.selectedElements.push(img);
+        }
+      });
+      state.drawings.forEach((shape) => {
+        const b = getShapeBounds(shape);
+        if (b.x >= rx && b.x + b.w <= rx + rw && b.y >= ry && b.y + b.h <= ry + rh) {
+          if (shape.type !== "text") shape.elementType = "drawing";
+          if (!state.selectedElements.some((el) => el.id === shape.id)) state.selectedElements.push(shape);
+        }
+      });
+      expandSelectionToGroups();
+      if (state.selectedElements.length > 0) showToast(`Selected group of ${state.selectedElements.length} assets`);
+    }
+
+    if (state.activeConnector) {
+      const snapThreshold = 30 / state.transform.zoom;
+      const worldPos = screenToWorld(e.clientX, e.clientY);
+      const hitEl = getElementAtWorldPos(worldPos, null);
+      if (hitEl && hitEl.type !== "connector" && (!state.activeConnector.startConn || hitEl.id !== state.activeConnector.startConn.elementId)) {
+        const port = getClosestConnectionPort(worldPos, hitEl);
+        const dist = Math.sqrt((port.x - worldPos.x) ** 2 + (port.y - worldPos.y) ** 2);
+        if (dist < snapThreshold) { state.activeConnector.end = { x: port.x, y: port.y }; state.activeConnector.endConn = { elementId: hitEl.id, ratioX: port.ratioX, ratioY: port.ratioY }; }
+        else { const ratio = computeAnchorRatio(worldPos, hitEl); state.activeConnector.end = { ...worldPos }; state.activeConnector.endConn = { elementId: hitEl.id, ratioX: ratio.ratioX, ratioY: ratio.ratioY }; }
+      }
+      const cdx = state.activeConnector.end.x - state.activeConnector.start.x;
+      const cdy = state.activeConnector.end.y - state.activeConnector.start.y;
+      if (Math.sqrt(cdx * cdx + cdy * cdy) > 5 / state.transform.zoom) {
+        pushUndo();
+        state.drawings.push(state.activeConnector);
+        scheduleSave();
+      }
+      state.activeConnector = null;
+      state.connectorHoverTarget = null;
+      render();
+    }
+
+    if (state.activeShape) {
+      pushUndo();
+      state.drawings.push(state.activeShape);
+      state.activeShape = null;
+    }
+
+    toggleAlignmentPanelVisibility();
+    render();
+    state.isMiddleClick = false;
+    state.isRightClickHand = false;
+    updateCursor();
+    scheduleSave();
+  });
+
+  // Double-click for text editing
+  container.addEventListener("dblclick", (e) => {
+    if (state.currentTool !== "select") return;
+    const worldPos = screenToWorld(e.clientX, e.clientY);
+
+    // Check if double-clicking on an image to enter crop mode
+    for (let i = state.images.length - 1; i >= 0; i--) {
+      const img = state.images[i];
+      if (worldPos.x >= img.x && worldPos.x <= img.x + img.w && worldPos.y >= img.y && worldPos.y <= img.y + img.h) {
+        enterCropMode(img);
+        return;
+      }
+    }
+
+    // Check if double-clicking on a text element to edit it
+    for (let i = state.drawings.length - 1; i >= 0; i--) {
+      const shape = state.drawings[i];
+      if (shape.type !== "text") continue;
+      if (!isPointHittingShape(worldPos, shape)) continue;
+
+      const editingText = shape;
+      state.activeTextCoord = { x: editingText.start.x, y: editingText.start.y };
+      state.currentFontSize = editingText.fontSize;
+      ghostInput.value = editingText.text;
+      ghostInput.style.display = "block";
+      ghostInput.style.color = editingText.color;
+      if (editingText.bgColor) {
+        ghostInput.dataset.bgColor = editingText.bgColor;
+        ghostInput.style.background = editingText.bgColor;
+        ghostInput.style.border = "1px dashed #c4b800";
+      } else {
+        ghostInput.dataset.bgColor = "";
+        ghostInput.style.background = "transparent";
+        ghostInput.style.border = "1px dashed #007acc";
+      }
+      const screenPos = worldToScreen(state.activeTextCoord.x, state.activeTextCoord.y);
+      ghostInput.style.left = `${screenPos.x}px`;
+      ghostInput.style.top = `${screenPos.y - state.currentFontSize * state.transform.zoom * 0.2}px`;
+      ghostInput.style.fontSize = `${state.currentFontSize * state.transform.zoom}px`;
+      ghostInput.style.lineHeight = "1.2";
+      ghostInput.style.height = "auto";
+
+      // Remove the original text element so it can be re-baked
+      pushUndo();
+      state.drawings.splice(i, 1);
+      state.selectedElements = [];
+
+      setTimeout(() => { ghostInput.focus(); ghostInput.select(); autoResizeGhostInput(); }, 20);
+      render();
+      break;
+    }
+  });
+}
