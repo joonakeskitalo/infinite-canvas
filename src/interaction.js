@@ -14,7 +14,7 @@ import { pushUndo, undo, redo } from "./history.js";
 import { scheduleSave, saveFile, saveAs, openFile } from "./persistence.js";
 import { render, executePNGExport } from "./rendering.js";
 import {
-  getSnapTargets, snapToElements, snapToSpacing,
+  getSnapTargets, snapToElements, snapToSpacing, snapResizeEdges,
   getProximityGuides, getSpacingGuides, computeMeasureHoverGuides,
 } from "./snap-guides.js";
 import {
@@ -1328,6 +1328,35 @@ function setupMouseHandlers() {
             newH = Math.max(stepH, Math.round(newH / stepH) * stepH);
             if (hp === "bl" || hp === "tl") newX = sb.x + sb.w - newW;
             if (hp === "tr" || hp === "tl") newY = sb.y + sb.h - newH;
+            state.activeSnapGuides = [];
+          } else {
+            // Snap moving edges to guides/other elements
+            const resizeBounds = { x: newX, y: newY, w: newW, h: newH };
+            const snapThreshold = (CONSTANTS.SNAP_THRESHOLD * 2) / state.transform.zoom;
+            const targets = getSnapTargets([el.id], resizeBounds);
+            if (targets.x.length === 0 && targets.y.length === 0) {
+              console.warn("[resize-snap] No snap targets found for element", el.id);
+            }
+            const snap = snapResizeEdges(resizeBounds, hp, targets, snapThreshold);
+            if (snap.dx !== 0 || snap.dy !== 0) {
+              // For aspect-ratio-locked images, pick the axis with the smaller correction
+              if (snap.dy !== 0 && (snap.dx === 0 || Math.abs(snap.dy) <= Math.abs(snap.dx))) {
+                // Snap via Y axis: adjust height, recalc width for aspect ratio
+                if (hp === "br" || hp === "bl") { newH += snap.dy; }
+                else { newH -= snap.dy; newY += snap.dy; }
+                newW = newH * sb.ratio;
+                if (hp === "bl" || hp === "tl") newX = sb.x + sb.w - newW;
+                if (hp === "tr" || hp === "tl") newY = sb.y + sb.h - newH;
+              } else if (snap.dx !== 0) {
+                // Snap via X axis: adjust width, recalc height for aspect ratio
+                if (hp === "br" || hp === "tr") { newW += snap.dx; }
+                else { newW -= snap.dx; newX += snap.dx; }
+                newH = newW / sb.ratio;
+                if (hp === "tr" || hp === "tl") newY = sb.y + sb.h - newH;
+                if (hp === "bl" || hp === "tl") newX = sb.x + sb.w - newW;
+              }
+            }
+            state.activeSnapGuides = snap.guides;
           }
           el.x = newX; el.y = newY; el.w = newW; el.h = newH;
         } else if (el.type === "text") {
@@ -1336,6 +1365,25 @@ function setupMouseHandlers() {
           if (hp === "br" || hp === "tr") scaleFactor = (initialW + mouseDx) / initialW;
           else scaleFactor = (initialW - mouseDx) / initialW;
           scaleFactor = Math.max(0.2, scaleFactor);
+          if (!e.shiftKey) {
+            // Snap text resize edges to guides
+            const newW = initialW * scaleFactor;
+            const newH = (sb.h || 50) * scaleFactor;
+            let newX = (hp === "bl" || hp === "tl") ? sb.x + sb.w - newW : sb.x;
+            let newY = (hp === "tr" || hp === "tl") ? sb.y + sb.h - newH : sb.y;
+            const resizeBounds = { x: newX, y: newY, w: newW, h: newH };
+            const snapThreshold = (CONSTANTS.SNAP_THRESHOLD * 2) / state.transform.zoom;
+            const targets = getSnapTargets([el.id], resizeBounds);
+            const snap = snapResizeEdges(resizeBounds, hp, targets, snapThreshold);
+            if (snap.dx !== 0) {
+              if (hp === "br" || hp === "tr") scaleFactor = (newW + snap.dx) / initialW;
+              else scaleFactor = (newW - snap.dx) / initialW;
+              scaleFactor = Math.max(0.2, scaleFactor);
+            }
+            state.activeSnapGuides = snap.guides;
+          } else {
+            state.activeSnapGuides = [];
+          }
           el.fontSize = Math.max(8, Math.round(sb.origFontSize * scaleFactor));
         } else if (el.type === "pen") {
           const origBounds = { x: sb.x, y: sb.y, w: sb.w, h: sb.h };
@@ -1346,6 +1394,29 @@ function setupMouseHandlers() {
           else { anchorX = origBounds.x + origBounds.w; anchorY = origBounds.y + origBounds.h; scaleX = origBounds.w > 0 ? (origBounds.w - mouseDx) / origBounds.w : 1; scaleY = origBounds.h > 0 ? (origBounds.h - mouseDy) / origBounds.h : 1; }
           if (e.shiftKey) { const u = Math.max(scaleX, scaleY); scaleX = u; scaleY = u; }
           scaleX = Math.max(0.1, scaleX); scaleY = Math.max(0.1, scaleY);
+          if (!e.shiftKey) {
+            // Snap resize edges to guides
+            const newW = origBounds.w * scaleX;
+            const newH = origBounds.h * scaleY;
+            let newX = hp === "bl" || hp === "tl" ? anchorX - newW : anchorX;
+            let newY = hp === "tr" || hp === "tl" ? anchorY - newH : anchorY;
+            const resizeBounds = { x: newX, y: newY, w: newW, h: newH };
+            const snapThreshold = (CONSTANTS.SNAP_THRESHOLD * 2) / state.transform.zoom;
+            const targets = getSnapTargets([el.id], resizeBounds);
+            const snap = snapResizeEdges(resizeBounds, hp, targets, snapThreshold);
+            if (snap.dx !== 0 && origBounds.w > 0) {
+              if (hp === "br" || hp === "tr") scaleX = (newW + snap.dx) / origBounds.w;
+              else scaleX = (newW - snap.dx) / origBounds.w;
+            }
+            if (snap.dy !== 0 && origBounds.h > 0) {
+              if (hp === "br" || hp === "bl") scaleY = (newH + snap.dy) / origBounds.h;
+              else scaleY = (newH - snap.dy) / origBounds.h;
+            }
+            scaleX = Math.max(0.1, scaleX); scaleY = Math.max(0.1, scaleY);
+            state.activeSnapGuides = snap.guides;
+          } else {
+            state.activeSnapGuides = [];
+          }
           el.points = sb.origPoints.map((p) => ({ x: anchorX + (p.x - anchorX) * scaleX, y: anchorY + (p.y - anchorY) * scaleY }));
         } else {
           const origStart = sb.origStart, origEnd = sb.origEnd;
@@ -1357,6 +1428,29 @@ function setupMouseHandlers() {
           else { anchorX = origBounds.x + origBounds.w; anchorY = origBounds.y + origBounds.h; scaleX = origBounds.w > 0 ? (origBounds.w - mouseDx) / origBounds.w : 1; scaleY = origBounds.h > 0 ? (origBounds.h - mouseDy) / origBounds.h : 1; }
           if (e.shiftKey) { const u = Math.max(scaleX, scaleY); scaleX = u; scaleY = u; }
           scaleX = Math.max(0.1, scaleX); scaleY = Math.max(0.1, scaleY);
+          if (!e.shiftKey) {
+            // Snap resize edges to guides
+            const newW = origBounds.w * scaleX;
+            const newH = origBounds.h * scaleY;
+            let newX = hp === "bl" || hp === "tl" ? anchorX - newW : anchorX;
+            let newY = hp === "tr" || hp === "tl" ? anchorY - newH : anchorY;
+            const resizeBounds = { x: newX, y: newY, w: newW, h: newH };
+            const snapThreshold = (CONSTANTS.SNAP_THRESHOLD * 2) / state.transform.zoom;
+            const targets = getSnapTargets([el.id], resizeBounds);
+            const snap = snapResizeEdges(resizeBounds, hp, targets, snapThreshold);
+            if (snap.dx !== 0 && origBounds.w > 0) {
+              if (hp === "br" || hp === "tr") scaleX = (newW + snap.dx) / origBounds.w;
+              else scaleX = (newW - snap.dx) / origBounds.w;
+            }
+            if (snap.dy !== 0 && origBounds.h > 0) {
+              if (hp === "br" || hp === "bl") scaleY = (newH + snap.dy) / origBounds.h;
+              else scaleY = (newH - snap.dy) / origBounds.h;
+            }
+            scaleX = Math.max(0.1, scaleX); scaleY = Math.max(0.1, scaleY);
+            state.activeSnapGuides = snap.guides;
+          } else {
+            state.activeSnapGuides = [];
+          }
           el.start = { x: anchorX + (origStart.x - anchorX) * scaleX, y: anchorY + (origStart.y - anchorY) * scaleY };
           if (origEnd) el.end = { x: anchorX + (origEnd.x - anchorX) * scaleX, y: anchorY + (origEnd.y - anchorY) * scaleY };
         }

@@ -365,6 +365,64 @@ export function getSpacingGuides(bounds, excludeIds) {
   return guides;
 }
 
+export function snapResizeEdges(bounds, handlePosition, targets, threshold) {
+  let dx = 0, dy = 0;
+  const guides = [];
+
+  // Determine which edges are moving based on handle position
+  const movingEdgesX = [];
+  const movingEdgesY = [];
+
+  if (handlePosition === "br" || handlePosition === "tr") {
+    movingEdgesX.push(bounds.x + bounds.w); // right edge moves
+  }
+  if (handlePosition === "bl" || handlePosition === "tl") {
+    movingEdgesX.push(bounds.x); // left edge moves
+  }
+  if (handlePosition === "br" || handlePosition === "bl") {
+    movingEdgesY.push(bounds.y + bounds.h); // bottom edge moves
+  }
+  if (handlePosition === "tr" || handlePosition === "tl") {
+    movingEdgesY.push(bounds.y); // top edge moves
+  }
+
+  let bestDistX = threshold;
+  for (const myX of movingEdgesX) {
+    for (const tX of targets.x) {
+      const dist = Math.abs(myX - tX);
+      if (dist < bestDistX) { bestDistX = dist; dx = tX - myX; }
+    }
+  }
+
+  let bestDistY = threshold;
+  for (const myY of movingEdgesY) {
+    for (const tY of targets.y) {
+      const dist = Math.abs(myY - tY);
+      if (dist < bestDistY) { bestDistY = dist; dy = tY - myY; }
+    }
+  }
+
+  // Generate visual guide lines for snapped edges
+  if (dx !== 0) {
+    const snappedX = movingEdgesX.map((v) => v + dx);
+    for (const sx of snappedX) {
+      for (const tX of targets.x) {
+        if (Math.abs(sx - tX) < 0.5) guides.push({ axis: "x", pos: tX });
+      }
+    }
+  }
+  if (dy !== 0) {
+    const snappedY = movingEdgesY.map((v) => v + dy);
+    for (const sy of snappedY) {
+      for (const tY of targets.y) {
+        if (Math.abs(sy - tY) < 0.5) guides.push({ axis: "y", pos: tY });
+      }
+    }
+  }
+
+  return { dx, dy, guides };
+}
+
 export function computeMeasureHoverGuides(worldPos) {
   const MAX_DIST = 500 / state.transform.zoom;
   const MAX_GUIDES = 4;
