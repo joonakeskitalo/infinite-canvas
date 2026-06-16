@@ -1245,14 +1245,86 @@ function setupMouseHandlers() {
       if (state.cropDragEdge.includes("n")) { const moved = Math.max(-(r.y - imgTop), Math.min(mdy, r.h - minSize)); newY = r.y + moved; newH = r.h - moved; }
       if (state.cropDragEdge.includes("s")) { const moved = Math.max(-(r.h - minSize), Math.min(mdy, imgBottom - (r.y + r.h))); newH = r.h + moved; }
 
+      // Default: snap crop edges to guide lines from other elements and ruler guides
+      {
+        const snapThreshold = (CONSTANTS.SNAP_THRESHOLD * 2) / state.transform.zoom;
+        const cropBounds = { x: newX, y: newY, w: newW, h: newH };
+        const targets = getSnapTargets([state.cropTarget.id], cropBounds);
+
+        // Snap moving edges based on which crop edge is being dragged
+        const edge = state.cropDragEdge;
+        let snapDx = 0, snapDy = 0;
+        let bestDistX = snapThreshold, bestDistY = snapThreshold;
+
+        if (edge.includes("w")) {
+          for (const tX of targets.x) {
+            const dist = Math.abs(newX - tX);
+            if (dist < bestDistX) { bestDistX = dist; snapDx = tX - newX; }
+          }
+        }
+        if (edge.includes("e")) {
+          const rightEdge = newX + newW;
+          for (const tX of targets.x) {
+            const dist = Math.abs(rightEdge - tX);
+            if (dist < bestDistX) { bestDistX = dist; snapDx = tX - rightEdge; }
+          }
+        }
+        if (edge.includes("n")) {
+          for (const tY of targets.y) {
+            const dist = Math.abs(newY - tY);
+            if (dist < bestDistY) { bestDistY = dist; snapDy = tY - newY; }
+          }
+        }
+        if (edge.includes("s")) {
+          const bottomEdge = newY + newH;
+          for (const tY of targets.y) {
+            const dist = Math.abs(bottomEdge - tY);
+            if (dist < bestDistY) { bestDistY = dist; snapDy = tY - bottomEdge; }
+          }
+        }
+
+        // Apply snaps while respecting image bounds
+        if (snapDx !== 0) {
+          if (edge.includes("w")) {
+            const snappedX = newX + snapDx;
+            if (snappedX >= imgLeft && (newW - snapDx) >= minSize) { newX = snappedX; newW -= snapDx; }
+          } else if (edge.includes("e")) {
+            const snappedRight = newX + newW + snapDx;
+            if (snappedRight <= imgRight && (newW + snapDx) >= minSize) { newW += snapDx; }
+          }
+        }
+        if (snapDy !== 0) {
+          if (edge.includes("n")) {
+            const snappedY = newY + snapDy;
+            if (snappedY >= imgTop && (newH - snapDy) >= minSize) { newY = snappedY; newH -= snapDy; }
+          } else if (edge.includes("s")) {
+            const snappedBottom = newY + newH + snapDy;
+            if (snappedBottom <= imgBottom && (newH + snapDy) >= minSize) { newH += snapDy; }
+          }
+        }
+
+        // Build visual snap guides for rendering
+        const guides = [];
+        if (snapDx !== 0 && bestDistX < snapThreshold) {
+          const snappedX = edge.includes("w") ? newX : newX + newW;
+          guides.push({ axis: "x", pos: snappedX });
+        }
+        if (snapDy !== 0 && bestDistY < snapThreshold) {
+          const snappedY = edge.includes("n") ? newY : newY + newH;
+          guides.push({ axis: "y", pos: snappedY });
+        }
+        state.activeSnapGuides = guides;
+      }
+
+      // Shift: additionally snap to image proportional grid (quarters)
       if (e.shiftKey) {
-        const snapThreshold = 10 / state.transform.zoom;
+        const propThreshold = 10 / state.transform.zoom;
         const xSnaps = [0, 0.25, 0.5, 0.75, 1].map(f => full.x + f * full.w);
         const ySnaps = [0, 0.25, 0.5, 0.75, 1].map(f => full.y + f * full.h);
-        if (state.cropDragEdge.includes("w")) { for (const sx of xSnaps) { if (Math.abs(newX - sx) < snapThreshold) { newW += newX - sx; newX = sx; break; } } }
-        if (state.cropDragEdge.includes("e")) { for (const sx of xSnaps) { if (Math.abs((newX + newW) - sx) < snapThreshold) { newW = sx - newX; break; } } }
-        if (state.cropDragEdge.includes("n")) { for (const sy of ySnaps) { if (Math.abs(newY - sy) < snapThreshold) { newH += newY - sy; newY = sy; break; } } }
-        if (state.cropDragEdge.includes("s")) { for (const sy of ySnaps) { if (Math.abs((newY + newH) - sy) < snapThreshold) { newH = sy - newY; break; } } }
+        if (state.cropDragEdge.includes("w")) { for (const sx of xSnaps) { if (Math.abs(newX - sx) < propThreshold) { newW += newX - sx; newX = sx; break; } } }
+        if (state.cropDragEdge.includes("e")) { for (const sx of xSnaps) { if (Math.abs((newX + newW) - sx) < propThreshold) { newW = sx - newX; break; } } }
+        if (state.cropDragEdge.includes("n")) { for (const sy of ySnaps) { if (Math.abs(newY - sy) < propThreshold) { newH += newY - sy; newY = sy; break; } } }
+        if (state.cropDragEdge.includes("s")) { for (const sy of ySnaps) { if (Math.abs((newY + newH) - sy) < propThreshold) { newH = sy - newY; break; } } }
       }
 
       state.cropRect = { x: newX, y: newY, w: newW, h: newH };
