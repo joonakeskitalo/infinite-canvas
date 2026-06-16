@@ -40,6 +40,7 @@ export function getClosestElements(bounds, excludeIds, maxCount) {
   });
   state.drawings.forEach((shape) => {
     if (excluded.has(shape.id)) return;
+    if (shape.type === "connector") return;
     addElement(getShapeBounds(shape), shape.groupId);
   });
 
@@ -93,6 +94,7 @@ export function getSnapTargets(excludeIds, bounds) {
     });
     state.drawings.forEach((shape) => {
       if (excluded.has(shape.id)) return;
+      if (shape.type === "connector") return;
       addEl(getShapeBounds(shape), shape.groupId);
     });
 
@@ -373,6 +375,7 @@ export function computeMeasureHoverGuides(worldPos) {
     allBounds.push({ id: img.id, x: img.x, y: img.y, w: img.w, h: img.h });
   });
   state.drawings.forEach((shape) => {
+    if (shape.type === "connector") return;
     const b = getShapeBounds(shape);
     allBounds.push({ id: shape.id, x: b.x, y: b.y, w: b.w, h: b.h });
   });
