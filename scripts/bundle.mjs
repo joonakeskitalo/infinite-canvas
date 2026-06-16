@@ -18,7 +18,7 @@ const root = resolve(import.meta.dir, "..");
 
 // 1. Bundle ES modules with Bun's bundler
 const result = await Bun.build({
-  entrypoints: [resolve(root, "src/script.js")],
+  entrypoints: [resolve(root, "src/main.js")],
   format: "esm",
   minify: {
     whitespace: true,
@@ -57,7 +57,7 @@ html = html.replace(
 
 // Replace the module script tag with the bundled code
 html = html.replace(
-  /<script\s+type="module"\s+src="\.\/src\/script\.js"\s*><\/script>/,
+  /<script\s+type="module"\s+src="\.\/src\/main\.js"\s*><\/script>/,
   `<script type="module">\n${bundledJS}\n</script>`
 );
 
