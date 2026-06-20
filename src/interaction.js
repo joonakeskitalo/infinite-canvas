@@ -788,11 +788,28 @@ function setupKeyboardHandlers() {
       return;
     }
 
-    // Arrow keys
+    // Alt+Arrow alignment (with 2+ elements selected)
+    if (e.altKey && !e.metaKey && !e.ctrlKey &&
+        (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowRight") &&
+        state.currentTool === "select" && state.selectedElements.length >= 2) {
+      e.preventDefault();
+      let alignType = null;
+      if (e.key === "ArrowLeft") alignType = "left";
+      else if (e.key === "ArrowRight") alignType = "right";
+      else if (e.key === "ArrowUp") alignType = "top";
+      else if (e.key === "ArrowDown") alignType = "bottom";
+      if (alignType) {
+        const alignBtn = document.querySelector(`[data-align="${alignType}"]`);
+        if (alignBtn) alignBtn.click();
+      }
+      return;
+    }
+
+    // Arrow keys (nudge)
     if ((e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowRight") &&
         state.currentTool === "select" && state.selectedElements.length > 0) {
       e.preventDefault();
-      const step = e.altKey ? 500 : e.metaKey || e.ctrlKey ? 100 : e.shiftKey ? 10 : 1;
+      const step = e.metaKey || e.ctrlKey ? 100 : e.shiftKey ? 10 : 1;
       let dx = 0, dy = 0;
       if (e.key === "ArrowUp") dy = -step;
       if (e.key === "ArrowDown") dy = step;
@@ -805,8 +822,33 @@ function setupKeyboardHandlers() {
       return;
     }
 
+    // Alignment & Distribution hotkeys (Alt/Option+key, like Figma)
+    // Alt+A = Align Left, Alt+D = Align Right, Alt+H = Center Horizontal
+    // Alt+W = Align Top, Alt+S = Align Bottom, Alt+V = Center Vertical
+    // Alt+Shift+X = Distribute Horizontally, Alt+Shift+Y = Distribute Vertically
+    // Note: uses e.code because macOS Option key produces special characters in e.key
+    if (e.altKey && !e.metaKey && !e.ctrlKey && state.currentTool === "select" && state.selectedElements.length >= 2) {
+      let alignType = null;
+      const code = e.code;
+      if (code === "KeyA" && !e.shiftKey) alignType = "left";
+      else if (code === "KeyD" && !e.shiftKey) alignType = "right";
+      else if (code === "KeyH" && !e.shiftKey) alignType = "centerX";
+      else if (code === "KeyW" && !e.shiftKey) alignType = "top";
+      else if (code === "KeyS" && !e.shiftKey) alignType = "bottom";
+      else if (code === "KeyV" && !e.shiftKey) alignType = "centerY";
+      else if (code === "KeyX" && e.shiftKey) alignType = "distributeX";
+      else if (code === "KeyY" && e.shiftKey) alignType = "distributeY";
+
+      if (alignType) {
+        e.preventDefault();
+        const alignBtn = document.querySelector(`[data-align="${alignType}"]`);
+        if (alignBtn) alignBtn.click();
+        return;
+      }
+    }
+
     let targetTool = null;
-    if (e.metaKey || e.ctrlKey) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (key === "r" && e.shiftKey) { setRulersVisible(!state.rulersVisible); return; }
     if (key === "h") targetTool = "pan";
     if (key === "v") targetTool = "select";
