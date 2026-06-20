@@ -549,21 +549,41 @@ export function applyGridLayout(units) {
   const totalArea = items.reduce((s, i) => s + i.w * i.h, 0);
   const sqrtArea = Math.sqrt(totalArea);
 
-  // Generate candidate widths: fine-grained search for minimum area
+  // Target aspect ratio: 16:10 landscape (1.6:1) or square (1:1)
+  // Score combines area with aspect ratio penalty to prefer compact, well-shaped layouts
+  const TARGET_RATIO = 1.6; // 16:10
+  function scoreResult(result) {
+    const area = result.usedW * result.usedH;
+    const ratio = result.usedW / result.usedH;
+    // Distance to closest desirable ratio (1:1 or 16:10)
+    const distToSquare = Math.abs(Math.log(ratio) - Math.log(1.0));
+    const distToWide = Math.abs(Math.log(ratio) - Math.log(TARGET_RATIO));
+    const ratioPenalty = Math.min(distToSquare, distToWide);
+    // Normalize: area dominates, but aspect ratio breaks ties and nudges toward target
+    // The penalty weight is proportional to totalArea so it scales with content size
+    return area * (1 + ratioPenalty * 0.3);
+  }
+
+  // Generate candidate widths biased toward target aspect ratios
   const candidateWidths = new Set();
   candidateWidths.add(maxItemW);
-  // Linear steps from maxItemW to 3*sqrtArea
-  const searchMax = Math.max(sqrtArea * 3, maxItemW * 2);
-  const steps = Math.min(40, Math.max(20, n));
+  // Ideal widths for target ratios given the total area
+  const idealWidthSquare = Math.sqrt(totalArea);
+  const idealWidthWide = Math.sqrt(totalArea * TARGET_RATIO);
+  candidateWidths.add(idealWidthSquare);
+  candidateWidths.add(idealWidthWide);
+  // Fine steps around both ideal widths
+  for (let m = 0.7; m <= 1.4; m += 0.05) {
+    candidateWidths.add(idealWidthSquare * m);
+    candidateWidths.add(idealWidthWide * m);
+  }
+  // Linear steps from maxItemW to beyond the wider ideal
+  const searchMax = Math.max(idealWidthWide * 1.5, maxItemW * 2);
+  const steps = Math.min(50, Math.max(25, n));
   const stepSize = (searchMax - maxItemW) / steps;
   for (let i = 0; i <= steps; i++) {
     candidateWidths.add(maxItemW + stepSize * i);
   }
-  // Add key reference widths
-  candidateWidths.add(sqrtArea * 0.9);
-  candidateWidths.add(sqrtArea);
-  candidateWidths.add(sqrtArea * 1.1);
-  candidateWidths.add(sqrtArea * 1.3);
   // Add cumulative widths from each sort order (often matches natural row breaks)
   for (const sorted of sortOrders) {
     let cumW = 0;
@@ -573,7 +593,7 @@ export function applyGridLayout(units) {
     }
   }
 
-  let bestResult = null, bestArea = Infinity;
+  let bestResult = null, bestScore = Infinity;
 
   // Try each sort order × each candidate width
   for (const sortedItems of sortOrders) {
@@ -581,29 +601,29 @@ export function applyGridLayout(units) {
       if (candidateW < maxItemW) continue;
       const result = packWithMaxRects(sortedItems, candidateW);
       if (result) {
-        const area = result.usedW * result.usedH;
-        if (area < bestArea) { bestArea = area; bestResult = result; }
+        const score = scoreResult(result);
+        if (score < bestScore) { bestScore = score; bestResult = result; }
       }
     }
   }
 
-  // Refine: binary search around the best width for each sort order
+  // Refine: ternary search around the best width for each sort order
   if (bestResult) {
     const refineRadius = stepSize * 2;
     const bestW = bestResult.usedW;
     for (const sortedItems of sortOrders) {
       let lo = Math.max(maxItemW, bestW - refineRadius);
       let hi = bestW + refineRadius;
-      for (let iter = 0; iter < 10; iter++) {
+      for (let iter = 0; iter < 12; iter++) {
         const mid1 = lo + (hi - lo) / 3;
         const mid2 = hi - (hi - lo) / 3;
         const r1 = packWithMaxRects(sortedItems, mid1);
         const r2 = packWithMaxRects(sortedItems, mid2);
-        const a1 = r1 ? r1.usedW * r1.usedH : Infinity;
-        const a2 = r2 ? r2.usedW * r2.usedH : Infinity;
-        if (a1 < bestArea) { bestArea = a1; bestResult = r1; }
-        if (a2 < bestArea) { bestArea = a2; bestResult = r2; }
-        if (a1 < a2) hi = mid2; else lo = mid1;
+        const s1 = r1 ? scoreResult(r1) : Infinity;
+        const s2 = r2 ? scoreResult(r2) : Infinity;
+        if (s1 < bestScore) { bestScore = s1; bestResult = r1; }
+        if (s2 < bestScore) { bestScore = s2; bestResult = r2; }
+        if (s1 < s2) hi = mid2; else lo = mid1;
       }
     }
   }
