@@ -12,7 +12,7 @@ import {
 } from "./elements.js";
 import { pushUndo, undo, redo } from "./history.js";
 import { scheduleSave, saveFile, saveAs, openFile } from "./persistence.js";
-import { render, executePNGExport } from "./rendering.js";
+import { render, executePNGExport, executeJPEGExport } from "./rendering.js";
 import {
   getSnapTargets, snapToElements, snapToSpacing, snapResizeEdges,
   getProximityGuides, getSpacingGuides, computeMeasureHoverGuides,
@@ -24,7 +24,8 @@ import {
 import { enterCropMode, exitCropMode, getCropEdgeAtPoint, getCropCursor, getFullImageBounds } from "./crop.js";
 import {
   expandSelectionToGroups, groupSelection, ungroupSelection,
-  copySelectionToClipboard, pasteFromClipboard, pasteTextToCanvas,
+  copySelectionToClipboard, pasteFromClipboard, pasteFromSerializedClipboard,
+  pasteTextToCanvas,
   duplicateSelection, selectAllElements, swapElementPositions,
   buildAlignmentUnits, translateUnit,
   applyRowLayout, applyColumnLayout, applyGridLayout,
@@ -342,6 +343,7 @@ export function initEventHandlers() {
   // --- Export and download buttons ---
   exportBtn.addEventListener("click", (e) => executePNGExport(e.shiftKey ? 0.5 : 1.0));
   document.getElementById("download-png-btn").addEventListener("click", (e) => executePNGExport(e.shiftKey ? 0.5 : 1.0, { download: true }));
+  document.getElementById("download-jpeg-btn").addEventListener("click", (e) => executeJPEGExport(e.shiftKey ? 0.5 : 1.0, { download: true }));
   downloadImagesBtn.addEventListener("click", () => {
     if (state.images.length === 0) { showToast("No pasted images found to download!"); return; }
     state.images.forEach((imgData, index) => {
@@ -362,6 +364,26 @@ export function initEventHandlers() {
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
     });
     showToast(`Downloading ${state.images.length} asset files${state.currentFilter !== "none" ? ` (${state.currentFilter})` : ""}...`);
+  });
+
+  // --- Import images button (supports HEIF/HEIC) ---
+  document.getElementById("import-images-btn").addEventListener("click", () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.multiple = true;
+    input.accept = "image/*,.heif,.heic";
+    input.addEventListener("change", () => {
+      if (!input.files || input.files.length === 0) return;
+      const cursorWorld = screenToWorld(state.lastMousePos.x, state.lastMousePos.y);
+      const STAGGER = 80;
+      for (let i = 0; i < input.files.length; i++) {
+        const file = input.files[i];
+        if (isImageFile(file)) {
+          handleImageFile(file, cursorWorld.x + i * STAGGER, cursorWorld.y + i * STAGGER);
+        }
+      }
+    });
+    input.click();
   });
 
   // --- Center canvas button ---
@@ -413,7 +435,7 @@ export function initEventHandlers() {
     if (e.dataTransfer && e.dataTransfer.files.length > 0) {
       const dropWorldPos = screenToWorld(e.clientX, e.clientY);
       for (let file of e.dataTransfer.files) {
-        if (file.type.indexOf("image/") === 0) handleImageFile(file, dropWorldPos.x, dropWorldPos.y);
+        if (isImageFile(file)) handleImageFile(file, dropWorldPos.x, dropWorldPos.y);
       }
     }
   });
@@ -479,7 +501,21 @@ function autoResizeGhostInput() {
   ghostInput.style.height = ghostInput.scrollHeight + "px";
 }
 
+// HEIF/HEIC file extensions that may not have a recognized MIME type
+const HEIF_EXTENSIONS = [".heif", ".heic"];
+const HEIF_MIME_TYPES = ["image/heif", "image/heic", "image/heif-sequence", "image/heic-sequence"];
+
+function isImageFile(file) {
+  if (file.type.indexOf("image/") === 0) return true;
+  // Check for HEIF/HEIC by extension when MIME type is empty or unrecognized
+  const name = (file.name || "").toLowerCase();
+  return HEIF_EXTENSIONS.some((ext) => name.endsWith(ext));
+}
+
 function handleImageFile(file, worldX, worldY) {
+  const name = (file.name || "").toLowerCase();
+  const isHeif = HEIF_MIME_TYPES.includes(file.type) || HEIF_EXTENSIONS.some((ext) => name.endsWith(ext));
+
   const reader = new FileReader();
   reader.onload = (event) => {
     const img = new Image();
@@ -495,6 +531,12 @@ function handleImageFile(file, worldX, worldY) {
         h: img.height,
       });
       render();
+      if (isHeif) showToast("Imported HEIF/HEIC image");
+    };
+    img.onerror = () => {
+      if (isHeif) {
+        showToast("HEIF/HEIC not supported by this browser — try Safari or convert to PNG/JPEG first");
+      }
     };
     img.src = event.target.result;
   };
@@ -540,8 +582,31 @@ function handlePaste(e) {
     }
   }
 
+  // Check for cross-tab serialized element data
+  const text = clipboardData.getData("text/plain");
+  if (text && text.startsWith(CONSTANTS.INTERNAL_COPY_MIME + "\n")) {
+    // Same-tab paste: if we already have clipboard elements in memory, use them directly
+    if (state.internalCopyPerformed && state.clipboardElements.length > 0) {
+      e.preventDefault();
+      pasteFromClipboard();
+      return;
+    }
+    // Cross-tab paste: deserialize from clipboard text
+    try {
+      const jsonStr = text.slice(CONSTANTS.INTERNAL_COPY_MIME.length + 1);
+      const serialized = JSON.parse(jsonStr);
+      if (Array.isArray(serialized) && serialized.length > 0) {
+        e.preventDefault();
+        pasteFromSerializedClipboard(serialized);
+        return;
+      }
+    } catch (err) {
+      // JSON parse failed, fall through to other paste handling
+    }
+  }
+
+  // Legacy same-tab fallback: check old marker format
   if (state.internalCopyPerformed && state.clipboardElements.length > 0) {
-    const text = clipboardData.getData("text/plain");
     const isStillInternal = !imageBlobs.length && text === CONSTANTS.INTERNAL_COPY_MIME;
     if (isStillInternal) {
       e.preventDefault();
@@ -600,7 +665,6 @@ function handlePaste(e) {
     e.preventDefault();
     pasteFromClipboard();
   } else {
-    const text = clipboardData.getData("text/plain");
     if (text && text.trim().length > 0) {
       e.preventDefault();
       pasteTextToCanvas(text.trim());
@@ -868,6 +932,7 @@ function setupKeyboardHandlers() {
     if (e.key.toLowerCase() === "e" && !e.shiftKey && !e.altKey) { e.preventDefault(); executePNGExport(1.0); return; }
     if (e.altKey && e.code === "KeyE") { e.preventDefault(); executePNGExport(0.5); return; }
     if (e.key.toLowerCase() === "e" && e.shiftKey) { e.preventDefault(); executePNGExport(1.0, { download: true }); return; }
+    if (e.key.toLowerCase() === "j" && e.shiftKey) { e.preventDefault(); executeJPEGExport(1.0, { download: true }); return; }
     if (e.key.toLowerCase() === "p" && !e.shiftKey) { e.preventDefault(); executePNGExport(1.0); return; }
     if (e.key.toLowerCase() === "p" && e.shiftKey) { e.preventDefault(); executePNGExport(0.5); return; }
   });

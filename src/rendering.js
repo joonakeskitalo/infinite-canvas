@@ -795,8 +795,19 @@ function _doRender(targetCtx, isExporting) {
 }
 
 export async function executePNGExport(scaleFactor = 1.0, { download = false } = {}) {
+  return executeImageExport(scaleFactor, { download, format: "png" });
+}
+
+export async function executeJPEGExport(scaleFactor = 1.0, { download = false, quality = 0.92 } = {}) {
+  return executeImageExport(scaleFactor, { download, format: "jpeg", quality });
+}
+
+async function executeImageExport(scaleFactor = 1.0, { download = false, format = "png", quality = 0.92 } = {}) {
   const { showToast } = await import("./utils.js");
   const exportingSelection = state.selectedElements.length > 0;
+  const formatLabel = format === "jpeg" ? "JPEG" : "PNG";
+  const mimeType = format === "jpeg" ? "image/jpeg" : "image/png";
+  const fileExt = format === "jpeg" ? "jpg" : "png";
 
   if (!exportingSelection && state.images.length === 0 && state.drawings.length === 0) {
     showToast("Canvas is completely empty!");
@@ -899,38 +910,53 @@ export async function executePNGExport(scaleFactor = 1.0, { download = false } =
   finalCtx.drawImage(imgLayer, 0, 0);
   finalCtx.drawImage(drawLayer, 0, 0);
 
+  const blobArgs = format === "jpeg" ? [mimeType, quality] : [mimeType];
   finalCanvas.toBlob(async (blob) => {
     if (!blob) { showToast("Failed to compile image asset"); return; }
     if (download) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       const now = new Date(); const dtPrefix = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`;
-      a.href = url; a.download = `${dtPrefix}_canvas_export.png`;
+      a.href = url; a.download = `${dtPrefix}_canvas_export.${fileExt}`;
       document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
       if (exportingSelection) {
-        showToast(scaleFactor === 0.5 ? `Selection (${state.selectedElements.length}) downloaded at 50%!` : `Selection (${state.selectedElements.length}) downloaded as PNG!`);
+        showToast(scaleFactor === 0.5 ? `Selection (${state.selectedElements.length}) downloaded at 50%!` : `Selection (${state.selectedElements.length}) downloaded as ${formatLabel}!`);
       } else {
-        showToast(scaleFactor === 0.5 ? "50% scale PNG downloaded!" : "Full scale PNG downloaded!");
+        showToast(scaleFactor === 0.5 ? `50% scale ${formatLabel} downloaded!` : `Full scale ${formatLabel} downloaded!`);
       }
       return;
     }
     try {
+      // Clipboard API requires image/png; for JPEG we convert to PNG for clipboard copy
+      const clipBlob = format === "jpeg" ? blob : blob;
+      const clipMime = format === "jpeg" ? mimeType : "image/png";
+      // Note: Most browsers only support image/png in clipboard. For JPEG, fallback to download.
+      if (format === "jpeg") {
+        // JPEG cannot be written to clipboard in most browsers, so download instead
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        const now2 = new Date(); const dtPrefix2 = `${now2.getFullYear()}-${String(now2.getMonth()+1).padStart(2,'0')}-${String(now2.getDate()).padStart(2,'0')}_${String(now2.getHours()).padStart(2,'0')}${String(now2.getMinutes()).padStart(2,'0')}${String(now2.getSeconds()).padStart(2,'0')}`;
+        a.href = url; a.download = `${dtPrefix2}_canvas_export.${fileExt}`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+        showToast(`Downloaded ${formatLabel} file`);
+        return;
+      }
       await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
       state.internalCopyPerformed = false;
       if (exportingSelection) {
-        showToast(scaleFactor === 0.5 ? `Selection (${state.selectedElements.length}) copied at 50%!` : `Selection (${state.selectedElements.length}) copied as PNG!`);
+        showToast(scaleFactor === 0.5 ? `Selection (${state.selectedElements.length}) copied at 50%!` : `Selection (${state.selectedElements.length}) copied as ${formatLabel}!`);
       } else {
-        showToast(scaleFactor === 0.5 ? "50% scale PNG copied!" : "Full scale PNG copied!");
+        showToast(scaleFactor === 0.5 ? `50% scale ${formatLabel} copied!` : `Full scale ${formatLabel} copied!`);
       }
     } catch (err) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       const now2 = new Date(); const dtPrefix2 = `${now2.getFullYear()}-${String(now2.getMonth()+1).padStart(2,'0')}-${String(now2.getDate()).padStart(2,'0')}_${String(now2.getHours()).padStart(2,'0')}${String(now2.getMinutes()).padStart(2,'0')}${String(now2.getSeconds()).padStart(2,'0')}`;
-      a.href = url; a.download = `${dtPrefix2}_canvas_export.png`;
+      a.href = url; a.download = `${dtPrefix2}_canvas_export.${fileExt}`;
       document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-      showToast("Downloaded PNG File");
+      showToast(`Downloaded ${formatLabel} File`);
     }
-  }, "image/png");
+  }, ...blobArgs);
 }
 
 function getCanvasContentBounds() {
