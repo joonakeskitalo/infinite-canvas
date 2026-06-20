@@ -67,10 +67,124 @@ export function copySelectionToClipboard() {
   state.clipboardElements = state.selectedElements.map((el) => cloneElement(el));
   state.pasteOffset = 0;
   state.internalCopyPerformed = true;
-  state.pendingInternalCopy = true;
-  document.execCommand("copy");
-  state.pendingInternalCopy = false;
-  showToast(`Copied ${state.clipboardElements.length} element(s)`);
+
+  // Serialize elements for cross-tab clipboard transfer
+  const serialized = serializeClipboardElements(state.clipboardElements);
+  const clipboardPayload = CONSTANTS.INTERNAL_COPY_MIME + "\n" + JSON.stringify(serialized);
+
+  // Use Clipboard API to write serialized data to system clipboard
+  navigator.clipboard.writeText(clipboardPayload).then(() => {
+    showToast(`Copied ${state.clipboardElements.length} element(s)`);
+  }).catch(() => {
+    // Fallback to old execCommand approach (same-tab only)
+    state.pendingInternalCopy = true;
+    document.execCommand("copy");
+    state.pendingInternalCopy = false;
+    showToast(`Copied ${state.clipboardElements.length} element(s)`);
+  });
+}
+
+function serializeClipboardElements(elements) {
+  return elements.map((el) => {
+    if (el.elementType === "image") {
+      // Serialize image element with data URL
+      const imgSrc = el.img ? el.img.src : null;
+      return {
+        id: el.id,
+        elementType: "image",
+        x: el.x,
+        y: el.y,
+        w: el.w,
+        h: el.h,
+        imgSrc: imgSrc,
+        groupId: el.groupId || null,
+        opacity: el.opacity != null ? el.opacity : 1,
+        crop: el.crop || null,
+        fullBounds: el.fullBounds || null,
+      };
+    }
+    // Drawing/text elements
+    const serialized = {
+      id: el.id,
+      elementType: el.elementType,
+      type: el.type,
+      color: el.color,
+      width: el.width,
+      groupId: el.groupId || null,
+      opacity: el.opacity != null ? el.opacity : 1,
+    };
+    if (el.type === "pen") {
+      serialized.points = el.points.map((p) => ({ x: p.x, y: p.y }));
+    } else if (el.type === "text") {
+      serialized.text = el.text;
+      serialized.fontSize = el.fontSize;
+      serialized.start = { x: el.start.x, y: el.start.y };
+      if (el.w) serialized.w = el.w;
+      if (el.h) serialized.h = el.h;
+      if (el.bgColor) serialized.bgColor = el.bgColor;
+    } else {
+      serialized.start = { x: el.start.x, y: el.start.y };
+      if (el.end) serialized.end = { x: el.end.x, y: el.end.y };
+      if (el.type === "connector") {
+        serialized.startConn = el.startConn ? { ...el.startConn } : null;
+        serialized.endConn = el.endConn ? { ...el.endConn } : null;
+      }
+    }
+    return serialized;
+  });
+}
+
+export function deserializeClipboardElements(serializedArray) {
+  const promises = serializedArray.map((data) => {
+    if (data.elementType === "image" && data.imgSrc) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          resolve({
+            id: data.id,
+            elementType: "image",
+            img: img,
+            x: data.x,
+            y: data.y,
+            w: data.w,
+            h: data.h,
+            groupId: data.groupId || null,
+            opacity: data.opacity != null ? data.opacity : 1,
+            crop: data.crop || null,
+            fullBounds: data.fullBounds || null,
+          });
+        };
+        img.onerror = () => resolve(null);
+        img.src = data.imgSrc;
+      });
+    }
+    // Non-image elements can be reconstructed immediately
+    const el = { ...data };
+    if (el.type === "pen") {
+      el.points = data.points.map((p) => ({ x: p.x, y: p.y }));
+    } else if (el.type === "text") {
+      el.start = { x: data.start.x, y: data.start.y };
+    } else if (data.start) {
+      el.start = { x: data.start.x, y: data.start.y };
+      if (data.end) el.end = { x: data.end.x, y: data.end.y };
+    }
+    return Promise.resolve(el);
+  });
+  return Promise.all(promises).then((results) => results.filter(Boolean));
+}
+
+export function pasteFromSerializedClipboard(serializedArray) {
+  deserializeClipboardElements(serializedArray).then((elements) => {
+    if (elements.length === 0) return;
+
+    // Store as local clipboard for repeated paste
+    state.clipboardElements = elements.map((el) => cloneElement(el));
+    state.pasteOffset = 0;
+    state.internalCopyPerformed = true;
+
+    // Now paste them
+    pasteFromClipboard();
+  });
 }
 
 export function pasteFromClipboard() {
