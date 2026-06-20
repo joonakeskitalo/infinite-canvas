@@ -550,32 +550,99 @@ export function applyGridLayout(units) {
   const sqrtArea = Math.sqrt(totalArea);
 
   // Target aspect ratio: 16:10 landscape (1.6:1) or square (1:1)
-  // Score combines area with aspect ratio penalty to prefer compact, well-shaped layouts
+  // Score combines area, fill efficiency, and aspect ratio to prefer compact, void-free layouts
   const TARGET_RATIO = 1.6; // 16:10
-  function scoreResult(result) {
+  function scoreResult(result, itemsList) {
     const area = result.usedW * result.usedH;
     const ratio = result.usedW / result.usedH;
-    // Distance to closest desirable ratio (1:1 or 16:10)
-    const distToSquare = Math.abs(Math.log(ratio) - Math.log(1.0));
+    // Strongly prefer 16:10 landscape, accept square as fallback
     const distToWide = Math.abs(Math.log(ratio) - Math.log(TARGET_RATIO));
-    const ratioPenalty = Math.min(distToSquare, distToWide);
-    // Normalize: area dominates, but aspect ratio breaks ties and nudges toward target
-    // The penalty weight is proportional to totalArea so it scales with content size
-    return area * (1 + ratioPenalty * 0.3);
+    const distToSquare = Math.abs(Math.log(ratio) - Math.log(1.0));
+    const ratioPenalty = Math.min(distToWide, distToSquare * 0.33 + distToWide * 0.67);
+
+    // Void detection: classify empty space as edge waste vs interior holes
+    // Use a grid-based flood fill to find interior voids
+    const W = result.usedW, H = result.usedH;
+    // Resolution: divide bounding box into cells (cap at 50×50 for performance)
+    const cellsX = Math.min(50, Math.max(10, Math.ceil(W / 50)));
+    const cellsY = Math.min(50, Math.max(10, Math.ceil(H / 50)));
+    const cellW = W / cellsX, cellH = H / cellsY;
+
+    // Mark cells as occupied if an item covers their center
+    const grid = new Uint8Array(cellsX * cellsY); // 0=empty, 1=occupied, 2=edge-reachable
+    for (const p of result.placements) {
+      const item = itemsList.find(it => it.idx === p.idx) || items[p.idx];
+      const x0 = Math.floor(p.x / cellW);
+      const y0 = Math.floor(p.y / cellH);
+      const x1 = Math.min(cellsX - 1, Math.floor((p.x + item.w - 1) / cellW));
+      const y1 = Math.min(cellsY - 1, Math.floor((p.y + item.h - 1) / cellH));
+      for (let cy = y0; cy <= y1; cy++) {
+        for (let cx = x0; cx <= x1; cx++) {
+          grid[cy * cellsX + cx] = 1;
+        }
+      }
+    }
+
+    // Flood fill from all border empty cells to find edge-reachable empty space
+    const queue = [];
+    for (let cx = 0; cx < cellsX; cx++) {
+      if (grid[cx] === 0) { grid[cx] = 2; queue.push(cx); } // top row
+      const bot = (cellsY - 1) * cellsX + cx;
+      if (grid[bot] === 0) { grid[bot] = 2; queue.push(bot); } // bottom row
+    }
+    for (let cy = 0; cy < cellsY; cy++) {
+      const left = cy * cellsX;
+      if (grid[left] === 0) { grid[left] = 2; queue.push(left); } // left col
+      const right = cy * cellsX + (cellsX - 1);
+      if (grid[right] === 0) { grid[right] = 2; queue.push(right); } // right col
+    }
+    // BFS flood fill
+    let qi = 0;
+    while (qi < queue.length) {
+      const idx = queue[qi++];
+      const cx = idx % cellsX, cy = (idx - cx) / cellsX;
+      const neighbors = [];
+      if (cx > 0) neighbors.push(idx - 1);
+      if (cx < cellsX - 1) neighbors.push(idx + 1);
+      if (cy > 0) neighbors.push(idx - cellsX);
+      if (cy < cellsY - 1) neighbors.push(idx + cellsX);
+      for (const ni of neighbors) {
+        if (grid[ni] === 0) { grid[ni] = 2; queue.push(ni); }
+      }
+    }
+
+    // Count interior holes (empty cells NOT reachable from edges)
+    let interiorHoleCells = 0, edgeWasteCells = 0, totalCells = cellsX * cellsY;
+    for (let i = 0; i < totalCells; i++) {
+      if (grid[i] === 0) interiorHoleCells++;
+      else if (grid[i] === 2) edgeWasteCells++;
+    }
+
+    const holeFraction = interiorHoleCells / totalCells;
+    const edgeWasteFraction = edgeWasteCells / totalCells;
+
+    // Interior holes are very bad (weight 3.0), edge waste is mildly bad (weight 0.5)
+    const voidPenalty = holeFraction * 3.0 + edgeWasteFraction * 0.5;
+
+    // Combined score
+    return area * (1 + ratioPenalty * 1.5 + voidPenalty);
   }
 
-  // Generate candidate widths biased toward target aspect ratios
+  // Generate candidate widths heavily biased toward 16:10 target
   const candidateWidths = new Set();
   candidateWidths.add(maxItemW);
-  // Ideal widths for target ratios given the total area
-  const idealWidthSquare = Math.sqrt(totalArea);
+  // Ideal width for 16:10 given the total area
   const idealWidthWide = Math.sqrt(totalArea * TARGET_RATIO);
-  candidateWidths.add(idealWidthSquare);
+  const idealWidthSquare = Math.sqrt(totalArea);
   candidateWidths.add(idealWidthWide);
-  // Fine steps around both ideal widths
-  for (let m = 0.7; m <= 1.4; m += 0.05) {
-    candidateWidths.add(idealWidthSquare * m);
+  candidateWidths.add(idealWidthSquare);
+  // Dense steps around the 16:10 ideal width (primary target)
+  for (let m = 0.75; m <= 1.35; m += 0.025) {
     candidateWidths.add(idealWidthWide * m);
+  }
+  // Sparser steps around square ideal (fallback)
+  for (let m = 0.8; m <= 1.3; m += 0.1) {
+    candidateWidths.add(idealWidthSquare * m);
   }
   // Linear steps from maxItemW to beyond the wider ideal
   const searchMax = Math.max(idealWidthWide * 1.5, maxItemW * 2);
@@ -601,7 +668,7 @@ export function applyGridLayout(units) {
       if (candidateW < maxItemW) continue;
       const result = packWithMaxRects(sortedItems, candidateW);
       if (result) {
-        const score = scoreResult(result);
+        const score = scoreResult(result, sortedItems);
         if (score < bestScore) { bestScore = score; bestResult = result; }
       }
     }
@@ -619,8 +686,8 @@ export function applyGridLayout(units) {
         const mid2 = hi - (hi - lo) / 3;
         const r1 = packWithMaxRects(sortedItems, mid1);
         const r2 = packWithMaxRects(sortedItems, mid2);
-        const s1 = r1 ? scoreResult(r1) : Infinity;
-        const s2 = r2 ? scoreResult(r2) : Infinity;
+        const s1 = r1 ? scoreResult(r1, sortedItems) : Infinity;
+        const s2 = r2 ? scoreResult(r2, sortedItems) : Infinity;
         if (s1 < bestScore) { bestScore = s1; bestResult = r1; }
         if (s2 < bestScore) { bestScore = s2; bestResult = r2; }
         if (s1 < s2) hi = mid2; else lo = mid1;
@@ -636,35 +703,128 @@ export function applyGridLayout(units) {
     bestResult = { placements, usedW: maxItemW, usedH: y };
   }
 
-  // Compact: slide each item as far up and left as possible without overlap
+  // Post-packing: compact items to eliminate voids while preserving the target aspect ratio.
+  // The key insight: horizontal compaction destroys the chosen width. Instead, we only
+  // compact vertically (close gaps upward) and fill holes by moving items into gaps
+  // at the same or smaller x, never collapsing the width.
   const placed = bestResult.placements.map(p => {
     const item = items[p.idx];
     return { idx: p.idx, x: p.x, y: p.y, w: item.w, h: item.h };
   });
-  // Sort by y then x for top-left compaction order
-  placed.sort((a, b) => a.y - b.y || a.x - b.x);
-  for (let i = 0; i < placed.length; i++) {
-    const p = placed[i];
-    // Try to move up
-    let newY = 0;
-    for (let j = 0; j < i; j++) {
-      const other = placed[j];
-      if (p.x < other.x + other.w && p.x + p.w > other.x) {
-        newY = Math.max(newY, other.y + other.h);
-      }
+  const targetW = bestResult.usedW; // Preserve the width the packer chose
+
+  function noOverlap(rect, others, skipIdx) {
+    for (const o of others) {
+      if (o.idx === skipIdx) continue;
+      if (rect.x < o.x + o.w && rect.x + rect.w > o.x &&
+          rect.y < o.y + o.h && rect.y + rect.h > o.y) return false;
     }
-    p.y = newY;
-    // Try to move left
-    let newX = 0;
-    for (let j = 0; j < i; j++) {
-      const other = placed[j];
-      if (p.y < other.y + other.h && p.y + p.h > other.y) {
-        newX = Math.max(newX, other.x + other.w);
-      }
-    }
-    p.x = newX;
+    return true;
   }
-  // Recompute bounding box after compaction
+
+  // Phase 1: Vertical compaction only — slide items up to close vertical gaps
+  let changed = true;
+  for (let pass = 0; pass < 30 && changed; pass++) {
+    changed = false;
+    placed.sort((a, b) => a.y - b.y || a.x - b.x);
+    for (const p of placed) {
+      let bestY = 0;
+      for (const other of placed) {
+        if (other.idx === p.idx) continue;
+        if (p.x < other.x + other.w && p.x + p.w > other.x && other.y + other.h <= p.y) {
+          bestY = Math.max(bestY, other.y + other.h);
+        }
+      }
+      if (bestY < p.y && noOverlap({ ...p, y: bestY }, placed, p.idx)) {
+        p.y = bestY;
+        changed = true;
+      }
+    }
+  }
+
+  // Phase 2: Fill interior holes — move items from the bottom into interior gaps
+  // while staying within the target width
+  for (let pass = 0; pass < 10; pass++) {
+    let movedAny = false;
+    let bH = 0;
+    for (const p of placed) { bH = Math.max(bH, p.y + p.h); }
+
+    // Items sorted by bottom edge descending — try to relocate the lowest items first
+    const byBottom = [...placed].sort((a, b) => (b.y + b.h) - (a.y + a.h));
+
+    for (const p of byBottom) {
+      // Only try to move items that are in the bottom third
+      if (p.y + p.h < bH * 0.6) continue;
+
+      // Generate candidate positions: anchor to existing items' corners
+      const anchors = [];
+      for (const other of placed) {
+        if (other.idx === p.idx) continue;
+        anchors.push({ x: other.x + other.w, y: other.y });
+        anchors.push({ x: other.x, y: other.y + other.h });
+        anchors.push({ x: other.x + other.w, y: other.y + other.h });
+        anchors.push({ x: other.x, y: other.y });
+      }
+      anchors.push({ x: 0, y: 0 });
+
+      let bestPos = null, bestBottom = p.y + p.h;
+      for (const anchor of anchors) {
+        if (anchor.x < 0 || anchor.y < 0) continue;
+        if (anchor.x + p.w > targetW) continue; // Respect target width
+        if (anchor.y + p.h >= bestBottom) continue; // Must improve vertical position
+        if (anchor.x === p.x && anchor.y === p.y) continue;
+        const candidate = { idx: p.idx, x: anchor.x, y: anchor.y, w: p.w, h: p.h };
+        if (!noOverlap(candidate, placed, p.idx)) continue;
+        if (anchor.y + p.h < bestBottom) {
+          bestBottom = anchor.y + p.h;
+          bestPos = anchor;
+        }
+      }
+      if (bestPos) {
+        p.x = bestPos.x;
+        p.y = bestPos.y;
+        movedAny = true;
+      }
+    }
+    if (!movedAny) break;
+
+    // Re-run vertical compaction after moving items
+    let vc = true;
+    for (let vp = 0; vp < 20 && vc; vp++) {
+      vc = false;
+      placed.sort((a, b) => a.y - b.y || a.x - b.x);
+      for (const p of placed) {
+        let bestY = 0;
+        for (const other of placed) {
+          if (other.idx === p.idx) continue;
+          if (p.x < other.x + other.w && p.x + p.w > other.x && other.y + other.h <= p.y) {
+            bestY = Math.max(bestY, other.y + other.h);
+          }
+        }
+        if (bestY < p.y && noOverlap({ ...p, y: bestY }, placed, p.idx)) {
+          p.y = bestY; vc = true;
+        }
+      }
+    }
+  }
+
+  // Phase 3: Gentle horizontal tightening — only slide items left to close
+  // horizontal gaps, but never enough to change the overall aspect ratio significantly
+  placed.sort((a, b) => a.x - b.x || a.y - b.y);
+  for (const p of placed) {
+    let bestX = 0;
+    for (const other of placed) {
+      if (other.idx === p.idx) continue;
+      if (p.y < other.y + other.h && p.y + p.h > other.y && other.x + other.w <= p.x) {
+        bestX = Math.max(bestX, other.x + other.w);
+      }
+    }
+    if (bestX < p.x && noOverlap({ ...p, x: bestX }, placed, p.idx)) {
+      p.x = bestX;
+    }
+  }
+
+  // Final bounding box
   let finalW = 0, finalH = 0;
   for (const p of placed) {
     finalW = Math.max(finalW, p.x + p.w);
