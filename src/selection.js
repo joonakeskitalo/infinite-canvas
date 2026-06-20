@@ -453,26 +453,58 @@ export function applyGridLayout(units) {
     let usedW = 0, usedH = 0;
 
     for (const item of items) {
+      // Try both BSSF and bottom-left placement, pick the one with smaller bounding box
       let bestIdx = -1, bestShortSide = Infinity, bestLongSide = Infinity;
+      let blIdx = -1, blBestY = Infinity, blBestX = Infinity;
       for (let i = 0; i < freeRects.length; i++) {
         const r = freeRects[i];
         if (item.w <= r.w && item.h <= r.h) {
+          // BSSF heuristic
           const leftoverX = r.w - item.w, leftoverY = r.h - item.h;
           const shortSide = Math.min(leftoverX, leftoverY);
           const longSide = Math.max(leftoverX, leftoverY);
           if (shortSide < bestShortSide || (shortSide === bestShortSide && longSide < bestLongSide)) {
             bestIdx = i; bestShortSide = shortSide; bestLongSide = longSide;
           }
+          // Bottom-left heuristic (minimize y, then x)
+          if (r.y < blBestY || (r.y === blBestY && r.x < blBestX)) {
+            blIdx = i; blBestY = r.y; blBestX = r.x;
+          }
         }
       }
-      if (bestIdx === -1) return null;
-      const rect = freeRects[bestIdx];
+      // Choose the placement that results in smaller bounding area
+      let chosenIdx = bestIdx;
+      if (blIdx !== -1 && bestIdx !== -1 && blIdx !== bestIdx) {
+        const rBssf = freeRects[bestIdx];
+        const rBl = freeRects[blIdx];
+        const areaBssf = Math.max(usedW, rBssf.x + item.w) * Math.max(usedH, rBssf.y + item.h);
+        const areaBl = Math.max(usedW, rBl.x + item.w) * Math.max(usedH, rBl.y + item.h);
+        if (areaBl < areaBssf) chosenIdx = blIdx;
+      }
+      if (chosenIdx === -1) return null;
+      const rect = freeRects[chosenIdx];
       const px = rect.x, py = rect.y;
       placements.push({ idx: item.idx, x: px, y: py });
       usedW = Math.max(usedW, px + item.w); usedH = Math.max(usedH, py + item.h);
-      if (rect.w - item.w > 0) freeRects.push({ x: px + item.w, y: py, w: rect.w - item.w, h: item.h });
-      if (rect.h - item.h > 0) freeRects.push({ x: px, y: py + item.h, w: rect.w, h: rect.h - item.h });
-      freeRects.splice(bestIdx, 1);
+      // Split: guillotine split along shorter leftover axis
+      const leftoverRight = rect.w - item.w;
+      const leftoverBelow = rect.h - item.h;
+      if (leftoverRight > 0 && leftoverBelow > 0) {
+        // Split along the shorter axis for tighter packing
+        if (leftoverRight < leftoverBelow) {
+          freeRects.push({ x: px + item.w, y: py, w: leftoverRight, h: item.h });
+          freeRects.push({ x: px, y: py + item.h, w: rect.w, h: leftoverBelow });
+        } else {
+          freeRects.push({ x: px + item.w, y: py, w: leftoverRight, h: rect.h });
+          freeRects.push({ x: px, y: py + item.h, w: item.w, h: leftoverBelow });
+        }
+      } else if (leftoverRight > 0) {
+        freeRects.push({ x: px + item.w, y: py, w: leftoverRight, h: rect.h });
+      } else if (leftoverBelow > 0) {
+        freeRects.push({ x: px, y: py + item.h, w: rect.w, h: leftoverBelow });
+      }
+      freeRects.splice(chosenIdx, 1);
+      // Clip all free rects against the placed item
       const placed = { x: px, y: py, w: item.w, h: item.h };
       for (let i = freeRects.length - 1; i >= 0; i--) {
         const fr = freeRects[i];
@@ -485,6 +517,7 @@ export function applyGridLayout(units) {
           freeRects.splice(i, 1, ...newRects);
         }
       }
+      // Remove redundant (contained) free rects
       for (let i = freeRects.length - 1; i >= 0; i--) {
         for (let j = freeRects.length - 1; j >= 0; j--) {
           if (i === j) continue;
@@ -497,42 +530,127 @@ export function applyGridLayout(units) {
   }
 
   const items = units.map((unit, idx) => ({ idx, w: unit.b.w + gapX, h: unit.b.h + gapY, origW: unit.b.w, origH: unit.b.h }));
-  const sortedItems = [...items].sort((a, b) => {
-    const ay = units[a.idx].b.y, by = units[b.idx].b.y;
-    const ax = units[a.idx].b.x, bx = units[b.idx].b.x;
-    const rowThreshold = Math.max(a.h, b.h) * 0.5;
-    if (Math.abs(ay - by) < rowThreshold) return ax - bx;
-    return ay - by;
-  });
+
+  // Multiple sort orders to find the best packing
+  const sortOrders = [
+    // Height descending (classic bin packing heuristic)
+    [...items].sort((a, b) => b.h - a.h || b.w - a.w),
+    // Area descending
+    [...items].sort((a, b) => (b.w * b.h) - (a.w * a.h)),
+    // Width descending
+    [...items].sort((a, b) => b.w - a.w || b.h - a.h),
+    // Max side descending
+    [...items].sort((a, b) => Math.max(b.w, b.h) - Math.max(a.w, a.h)),
+    // Perimeter descending
+    [...items].sort((a, b) => (b.w + b.h) - (a.w + a.h)),
+  ];
 
   const maxItemW = Math.max(...items.map((i) => i.w));
-  const totalW = items.reduce((s, i) => s + i.w, 0);
   const totalArea = items.reduce((s, i) => s + i.w * i.h, 0);
   const sqrtArea = Math.sqrt(totalArea);
 
-  const candidates = new Set();
-  candidates.add(maxItemW); candidates.add(totalW);
-  candidates.add(sqrtArea * 0.8); candidates.add(sqrtArea); candidates.add(sqrtArea * 1.2); candidates.add(sqrtArea * 1.5); candidates.add(sqrtArea * 2.0);
-  let cumW = 0;
-  for (const item of sortedItems) { cumW += item.w; if (cumW >= maxItemW) candidates.add(cumW); }
+  // Generate candidate widths: fine-grained search for minimum area
+  const candidateWidths = new Set();
+  candidateWidths.add(maxItemW);
+  // Linear steps from maxItemW to 3*sqrtArea
+  const searchMax = Math.max(sqrtArea * 3, maxItemW * 2);
+  const steps = Math.min(40, Math.max(20, n));
+  const stepSize = (searchMax - maxItemW) / steps;
+  for (let i = 0; i <= steps; i++) {
+    candidateWidths.add(maxItemW + stepSize * i);
+  }
+  // Add key reference widths
+  candidateWidths.add(sqrtArea * 0.9);
+  candidateWidths.add(sqrtArea);
+  candidateWidths.add(sqrtArea * 1.1);
+  candidateWidths.add(sqrtArea * 1.3);
+  // Add cumulative widths from each sort order (often matches natural row breaks)
+  for (const sorted of sortOrders) {
+    let cumW = 0;
+    for (const item of sorted) {
+      cumW += item.w;
+      if (cumW >= maxItemW) candidateWidths.add(cumW);
+    }
+  }
 
-  let bestResult = null, bestArea = Infinity, bestAspectRatio = Infinity;
-  for (const candidateW of candidates) {
-    if (candidateW < maxItemW) continue;
-    const result = packWithMaxRects(sortedItems, candidateW);
-    if (result) {
-      const area = result.usedW * result.usedH;
-      const aspectRatio = Math.max(result.usedW, result.usedH) / Math.min(result.usedW, result.usedH);
-      if (area < bestArea || (area === bestArea && aspectRatio < bestAspectRatio)) { bestArea = area; bestAspectRatio = aspectRatio; bestResult = result; }
+  let bestResult = null, bestArea = Infinity;
+
+  // Try each sort order × each candidate width
+  for (const sortedItems of sortOrders) {
+    for (const candidateW of candidateWidths) {
+      if (candidateW < maxItemW) continue;
+      const result = packWithMaxRects(sortedItems, candidateW);
+      if (result) {
+        const area = result.usedW * result.usedH;
+        if (area < bestArea) { bestArea = area; bestResult = result; }
+      }
+    }
+  }
+
+  // Refine: binary search around the best width for each sort order
+  if (bestResult) {
+    const refineRadius = stepSize * 2;
+    const bestW = bestResult.usedW;
+    for (const sortedItems of sortOrders) {
+      let lo = Math.max(maxItemW, bestW - refineRadius);
+      let hi = bestW + refineRadius;
+      for (let iter = 0; iter < 10; iter++) {
+        const mid1 = lo + (hi - lo) / 3;
+        const mid2 = hi - (hi - lo) / 3;
+        const r1 = packWithMaxRects(sortedItems, mid1);
+        const r2 = packWithMaxRects(sortedItems, mid2);
+        const a1 = r1 ? r1.usedW * r1.usedH : Infinity;
+        const a2 = r2 ? r2.usedW * r2.usedH : Infinity;
+        if (a1 < bestArea) { bestArea = a1; bestResult = r1; }
+        if (a2 < bestArea) { bestArea = a2; bestResult = r2; }
+        if (a1 < a2) hi = mid2; else lo = mid1;
+      }
     }
   }
 
   if (!bestResult) {
     let y = 0;
     const placements = [];
-    for (const item of sortedItems) { placements.push({ idx: item.idx, x: 0, y }); y += item.h; }
+    const fallbackItems = [...items].sort((a, b) => b.h - a.h || b.w - a.w);
+    for (const item of fallbackItems) { placements.push({ idx: item.idx, x: 0, y }); y += item.h; }
     bestResult = { placements, usedW: maxItemW, usedH: y };
   }
+
+  // Compact: slide each item as far up and left as possible without overlap
+  const placed = bestResult.placements.map(p => {
+    const item = items[p.idx];
+    return { idx: p.idx, x: p.x, y: p.y, w: item.w, h: item.h };
+  });
+  // Sort by y then x for top-left compaction order
+  placed.sort((a, b) => a.y - b.y || a.x - b.x);
+  for (let i = 0; i < placed.length; i++) {
+    const p = placed[i];
+    // Try to move up
+    let newY = 0;
+    for (let j = 0; j < i; j++) {
+      const other = placed[j];
+      if (p.x < other.x + other.w && p.x + p.w > other.x) {
+        newY = Math.max(newY, other.y + other.h);
+      }
+    }
+    p.y = newY;
+    // Try to move left
+    let newX = 0;
+    for (let j = 0; j < i; j++) {
+      const other = placed[j];
+      if (p.y < other.y + other.h && p.y + p.h > other.y) {
+        newX = Math.max(newX, other.x + other.w);
+      }
+    }
+    p.x = newX;
+  }
+  // Recompute bounding box after compaction
+  let finalW = 0, finalH = 0;
+  for (const p of placed) {
+    finalW = Math.max(finalW, p.x + p.w);
+    finalH = Math.max(finalH, p.y + p.h);
+  }
+  bestResult = { placements: placed, usedW: finalW, usedH: finalH };
 
   const layoutW = bestResult.usedW - gapX;
   const layoutH = bestResult.usedH - gapY;
