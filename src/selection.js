@@ -848,3 +848,39 @@ export function applyGridLayout(units) {
 
   showToast(`Mosaic: ${n} items packed (${Math.round(layoutW)}×${Math.round(layoutH)})`);
 }
+
+export function applyArrangeBySizeRow(units) {
+  const n = units.length;
+  if (n < 2) return;
+  const gap = 100;
+
+  // Sort by area (w * h) ascending — smallest first; tiebreak by element id (name proxy)
+  units.sort((a, b) => {
+    const areaA = a.b.w * a.b.h;
+    const areaB = b.b.w * b.b.h;
+    if (areaA !== areaB) return areaA - areaB;
+    // Tiebreaker: compare by first element's id (alphabetical/numeric natural sort)
+    const idA = (a.elements[0] && a.elements[0].id) || "";
+    const idB = (b.elements[0] && b.elements[0].id) || "";
+    return idA.localeCompare(idB, undefined, { numeric: true });
+  });
+
+  // Place in a row starting at the top-left of the original bounding box
+  let groupMinX = Infinity, groupMinY = Infinity;
+  units.forEach((unit) => {
+    if (unit.b.x < groupMinX) groupMinX = unit.b.x;
+    if (unit.b.y < groupMinY) groupMinY = unit.b.y;
+  });
+
+  let currentX = groupMinX;
+  const anchorY = groupMinY;
+  for (let i = 0; i < units.length; i++) {
+    const unit = units[i];
+    const shiftX = currentX - unit.b.x;
+    const shiftY = anchorY - unit.b.y;
+    if (shiftX !== 0 || shiftY !== 0) translateUnit(unit, shiftX, shiftY);
+    currentX += unit.b.w + gap;
+  }
+
+  showToast(`Arranged ${n} items by size in a row`);
+}

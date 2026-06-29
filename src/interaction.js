@@ -28,7 +28,7 @@ import {
   pasteTextToCanvas,
   duplicateSelection, selectAllElements, swapElementPositions,
   buildAlignmentUnits, translateUnit,
-  applyRowLayout, applyColumnLayout, applyGridLayout,
+  applyRowLayout, applyColumnLayout, applyGridLayout, applyArrangeBySizeRow,
 } from "./selection.js";
 import {
   updateToolbarUI, toggleAlignmentPanelVisibility,
@@ -352,6 +352,7 @@ export function initEventHandlers() {
       } else if (alignType === "gridLayout") { applyGridLayout(units); }
       else if (alignType === "rowLayout") { applyRowLayout(units); }
       else if (alignType === "columnLayout") { applyColumnLayout(units); }
+      else if (alignType === "arrangeBySizeRow") { applyArrangeBySizeRow(units); }
       else {
         units.forEach((unit) => {
           const b = unit.b;
