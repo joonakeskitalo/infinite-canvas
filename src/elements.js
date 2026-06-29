@@ -28,7 +28,7 @@ export function getShapeBounds(shape) {
   } else if (shape.type === "text") {
     if (!shape.w || !shape.h) {
       ctx.save();
-      ctx.font = `${shape.fontSize}px sans-serif`;
+      ctx.font = `${shape.fontSize}px ${shape.fontFamily || "sans-serif"}`;
       const rawLines = shape.text.split("\n");
       const lineHeight = shape.fontSize * 1.2;
 
@@ -241,6 +241,7 @@ export function cloneElement(el) {
   } else if (el.type === "text") {
     clone.text = el.text;
     clone.fontSize = el.fontSize;
+    clone.fontFamily = el.fontFamily;
     clone.start = { x: el.start.x, y: el.start.y };
     if (el.w) clone.w = el.w;
     if (el.h) clone.h = el.h;
@@ -281,6 +282,7 @@ export function serializeElement(el) {
   } else if (el.type === "text") {
     clone.text = el.text;
     clone.fontSize = el.fontSize;
+    clone.fontFamily = el.fontFamily;
     clone.start = { x: el.start.x, y: el.start.y };
     if (el.w) clone.w = el.w;
     if (el.h) clone.h = el.h;

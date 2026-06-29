@@ -62,6 +62,7 @@ export function toggleAlignmentPanelVisibility() {
   }
 
   syncFontSizeFromSelection();
+  syncFontFamilyFromSelection();
   syncOpacityFromSelection();
   updateGroupButtons();
 }
@@ -88,6 +89,17 @@ export function syncFontSizeFromSelection() {
       if (!inserted) dom.fontSizeSelect.appendChild(option);
     }
     dom.fontSizeSelect.value = size;
+  }
+}
+
+export function syncFontFamilyFromSelection() {
+  const dom = getDom();
+  if (state.selectedElements.length === 1 && (state.selectedElements[0].elementType === "text" || state.selectedElements[0].type === "text")) {
+    const family = state.selectedElements[0].fontFamily || "sans-serif";
+    state.currentFontFamily = family;
+    dom.fontFamilySelect.value = family;
+  } else {
+    dom.fontFamilySelect.value = state.currentFontFamily;
   }
 }
 

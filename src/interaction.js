@@ -185,6 +185,30 @@ export function initEventHandlers() {
   document.getElementById("font-size-minus").addEventListener("click", (e) => { e.stopPropagation(); setFontSizeAndSync(state.currentFontSize - 16); });
   document.getElementById("font-size-plus").addEventListener("click", (e) => { e.stopPropagation(); setFontSizeAndSync(state.currentFontSize + 16); });
 
+  // --- Font family ---
+  dom.fontFamilySelect.addEventListener("change", (e) => {
+    state.currentFontFamily = e.target.value;
+    if (ghostInput.style.display === "block") {
+      ghostInput.style.fontFamily = state.currentFontFamily;
+    }
+    applyFontFamilyToSelectedText(state.currentFontFamily);
+    e.target.blur();
+  });
+
+  function applyFontFamilyToSelectedText(family) {
+    if (state.selectedElements.length === 0) return;
+    let changed = false;
+    state.selectedElements.forEach((el) => {
+      if (el.elementType === "text" || el.type === "text") {
+        el.fontFamily = family;
+        el.w = null;
+        el.h = null;
+        changed = true;
+      }
+    });
+    if (changed) render();
+  }
+
   // --- Spacing inputs ---
   const spacingInputX = dom.spacingInputX;
   const spacingInputY = dom.spacingInputY;
@@ -523,6 +547,7 @@ function bakeText() {
       text: val,
       color: ghostInput.style.color || state.textDrawColor,
       fontSize: state.currentFontSize,
+      fontFamily: state.currentFontFamily,
       start: { x: state.activeTextCoord.x, y: state.activeTextCoord.y },
     };
     if (ghostInput.dataset.bgColor) {
@@ -549,7 +574,7 @@ function autoResizeGhostInput() {
   // Auto-resize width based on text content
   const screenFontSize = parseFloat(ghostInput.style.fontSize) || 48;
   ctx.save();
-  ctx.font = `${screenFontSize}px sans-serif`;
+  ctx.font = `${screenFontSize}px ${state.currentFontFamily || "sans-serif"}`;
   const lines = ghostInput.value.split("\n");
   let maxWidth = 0;
   lines.forEach((line) => {
@@ -1201,6 +1226,7 @@ function setupMouseHandlers() {
       ghostInput.style.left = `${screenPos.x}px`;
       ghostInput.style.top = `${screenPos.y - state.currentFontSize * state.transform.zoom * 0.2}px`;
       ghostInput.style.fontSize = `${state.currentFontSize * state.transform.zoom}px`;
+      ghostInput.style.fontFamily = state.currentFontFamily;
       ghostInput.style.lineHeight = "1.2";
       ghostInput.style.height = "auto";
       ghostInput.style.background = "transparent";
@@ -1219,6 +1245,7 @@ function setupMouseHandlers() {
       ghostInput.style.left = `${screenPos.x}px`;
       ghostInput.style.top = `${screenPos.y - state.currentFontSize * state.transform.zoom * 0.2}px`;
       ghostInput.style.fontSize = `${state.currentFontSize * state.transform.zoom}px`;
+      ghostInput.style.fontFamily = state.currentFontFamily;
       ghostInput.style.lineHeight = "1.2";
       ghostInput.style.height = "auto";
       ghostInput.style.background = "#f5e642";

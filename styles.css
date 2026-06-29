@@ -402,6 +402,17 @@ input[type="color"]::-webkit-color-swatch {
 }
 
 /* Filter dropdown & indicator */
+#font-family-select {
+  background: #2d2d2d;
+  color: #fff;
+  border: 1px solid #555;
+  padding: 3px 6px;
+  border-radius: 4px;
+  outline: none;
+  cursor: pointer;
+  font-size: 11px;
+}
+
 #filter-select {
   background: #2d2d2d;
   color: #fff;

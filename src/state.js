@@ -27,6 +27,7 @@ export const state = {
   textDrawColor: "#000000",
   bgColor: "#f0f0f0",
   currentFontSize: 48,
+  currentFontFamily: "sans-serif",
   currentTextAlign: "left",
 
   // Interaction state
@@ -129,6 +130,7 @@ export function getDom() {
       ctx: document.getElementById("canvas").getContext("2d"),
       ghostInput: document.getElementById("text-ghost-input"),
       fontSizeSelect: document.getElementById("font-size-select"),
+      fontFamilySelect: document.getElementById("font-family-select"),
       zoomSlider: document.getElementById("zoom-slider"),
       zoomValDisplay: document.getElementById("zoom-val"),
       exportBtn: document.getElementById("export-btn"),

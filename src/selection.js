@@ -118,6 +118,7 @@ function serializeClipboardElements(elements) {
     } else if (el.type === "text") {
       serialized.text = el.text;
       serialized.fontSize = el.fontSize;
+      serialized.fontFamily = el.fontFamily;
       serialized.start = { x: el.start.x, y: el.start.y };
       if (el.w) serialized.w = el.w;
       if (el.h) serialized.h = el.h;
@@ -271,6 +272,7 @@ export function pasteTextToCanvas(text) {
       text: line,
       color: state.textDrawColor,
       fontSize: state.currentFontSize,
+      fontFamily: state.currentFontFamily,
       start: { x: cursorWorld.x, y: cursorWorld.y + yOffset },
     };
     state.drawings.push(textEl);

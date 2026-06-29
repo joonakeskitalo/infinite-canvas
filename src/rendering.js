@@ -251,7 +251,7 @@ export function drawShape(targetCtx, shape, isExporting) {
       }
     }
   } else if (shape.type === "text") {
-    targetCtx.font = `${shape.fontSize}px sans-serif`;
+    targetCtx.font = `${shape.fontSize}px ${shape.fontFamily || "sans-serif"}`;
     targetCtx.textBaseline = "top";
     const lineHeight = shape.fontSize * 1.2;
     const rawLines = shape.text.split("\n");
@@ -295,7 +295,7 @@ export function drawShape(targetCtx, shape, isExporting) {
     }
 
     // Measure and cache
-    const cacheKey = shape.text + "|" + shape.fontSize + "|" + (shape.textWidth || "");
+    const cacheKey = shape.text + "|" + shape.fontSize + "|" + (shape.fontFamily || "sans-serif") + "|" + (shape.textWidth || "");
     let cached = _textMeasureCache.get(shape);
     if (!cached || cached.cacheKey !== cacheKey) {
       let maxWidth = 0;
