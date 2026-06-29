@@ -884,3 +884,35 @@ export function applyArrangeBySizeRow(units) {
 
   showToast(`Arranged ${n} items by size in a row`);
 }
+
+export function applyArrangeByNameRow(units) {
+  const n = units.length;
+  if (n < 2) return;
+  const gap = 100;
+
+  // Sort by element id (natural alphanumeric order)
+  units.sort((a, b) => {
+    const idA = (a.elements[0] && a.elements[0].id) || "";
+    const idB = (b.elements[0] && b.elements[0].id) || "";
+    return idA.localeCompare(idB, undefined, { numeric: true });
+  });
+
+  // Place in a row starting at the top-left of the original bounding box
+  let groupMinX = Infinity, groupMinY = Infinity;
+  units.forEach((unit) => {
+    if (unit.b.x < groupMinX) groupMinX = unit.b.x;
+    if (unit.b.y < groupMinY) groupMinY = unit.b.y;
+  });
+
+  let currentX = groupMinX;
+  const anchorY = groupMinY;
+  for (let i = 0; i < units.length; i++) {
+    const unit = units[i];
+    const shiftX = currentX - unit.b.x;
+    const shiftY = anchorY - unit.b.y;
+    if (shiftX !== 0 || shiftY !== 0) translateUnit(unit, shiftX, shiftY);
+    currentX += unit.b.w + gap;
+  }
+
+  showToast(`Arranged ${n} items by name in a row`);
+}
