@@ -577,6 +577,19 @@
         <input type="range" id="opacity-slider" min="0" max="100" value="100" step="1" title="Element Opacity" style="width:80px;accent-color:#007acc;cursor:pointer;" />
         <span id="opacity-val" style="font-size:11px;color:#aaa;min-width:32px;text-align:right;">100%</span>
       </div>
+      <div id="text-align-group" style="display:none;align-items:center;gap:4px;">
+        <div style="width: 1px; height: 18px; background: #444; margin: 0 4px"></div>
+        <span class="align-title">Text</span>
+        <button class="align-btn text-align-btn" data-text-align="left" title="Align Text Left">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h18v2H3V3zm0 4h12v2H3V7zm0 4h18v2H3v-2zm0 4h12v2H3v-2zm0 4h18v2H3v-2z"/></svg>
+        </button>
+        <button class="align-btn text-align-btn" data-text-align="center" title="Align Text Center">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h18v2H3V3zm3 4h12v2H6V7zm-3 4h18v2H3v-2zm3 4h12v2H6v-2zm-3 4h18v2H3v-2z"/></svg>
+        </button>
+        <button class="align-btn text-align-btn" data-text-align="right" title="Align Text Right">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h18v2H3V3zm6 4h12v2H9V7zm-6 4h18v2H3v-2zm6 4h12v2H9v-2zm-6 4h18v2H3v-2z"/></svg>
+        </button>
+      </div>
     </div>
 
     <div id="toast">Canvas copied to clipboard as PNG!</div>

@@ -148,7 +148,18 @@ export function initEventHandlers() {
   function applyFontSizeToSelectedText(size) {
     if (state.selectedElements.length === 0) return;
     let changed = false;
-    state.selectedElements.forEach((el) => { if (el.elementType === "text") { el.fontSize = size; changed = true; } });
+    state.selectedElements.forEach((el) => {
+      if (el.elementType === "text") {
+        if (el.textWidth) {
+          const scale = size / el.fontSize;
+          el.textWidth = el.textWidth * scale;
+        }
+        el.fontSize = size;
+        el.w = null;
+        el.h = null;
+        changed = true;
+      }
+    });
     if (changed) render();
   }
 
@@ -255,6 +266,35 @@ export function initEventHandlers() {
   document.getElementById("open-file-btn").addEventListener("click", openFile);
   document.getElementById("save-file-btn").addEventListener("click", saveFile);
 
+  // --- Text alignment buttons ---
+  document.querySelectorAll(".text-align-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const alignVal = e.target.closest(".text-align-btn").dataset.textAlign;
+      if (!alignVal) return;
+      state.currentTextAlign = alignVal;
+      // Apply to selected text elements
+      if (state.selectedElements.length > 0) {
+        let changed = false;
+        state.selectedElements.forEach((el) => {
+          if (el.elementType === "text" || el.type === "text") {
+            if (!changed) pushUndo();
+            el.textAlign = alignVal;
+            el.w = null;
+            el.h = null;
+            changed = true;
+          }
+        });
+        if (changed) render();
+      }
+      // Update button active states
+      document.querySelectorAll(".text-align-btn").forEach((b) => {
+        if (b.dataset.textAlign === alignVal) b.classList.add("active");
+        else b.classList.remove("active");
+      });
+    });
+  });
+
   // --- Alignment buttons ---
   const alignButtons = document.querySelectorAll(".align-btn");
   alignButtons.forEach((btn) => {
@@ -262,6 +302,7 @@ export function initEventHandlers() {
       const targetBtn = e.target.closest(".align-btn");
       if (!targetBtn) return;
       const alignType = targetBtn.dataset.align;
+      if (!alignType) return;
       if (state.selectedElements.length < 2) return;
       pushUndo();
       const units = buildAlignmentUnits(state.selectedElements);
@@ -485,6 +526,9 @@ function bakeText() {
     if (ghostInput.dataset.bgColor) {
       textEl.bgColor = ghostInput.dataset.bgColor;
     }
+    if (state.currentTextAlign && state.currentTextAlign !== "left") {
+      textEl.textAlign = state.currentTextAlign;
+    }
     state.drawings.push(textEl);
   }
   ghostInput.style.display = "none";
@@ -496,9 +540,24 @@ function bakeText() {
 }
 
 function autoResizeGhostInput() {
-  const { ghostInput } = getDom();
+  const { ghostInput, ctx } = getDom();
   ghostInput.style.height = "auto";
   ghostInput.style.height = ghostInput.scrollHeight + "px";
+
+  // Auto-resize width based on text content
+  const screenFontSize = parseFloat(ghostInput.style.fontSize) || 48;
+  ctx.save();
+  ctx.font = `${screenFontSize}px sans-serif`;
+  const lines = ghostInput.value.split("\n");
+  let maxWidth = 0;
+  lines.forEach((line) => {
+    const w = ctx.measureText(line).width;
+    if (w > maxWidth) maxWidth = w;
+  });
+  ctx.restore();
+  // Add padding for the cursor
+  const minWidth = screenFontSize * 1.5;
+  ghostInput.style.width = Math.max(minWidth, maxWidth + screenFontSize * 0.5) + "px";
 }
 
 // HEIF/HEIC file extensions that may not have a recognized MIME type
@@ -1201,6 +1260,7 @@ function setupMouseHandlers() {
               origEnd: el.end ? { ...el.end } : null,
               origPoints: el.points ? el.points.map((p) => ({ ...p })) : null,
               origFontSize: el.fontSize || null,
+              origTextWidth: el.textWidth || null,
               origW: el.w || null, origH: el.h || null,
               origX: el.x !== undefined ? el.x : null, origY: el.y !== undefined ? el.y : null,
             };
@@ -1540,31 +1600,44 @@ function setupMouseHandlers() {
           }
           el.x = newX; el.y = newY; el.w = newW; el.h = newH;
         } else if (el.type === "text") {
-          let scaleFactor;
-          const initialW = sb.w || 50;
-          if (hp === "br" || hp === "tr") scaleFactor = (initialW + mouseDx) / initialW;
-          else scaleFactor = (initialW - mouseDx) / initialW;
-          scaleFactor = Math.max(0.2, scaleFactor);
-          if (!e.shiftKey) {
-            // Snap text resize edges to guides
-            const newW = initialW * scaleFactor;
-            const newH = (sb.h || 50) * scaleFactor;
-            let newX = (hp === "bl" || hp === "tl") ? sb.x + sb.w - newW : sb.x;
-            let newY = (hp === "tr" || hp === "tl") ? sb.y + sb.h - newH : sb.y;
-            const resizeBounds = { x: newX, y: newY, w: newW, h: newH };
-            const snapThreshold = (CONSTANTS.SNAP_THRESHOLD * 2) / state.transform.zoom;
-            const targets = getSnapTargets([el.id], resizeBounds);
-            const snap = snapResizeEdges(resizeBounds, hp, targets, snapThreshold);
-            if (snap.dx !== 0) {
-              if (hp === "br" || hp === "tr") scaleFactor = (newW + snap.dx) / initialW;
-              else scaleFactor = (newW - snap.dx) / initialW;
-              scaleFactor = Math.max(0.2, scaleFactor);
-            }
-            state.activeSnapGuides = snap.guides;
-          } else {
+          if (e.metaKey) {
+            // Cmd+drag: resize text area width (reflow mode)
+            let newTextWidth;
+            const initialW = sb.w || 50;
+            if (hp === "br" || hp === "tr") newTextWidth = Math.max(30, initialW + mouseDx);
+            else newTextWidth = Math.max(30, initialW - mouseDx);
+            el.textWidth = newTextWidth;
+            // Invalidate cached measurements so rendering recalculates wrapped lines
+            el.w = null;
+            el.h = null;
             state.activeSnapGuides = [];
+          } else {
+            let scaleFactor;
+            const initialW = sb.w || 50;
+            if (hp === "br" || hp === "tr") scaleFactor = (initialW + mouseDx) / initialW;
+            else scaleFactor = (initialW - mouseDx) / initialW;
+            scaleFactor = Math.max(0.2, scaleFactor);
+            if (!e.shiftKey) {
+              // Snap text resize edges to guides
+              const newW = initialW * scaleFactor;
+              const newH = (sb.h || 50) * scaleFactor;
+              let newX = (hp === "bl" || hp === "tl") ? sb.x + sb.w - newW : sb.x;
+              let newY = (hp === "tr" || hp === "tl") ? sb.y + sb.h - newH : sb.y;
+              const resizeBounds = { x: newX, y: newY, w: newW, h: newH };
+              const snapThreshold = (CONSTANTS.SNAP_THRESHOLD * 2) / state.transform.zoom;
+              const targets = getSnapTargets([el.id], resizeBounds);
+              const snap = snapResizeEdges(resizeBounds, hp, targets, snapThreshold);
+              if (snap.dx !== 0) {
+                if (hp === "br" || hp === "tr") scaleFactor = (newW + snap.dx) / initialW;
+                else scaleFactor = (newW - snap.dx) / initialW;
+                scaleFactor = Math.max(0.2, scaleFactor);
+              }
+              state.activeSnapGuides = snap.guides;
+            } else {
+              state.activeSnapGuides = [];
+            }
+            el.fontSize = Math.max(8, Math.round(sb.origFontSize * scaleFactor));
           }
-          el.fontSize = Math.max(8, Math.round(sb.origFontSize * scaleFactor));
         } else if (el.type === "pen") {
           const origBounds = { x: sb.x, y: sb.y, w: sb.w, h: sb.h };
           let scaleX = 1, scaleY = 1, anchorX, anchorY;

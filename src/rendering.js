@@ -254,17 +254,60 @@ export function drawShape(targetCtx, shape, isExporting) {
     targetCtx.font = `${shape.fontSize}px sans-serif`;
     targetCtx.textBaseline = "top";
     const lineHeight = shape.fontSize * 1.2;
-    const lines = shape.text.split("\n");
+    const rawLines = shape.text.split("\n");
+    const textAlign = shape.textAlign || "left";
 
+    // Word-wrap lines if textWidth is set
+    let lines;
+    if (shape.textWidth) {
+      lines = [];
+      rawLines.forEach((rawLine) => {
+        if (rawLine.length === 0) { lines.push(""); return; }
+        const words = rawLine.split(/(\s+)/);
+        let currentLine = "";
+        for (let i = 0; i < words.length; i++) {
+          const word = words[i];
+          const testLine = currentLine + word;
+          const metrics = targetCtx.measureText(testLine);
+          if (metrics.width > shape.textWidth && currentLine.length > 0) {
+            lines.push(currentLine);
+            currentLine = word.trimStart();
+          } else {
+            currentLine = testLine;
+          }
+          // Break long words that exceed textWidth by themselves
+          while (targetCtx.measureText(currentLine).width > shape.textWidth && currentLine.length > 1) {
+            let breakAt = currentLine.length - 1;
+            for (let c = 1; c < currentLine.length; c++) {
+              if (targetCtx.measureText(currentLine.slice(0, c + 1)).width > shape.textWidth) {
+                breakAt = c;
+                break;
+              }
+            }
+            lines.push(currentLine.slice(0, breakAt));
+            currentLine = currentLine.slice(breakAt);
+          }
+        }
+        lines.push(currentLine);
+      });
+    } else {
+      lines = rawLines;
+    }
+
+    // Measure and cache
+    const cacheKey = shape.text + "|" + shape.fontSize + "|" + (shape.textWidth || "");
     let cached = _textMeasureCache.get(shape);
-    if (!cached || cached.text !== shape.text || cached.fontSize !== shape.fontSize) {
+    if (!cached || cached.cacheKey !== cacheKey) {
       let maxWidth = 0;
       lines.forEach((line) => {
         const metrics = targetCtx.measureText(line);
         if (metrics.width > maxWidth) maxWidth = metrics.width;
       });
-      cached = { text: shape.text, fontSize: shape.fontSize, w: maxWidth, h: lineHeight * (lines.length - 1) + shape.fontSize };
+      const effectiveW = shape.textWidth ? shape.textWidth : maxWidth;
+      cached = { cacheKey, w: effectiveW, h: lineHeight * (lines.length - 1) + shape.fontSize, lines };
       _textMeasureCache.set(shape, cached);
+    } else {
+      lines = cached.lines;
     }
     shape.w = cached.w;
     shape.h = cached.h;
@@ -284,7 +327,15 @@ export function drawShape(targetCtx, shape, isExporting) {
 
     targetCtx.fillStyle = shape.color;
     lines.forEach((line, i) => {
-      targetCtx.fillText(line, shape.start.x, shape.start.y + i * lineHeight);
+      let x = shape.start.x;
+      if (textAlign === "center") {
+        const lw = targetCtx.measureText(line).width;
+        x = shape.start.x + (shape.w - lw) / 2;
+      } else if (textAlign === "right") {
+        const lw = targetCtx.measureText(line).width;
+        x = shape.start.x + shape.w - lw;
+      }
+      targetCtx.fillText(line, x, shape.start.y + i * lineHeight);
     });
 
     if (!isExporting && state.currentTool === "select") {

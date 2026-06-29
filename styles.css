@@ -352,6 +352,12 @@ input[type="color"]::-webkit-color-swatch {
   color: #fff;
 }
 
+.text-align-btn.active {
+  background: #007acc;
+  color: #fff;
+  border-color: #007acc;
+}
+
 .align-title {
   font-size: 10px;
   color: #888;

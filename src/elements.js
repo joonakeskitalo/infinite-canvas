@@ -29,15 +29,52 @@ export function getShapeBounds(shape) {
     if (!shape.w || !shape.h) {
       ctx.save();
       ctx.font = `${shape.fontSize}px sans-serif`;
-      const lines = shape.text.split("\n");
+      const rawLines = shape.text.split("\n");
       const lineHeight = shape.fontSize * 1.2;
-      let maxWidth = 0;
-      lines.forEach((line) => {
-        const metrics = ctx.measureText(line);
-        if (metrics.width > maxWidth) maxWidth = metrics.width;
-      });
-      shape.w = maxWidth;
-      shape.h = lineHeight * (lines.length - 1) + shape.fontSize;
+
+      if (shape.textWidth) {
+        // Word-wrap to compute height within fixed width
+        let wrappedLineCount = 0;
+        rawLines.forEach((rawLine) => {
+          if (rawLine.length === 0) { wrappedLineCount++; return; }
+          const words = rawLine.split(/(\s+)/);
+          let currentLine = "";
+          for (let i = 0; i < words.length; i++) {
+            const word = words[i];
+            const testLine = currentLine + word;
+            const metrics = ctx.measureText(testLine);
+            if (metrics.width > shape.textWidth && currentLine.length > 0) {
+              wrappedLineCount++;
+              currentLine = word.trimStart();
+            } else {
+              currentLine = testLine;
+            }
+            // Break long words that exceed textWidth by themselves
+            while (ctx.measureText(currentLine).width > shape.textWidth && currentLine.length > 1) {
+              let breakAt = currentLine.length - 1;
+              for (let c = 1; c < currentLine.length; c++) {
+                if (ctx.measureText(currentLine.slice(0, c + 1)).width > shape.textWidth) {
+                  breakAt = c;
+                  break;
+                }
+              }
+              wrappedLineCount++;
+              currentLine = currentLine.slice(breakAt);
+            }
+          }
+          wrappedLineCount++;
+        });
+        shape.w = shape.textWidth;
+        shape.h = lineHeight * (wrappedLineCount - 1) + shape.fontSize;
+      } else {
+        let maxWidth = 0;
+        rawLines.forEach((line) => {
+          const metrics = ctx.measureText(line);
+          if (metrics.width > maxWidth) maxWidth = metrics.width;
+        });
+        shape.w = maxWidth;
+        shape.h = lineHeight * (rawLines.length - 1) + shape.fontSize;
+      }
       ctx.restore();
     }
     const padding = shape.bgColor ? shape.fontSize * 0.4 : 0;
@@ -208,6 +245,8 @@ export function cloneElement(el) {
     if (el.w) clone.w = el.w;
     if (el.h) clone.h = el.h;
     if (el.bgColor) clone.bgColor = el.bgColor;
+    if (el.textAlign) clone.textAlign = el.textAlign;
+    if (el.textWidth) clone.textWidth = el.textWidth;
   } else {
     clone.start = { x: el.start.x, y: el.start.y };
     if (el.end) clone.end = { x: el.end.x, y: el.end.y };
@@ -246,6 +285,8 @@ export function serializeElement(el) {
     if (el.w) clone.w = el.w;
     if (el.h) clone.h = el.h;
     if (el.bgColor) clone.bgColor = el.bgColor;
+    if (el.textAlign) clone.textAlign = el.textAlign;
+    if (el.textWidth) clone.textWidth = el.textWidth;
   } else {
     clone.start = { x: el.start.x, y: el.start.y };
     if (el.end) clone.end = { x: el.end.x, y: el.end.y };

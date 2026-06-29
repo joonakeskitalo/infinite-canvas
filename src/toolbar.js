@@ -28,6 +28,7 @@ export function toggleAlignmentPanelVisibility() {
   const scaleGroup = document.getElementById("scale-group");
   const alignmentGroup = document.getElementById("alignment-group");
   const hasImages = state.selectedElements.some((el) => el.elementType === "image");
+  const hasText = state.selectedElements.some((el) => el.elementType === "text" || el.type === "text");
 
   if (state.currentTool === "select" && state.selectedElements.length > 1) {
     dom.alignmentPanel.style.display = "flex";
@@ -51,6 +52,15 @@ export function toggleAlignmentPanelVisibility() {
   } else {
     scaleGroup.style.display = "none";
   }
+
+  // Show text alignment controls when a text element is selected
+  if (state.currentTool === "select" && state.selectedElements.length >= 1 && hasText) {
+    dom.textAlignGroup.style.display = "flex";
+    syncTextAlignFromSelection();
+  } else {
+    dom.textAlignGroup.style.display = "none";
+  }
+
   syncFontSizeFromSelection();
   syncOpacityFromSelection();
   updateGroupButtons();
@@ -79,6 +89,15 @@ export function syncFontSizeFromSelection() {
     }
     dom.fontSizeSelect.value = size;
   }
+}
+
+export function syncTextAlignFromSelection() {
+  const textEl = state.selectedElements.find((el) => el.elementType === "text" || el.type === "text");
+  const currentAlign = textEl ? (textEl.textAlign || "left") : state.currentTextAlign;
+  document.querySelectorAll(".text-align-btn").forEach((btn) => {
+    if (btn.dataset.textAlign === currentAlign) btn.classList.add("active");
+    else btn.classList.remove("active");
+  });
 }
 
 export function syncOpacityFromSelection() {

@@ -27,6 +27,7 @@ export const state = {
   textDrawColor: "#000000",
   bgColor: "#f0f0f0",
   currentFontSize: 48,
+  currentTextAlign: "left",
 
   // Interaction state
   isInteracting: false,
@@ -145,6 +146,7 @@ export function getDom() {
       opacityGroup: document.getElementById("opacity-group"),
       spacingInputX: document.getElementById("spacing-input-x"),
       spacingInputY: document.getElementById("spacing-input-y"),
+      textAlignGroup: document.getElementById("text-align-group"),
     };
   }
   return _domRefs;
