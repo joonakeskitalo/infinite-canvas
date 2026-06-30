@@ -4,7 +4,7 @@
  * Ruler rendering, guide line management, and ruler event handling.
  */
 
-import { state, CONSTANTS } from "./state.js";
+import { state, CONSTANTS, getDom } from "./state.js";
 import { showToast } from "./utils.js";
 import { getShapeBounds } from "./elements.js";
 import { addRenderCallback } from "./rendering.js";
@@ -306,6 +306,25 @@ export function renderGuides() {
       state.draggingGuide = { guide, startPos: guide.axis === "x" ? e.clientX : e.clientY };
       document.body.style.cursor = guide.axis === "x" ? "ew-resize" : "ns-resize";
     });
+
+    // Allow trackpad panning to pass through guide lines
+    div.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      const { container } = getDom();
+      container.dispatchEvent(new WheelEvent(e.type, {
+        deltaX: e.deltaX,
+        deltaY: e.deltaY,
+        deltaZ: e.deltaZ,
+        deltaMode: e.deltaMode,
+        clientX: e.clientX,
+        clientY: e.clientY,
+        ctrlKey: e.ctrlKey,
+        metaKey: e.metaKey,
+        shiftKey: e.shiftKey,
+        bubbles: true,
+        cancelable: true,
+      }));
+    }, { passive: false });
 
     document.body.appendChild(div);
   });
