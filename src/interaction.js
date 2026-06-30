@@ -1905,10 +1905,20 @@ function setupMouseHandlers() {
         render();
       }
     } else if (state.activeMeasureLine) {
+      // Don't update measure line until user has dragged beyond minimum distance
+      const screenDx = e.clientX - state.startX;
+      const screenDy = e.clientY - state.startY;
+      if (Math.sqrt(screenDx * screenDx + screenDy * screenDy) < CONSTANTS.MIN_DRAW_DISTANCE) return;
+
       if (e.shiftKey) worldPos = constraintToAngle(state.activeMeasureLine.start, worldPos);
       state.activeMeasureLine.end = { ...worldPos };
       render();
     } else if (state.activeConnector) {
+      // Don't update connector until user has dragged beyond minimum distance
+      const screenDx = e.clientX - state.startX;
+      const screenDy = e.clientY - state.startY;
+      if (Math.sqrt(screenDx * screenDx + screenDy * screenDy) < CONSTANTS.MIN_DRAW_DISTANCE) return;
+
       const snapThreshold = 30 / state.transform.zoom;
       const hitEl = getElementAtWorldPos(worldPos, null);
       state.connectorHoverTarget = null;
@@ -1924,6 +1934,11 @@ function setupMouseHandlers() {
       }
       render();
     } else if (state.activeShape) {
+      // Don't update shape until user has dragged beyond minimum distance
+      const screenDx = e.clientX - state.startX;
+      const screenDy = e.clientY - state.startY;
+      if (Math.sqrt(screenDx * screenDx + screenDy * screenDy) < CONSTANTS.MIN_DRAW_DISTANCE) return;
+
       if (state.activeShape.type === "pen") {
         if (e.shiftKey && state.activeShape.points.length > 0) worldPos = constraintToAngle(state.activeShape.points[0], worldPos);
         state.activeShape.points.push(worldPos);
@@ -2016,8 +2031,13 @@ function setupMouseHandlers() {
     }
 
     if (state.activeShape) {
-      pushUndo();
-      state.drawings.push(state.activeShape);
+      const screenDx = e.clientX - state.startX;
+      const screenDy = e.clientY - state.startY;
+      const screenDist = Math.sqrt(screenDx * screenDx + screenDy * screenDy);
+      if (screenDist >= CONSTANTS.MIN_DRAW_DISTANCE) {
+        pushUndo();
+        state.drawings.push(state.activeShape);
+      }
       state.activeShape = null;
     }
 

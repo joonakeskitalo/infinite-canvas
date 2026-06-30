@@ -14,6 +14,7 @@ export const CONSTANTS = {
   MAX_GUIDE_NEIGHBORS: 6,
   INTERNAL_COPY_MIME: "text/x-infinite-canvas",
   RULER_SIZE: 12,
+  MIN_DRAW_DISTANCE: 5, // Minimum screen-pixel drag distance before drawing tools activate
 };
 
 export const state = {
