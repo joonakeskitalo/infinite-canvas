@@ -1433,6 +1433,22 @@ function setupMouseHandlers() {
       const mdy = worldPos.y - state.cropDragStart.y;
       const minSize = 20 / state.transform.zoom;
       const full = getFullImageBounds(state.cropTarget);
+
+      // Move entire crop rect
+      if (state.cropDragEdge === "move") {
+        let newX = r.x + mdx;
+        let newY = r.y + mdy;
+        // Clamp to image bounds
+        const imgLeft = full.x, imgTop = full.y, imgRight = full.x + full.w, imgBottom = full.y + full.h;
+        if (newX < imgLeft) newX = imgLeft;
+        if (newY < imgTop) newY = imgTop;
+        if (newX + r.w > imgRight) newX = imgRight - r.w;
+        if (newY + r.h > imgBottom) newY = imgBottom - r.h;
+        state.cropRect = { x: newX, y: newY, w: r.w, h: r.h };
+        state.activeSnapGuides = [];
+        render();
+        return;
+      }
       const imgLeft = full.x, imgTop = full.y, imgRight = full.x + full.w, imgBottom = full.y + full.h;
       let newX = r.x, newY = r.y, newW = r.w, newH = r.h;
 

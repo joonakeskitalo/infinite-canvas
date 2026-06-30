@@ -115,6 +115,11 @@ export function getCropEdgeAtPoint(worldPos) {
   if (nearLeft && withinY) return "w";
   if (nearRight && withinY) return "e";
 
+  // Point is inside the crop rect — allow moving
+  if (worldPos.x >= left && worldPos.x <= right && worldPos.y >= top && worldPos.y <= bottom) {
+    return "move";
+  }
+
   return null;
 }
 
@@ -124,6 +129,7 @@ export function getCropCursor(edge) {
     case "e": case "w": return "ew-resize";
     case "nw": case "se": return "nwse-resize";
     case "ne": case "sw": return "nesw-resize";
+    case "move": return "move";
     default: return "crosshair";
   }
 }
