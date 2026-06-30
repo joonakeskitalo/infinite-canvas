@@ -5,6 +5,8 @@
  * Using a single object avoids issues with ES module live binding semantics.
  */
 
+import { SpatialIndex } from "./spatial-index.js";
+
 export const CONSTANTS = {
   GRID_SIZE: 100,
   CONSTANT_LINE_WIDTH: 4,
@@ -119,6 +121,94 @@ export const state = {
   // Internal clipboard copy marker
   pendingInternalCopy: false,
 };
+
+// Spatial index lives outside state object to avoid polluting its hidden class
+export const spatialIndex = new SpatialIndex(300);
+
+// --- Spatial Index Helpers ---
+
+/**
+ * Compute AABB bounds for an element suitable for the spatial index.
+ * Works for both images and drawing shapes.
+ * @param {object} el
+ * @returns {{minX:number, minY:number, maxX:number, maxY:number}}
+ */
+export function getElementSpatialBounds(el) {
+  if (el.elementType === "image") {
+    return { minX: el.x, minY: el.y, maxX: el.x + el.w, maxY: el.y + el.h };
+  }
+  if (el.type === "pen") {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const p of el.points) {
+      if (p.x < minX) minX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y > maxY) maxY = p.y;
+    }
+    return { minX, minY, maxX, maxY };
+  }
+  if (el.type === "text") {
+    // Text might not have w/h computed yet; use start point + estimated size
+    const w = el.w || el.fontSize * 5;
+    const h = el.h || el.fontSize * 1.5;
+    const padding = el.bgColor ? el.fontSize * 0.4 : 0;
+    return {
+      minX: el.start.x - padding,
+      minY: el.start.y - padding,
+      maxX: el.start.x + w + padding,
+      maxY: el.start.y + h + padding,
+    };
+  }
+  // Line-like elements (line, arrow, rect, connector, measure)
+  if (el.start && el.end) {
+    return {
+      minX: Math.min(el.start.x, el.end.x),
+      minY: Math.min(el.start.y, el.end.y),
+      maxX: Math.max(el.start.x, el.end.x),
+      maxY: Math.max(el.start.y, el.end.y),
+    };
+  }
+  // Fallback for elements with only a start point
+  if (el.start) {
+    return { minX: el.start.x, minY: el.start.y, maxX: el.start.x, maxY: el.start.y };
+  }
+  return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+}
+
+/**
+ * Rebuild the spatial index from scratch using current state.images and state.drawings.
+ * Call after bulk operations like file load or undo/redo.
+ */
+export function rebuildSpatialIndex() {
+  spatialIndex.clear();
+  for (const img of state.images) {
+    spatialIndex.insert(img, getElementSpatialBounds(img));
+  }
+  for (const shape of state.drawings) {
+    spatialIndex.insert(shape, getElementSpatialBounds(shape));
+  }
+}
+
+/**
+ * Insert an element into the spatial index.
+ */
+export function spatialInsert(el) {
+  spatialIndex.insert(el, getElementSpatialBounds(el));
+}
+
+/**
+ * Remove an element from the spatial index.
+ */
+export function spatialRemove(el) {
+  spatialIndex.remove(el);
+}
+
+/**
+ * Update an element's position in the spatial index.
+ */
+export function spatialUpdate(el) {
+  spatialIndex.update(el, getElementSpatialBounds(el));
+}
 
 // --- DOM element references (lazily cached) ---
 let _domRefs = null;

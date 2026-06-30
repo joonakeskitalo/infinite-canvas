@@ -5,7 +5,7 @@
  * cloning, serialization, and translation.
  */
 
-import { state, CONSTANTS, getDom } from "./state.js";
+import { state, CONSTANTS, getDom, spatialIndex } from "./state.js";
 import { getPtToSegmentDist } from "./utils.js";
 
 const _textMeasureCache = new WeakMap();
@@ -166,7 +166,46 @@ export function isPointOnSwapHandle(worldPos, element) {
   return dx * dx + dy * dy <= radius * radius;
 }
 
+// Threshold below which linear iteration is faster than spatial index overhead
+const SPATIAL_HIT_THRESHOLD = 50;
+
 export function getElementAtWorldPos(worldPos, excludeElement) {
+  const totalElements = state.images.length + state.drawings.length;
+
+  if (totalElements > SPATIAL_HIT_THRESHOLD) {
+    // Use spatial index to narrow candidates for large element counts.
+    const hitRadius = 12 / state.transform.zoom;
+    const excludeIds = excludeElement ? new Set([excludeElement.id]) : undefined;
+    const candidates = spatialIndex.queryPoint(worldPos.x, worldPos.y, hitRadius, excludeIds);
+
+    // We need to respect draw order (later = on top). Since drawings render on top of images,
+    // check drawings first (any hit wins over images). Within each group, last in array = on top.
+    let hitDrawing = null;
+    let hitDrawingIdx = -1;
+    let hitImage = null;
+    let hitImageIdx = -1;
+
+    for (const el of candidates) {
+      if (el.elementType === "image") {
+        if (worldPos.x >= el.x && worldPos.x <= el.x + el.w &&
+            worldPos.y >= el.y && worldPos.y <= el.y + el.h) {
+          const idx = state.images.indexOf(el);
+          if (idx > hitImageIdx) { hitImage = el; hitImageIdx = idx; }
+        }
+      } else {
+        if (isPointHittingShape(worldPos, el)) {
+          const idx = state.drawings.indexOf(el);
+          if (idx > hitDrawingIdx) { hitDrawing = el; hitDrawingIdx = idx; }
+        }
+      }
+    }
+
+    if (hitDrawing) return hitDrawing;
+    if (hitImage) return hitImage;
+    return null;
+  }
+
+  // Direct iteration for small element counts (original fast path)
   for (let i = state.drawings.length - 1; i >= 0; i--) {
     if (excludeElement && state.drawings[i].id === excludeElement.id) continue;
     if (isPointHittingShape(worldPos, state.drawings[i])) {

@@ -4,7 +4,7 @@
  * Save/load canvas state to .icv files.
  */
 
-import { state, CONSTANTS, getDom } from "./state.js";
+import { state, CONSTANTS, getDom, rebuildSpatialIndex } from "./state.js";
 import { serializeElement } from "./elements.js";
 import { updateUndoRedoButtons } from "./history.js";
 import { showToast } from "./utils.js";
@@ -194,6 +194,7 @@ async function restoreFromZip(arrayBuf) {
   }
 
   restoreViewState(manifest, imageData);
+  rebuildSpatialIndex();
   if (_render) _render();
 }
 

@@ -2,7 +2,7 @@
  * Undo / Redo System
  */
 
-import { state, CONSTANTS, getDom } from "./state.js";
+import { state, CONSTANTS, getDom, rebuildSpatialIndex } from "./state.js";
 import { serializeElement } from "./elements.js";
 import { showToast } from "./utils.js";
 
@@ -38,6 +38,7 @@ function restoreState(snapshot) {
     return d;
   });
   state.selectedElements = [];
+  rebuildSpatialIndex();
   if (_toggleAlignmentPanelVisibility) _toggleAlignmentPanelVisibility();
   if (_render) _render();
 }

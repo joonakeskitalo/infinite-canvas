@@ -5,7 +5,7 @@
  * populates shortcut labels, and initializes the application.
  */
 
-import { state } from "./state.js";
+import { state, rebuildSpatialIndex } from "./state.js";
 import { formatShortcut, isMacPlatform } from "./utils.js";
 import { render, setPostRenderHook } from "./rendering.js";
 import { setHistoryDeps } from "./history.js";
@@ -60,3 +60,6 @@ initRulers();
 
 // --- Initialize all event handlers ---
 initEventHandlers();
+
+// --- Build spatial index from any pre-existing elements ---
+rebuildSpatialIndex();

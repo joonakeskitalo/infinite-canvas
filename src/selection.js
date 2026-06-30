@@ -5,7 +5,7 @@
  * and layout operations.
  */
 
-import { state, CONSTANTS, getDom } from "./state.js";
+import { state, CONSTANTS, getDom, spatialInsert, spatialUpdate } from "./state.js";
 import { showToast, screenToWorld } from "./utils.js";
 import {
   getShapeBounds, cloneElement, translateElement,
@@ -243,6 +243,7 @@ export function pasteFromClipboard() {
     } else {
       state.drawings.push(clone);
     }
+    spatialInsert(clone);
     newElements.push(clone);
   });
   state.selectedElements = newElements;
@@ -276,6 +277,7 @@ export function pasteTextToCanvas(text) {
       start: { x: cursorWorld.x, y: cursorWorld.y + yOffset },
     };
     state.drawings.push(textEl);
+    spatialInsert(textEl);
     pastedElements.push(textEl);
     yOffset += state.currentFontSize * 1.2;
   });
@@ -325,6 +327,7 @@ export function duplicateSelection() {
     } else {
       state.drawings.push(clone);
     }
+    spatialInsert(clone);
     newElements.push(clone);
   });
 
@@ -360,6 +363,8 @@ export function swapElementPositions(elA, elB) {
   const shiftBtoA = { x: centerA.x - centerB.x, y: centerA.y - centerB.y };
   translateElement(elA, shiftAtoB.x, shiftAtoB.y);
   translateElement(elB, shiftBtoA.x, shiftBtoA.y);
+  spatialUpdate(elA);
+  spatialUpdate(elB);
   render();
   scheduleSave();
   showToast("Swapped positions");

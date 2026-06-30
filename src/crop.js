@@ -4,7 +4,7 @@
  * Functions for entering/exiting crop mode and computing crop geometry.
  */
 
-import { state } from "./state.js";
+import { state, spatialUpdate } from "./state.js";
 import { showToast } from "./utils.js";
 import { pushUndo } from "./history.js";
 
@@ -79,6 +79,7 @@ export function exitCropMode(apply) {
     }
 
     showToast(isCropped ? "Crop applied" : "Crop removed");
+    spatialUpdate(el);
     if (_scheduleSave) _scheduleSave();
   }
   state.cropMode = false;

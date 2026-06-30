@@ -4,8 +4,11 @@
  * Element snapping, proximity guides, spacing guides, and measurement hover guides.
  */
 
-import { state, CONSTANTS } from "./state.js";
+import { state, CONSTANTS, spatialIndex } from "./state.js";
 import { getShapeBounds, getElementBounds } from "./elements.js";
+
+// Threshold below which linear iteration is faster than spatial index overhead
+const SPATIAL_INDEX_THRESHOLD = 50;
 
 export function getClosestElements(bounds, excludeIds, maxCount) {
   const excluded = new Set(excludeIds);
@@ -34,15 +37,36 @@ export function getClosestElements(bounds, excludeIds, maxCount) {
     }
   }
 
-  state.images.forEach((img) => {
-    if (excluded.has(img.id)) return;
-    addElement({ x: img.x, y: img.y, w: img.w, h: img.h }, img.groupId);
-  });
-  state.drawings.forEach((shape) => {
-    if (excluded.has(shape.id)) return;
-    if (shape.type === "connector") return;
-    addElement(getShapeBounds(shape), shape.groupId);
-  });
+  const totalElements = state.images.length + state.drawings.length;
+
+  if (totalElements > SPATIAL_INDEX_THRESHOLD) {
+    // Use spatial index for large element counts
+    const spatialBounds = {
+      minX: bounds.x,
+      minY: bounds.y,
+      maxX: bounds.x + bounds.w,
+      maxY: bounds.y + bounds.h,
+    };
+    const nearby = spatialIndex.queryNearest(spatialBounds, excluded, maxCount * 3);
+    for (const el of nearby) {
+      if (el.type === "connector") continue;
+      const b = el.elementType === "image"
+        ? { x: el.x, y: el.y, w: el.w, h: el.h }
+        : getShapeBounds(el);
+      addElement(b, el.groupId);
+    }
+  } else {
+    // Direct iteration for small element counts (faster due to no overhead)
+    for (const img of state.images) {
+      if (excluded.has(img.id)) continue;
+      addElement({ x: img.x, y: img.y, w: img.w, h: img.h }, img.groupId);
+    }
+    for (const shape of state.drawings) {
+      if (excluded.has(shape.id)) continue;
+      if (shape.type === "connector") continue;
+      addElement(getShapeBounds(shape), shape.groupId);
+    }
+  }
 
   groupBoundsMap.forEach((gb) => {
     const b = { x: gb.minX, y: gb.minY, w: gb.maxX - gb.minX, h: gb.maxY - gb.minY };

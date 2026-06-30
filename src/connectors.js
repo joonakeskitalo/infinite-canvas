@@ -4,7 +4,7 @@
  * Functions for managing connector arrows that attach to elements.
  */
 
-import { state } from "./state.js";
+import { state, spatialUpdate } from "./state.js";
 import { findElementById, getElementBounds } from "./elements.js";
 
 export function getConnectorAnchorPoint(conn) {
@@ -46,13 +46,15 @@ export function updateConnectorsForElements(elementIds) {
   const idSet = new Set(elementIds);
   for (const shape of state.drawings) {
     if (shape.type !== "connector") continue;
+    let changed = false;
     if (shape.startConn && idSet.has(shape.startConn.elementId)) {
       const pt = getConnectorAnchorPoint(shape.startConn);
-      if (pt) { shape.start.x = pt.x; shape.start.y = pt.y; }
+      if (pt) { shape.start.x = pt.x; shape.start.y = pt.y; changed = true; }
     }
     if (shape.endConn && idSet.has(shape.endConn.elementId)) {
       const pt = getConnectorAnchorPoint(shape.endConn);
-      if (pt) { shape.end.x = pt.x; shape.end.y = pt.y; }
+      if (pt) { shape.end.x = pt.x; shape.end.y = pt.y; changed = true; }
     }
+    if (changed) spatialUpdate(shape);
   }
 }

@@ -4,7 +4,7 @@
  * Sets up all event listeners for the canvas application.
  */
 
-import { state, CONSTANTS, getDom } from "./state.js";
+import { state, CONSTANTS, getDom, spatialInsert, spatialRemove, spatialUpdate, spatialIndex, rebuildSpatialIndex } from "./state.js";
 import { screenToWorld, worldToScreen, showToast, constraintToAngle } from "./utils.js";
 import {
   getShapeBounds, isPointHittingShape, getElementResizeHandles,
@@ -245,6 +245,7 @@ export function initEventHandlers() {
         currentY += units[i].b.h + gap;
       }
     }
+    rebuildSpatialIndex();
     render();
     showToast(`${axis === "x" ? "Horizontal" : "Vertical"} spacing set to ${gap}px`);
   }
@@ -273,6 +274,7 @@ export function initEventHandlers() {
           }
         }
       });
+      state.selectedElements.forEach((el) => spatialUpdate(el));
       render();
       showToast(`Scaled to ${scale * 100}%`);
     });
@@ -400,6 +402,7 @@ export function initEventHandlers() {
           translateUnit(unit, shiftX, shiftY);
         });
       }
+      rebuildSpatialIndex();
       render();
       updateSpacingInputs();
       showToast(`Executed selection ${alignType}`);
@@ -566,6 +569,7 @@ function bakeText() {
       textEl.textAlign = state.currentTextAlign;
     }
     state.drawings.push(textEl);
+    spatialInsert(textEl);
   }
   ghostInput.style.display = "none";
   ghostInput.style.background = "transparent";
@@ -616,7 +620,7 @@ function handleImageFile(file, worldX, worldY) {
     const img = new Image();
     img.onload = () => {
       pushUndo();
-      state.images.push({
+      const newImg = {
         id: "img_" + state.elementIdCounter++,
         elementType: "image",
         img: img,
@@ -624,7 +628,9 @@ function handleImageFile(file, worldX, worldY) {
         y: worldY - img.height / 2,
         w: img.width,
         h: img.height,
-      });
+      };
+      state.images.push(newImg);
+      spatialInsert(newImg);
       render();
       if (isHeif) showToast("Imported HEIF/HEIC image");
     };
@@ -645,6 +651,7 @@ function checkAndEraseAtPosition(worldPos) {
     if (isPointHittingShape(worldPos, state.drawings[i])) {
       if (!erasedSomething) pushUndo();
       erasedIds.push(state.drawings[i].id);
+      spatialRemove(state.drawings[i]);
       state.drawings.splice(i, 1);
       erasedSomething = true;
     }
@@ -743,7 +750,10 @@ function handlePaste(e) {
           pastedElements[index] = element;
           loadedCount++;
           if (loadedCount === sortedBlobs.length) {
-            for (const el of pastedElements) state.images.push(el);
+            for (const el of pastedElements) {
+              state.images.push(el);
+              spatialInsert(el);
+            }
             state.selectedElements = pastedElements;
             state.currentTool = "select";
             updateToolbarUI();
@@ -875,6 +885,10 @@ function setupKeyboardHandlers() {
         }
         state.images = state.images.filter((img) => !idsToRemove.includes(img.id));
         state.drawings = state.drawings.filter((d) => !idsToRemove.includes(d.id));
+        for (const id of idsToRemove) {
+          const el = spatialIndex.elements.get(id);
+          if (el) spatialRemove(el);
+        }
         showToast(`Removed ${state.selectedElements.length} selected asset(s)`);
         state.selectedElements = [];
         toggleAlignmentPanelVisibility();
@@ -913,6 +927,7 @@ function setupKeyboardHandlers() {
       pushUndo();
       state.selectedElements.forEach((el) => translateElement(el, dx, dy));
       updateConnectorsForElements(state.selectedElements.map((el) => el.id));
+      for (const el of state.selectedElements) spatialUpdate(el);
       render();
       return;
     }
@@ -1053,6 +1068,10 @@ function setupKeyboardHandlers() {
         const idsToRemove = state.selectedElements.map((el) => el.id);
         state.images = state.images.filter((img) => !idsToRemove.includes(img.id));
         state.drawings = state.drawings.filter((d) => !idsToRemove.includes(d.id));
+        for (const id of idsToRemove) {
+          const el = spatialIndex.elements.get(id);
+          if (el) spatialRemove(el);
+        }
         showToast(`Cut ${state.selectedElements.length} element(s)`);
         state.selectedElements = [];
         toggleAlignmentPanelVisibility();
@@ -1971,12 +1990,14 @@ function setupMouseHandlers() {
       const dy2 = state.activeMeasureLine.end.y - state.activeMeasureLine.start.y;
       if (Math.sqrt(dx2 * dx2 + dy2 * dy2) > 5 / state.transform.zoom) {
         pushUndo();
-        state.drawings.push({
+        const measureEl = {
           id: "draw_" + state.elementIdCounter++,
           elementType: "drawing", type: "measure",
           color: "#00bcd4", width: CONSTANTS.CONSTANT_LINE_WIDTH,
           start: { ...state.activeMeasureLine.start }, end: { ...state.activeMeasureLine.end },
-        });
+        };
+        state.drawings.push(measureEl);
+        spatialInsert(measureEl);
       }
       state.activeMeasureLine = null;
       render(); scheduleSave();
@@ -2023,6 +2044,7 @@ function setupMouseHandlers() {
       if (Math.sqrt(cdx * cdx + cdy * cdy) > 5 / state.transform.zoom) {
         pushUndo();
         state.drawings.push(state.activeConnector);
+        spatialInsert(state.activeConnector);
         scheduleSave();
       }
       state.activeConnector = null;
@@ -2037,8 +2059,14 @@ function setupMouseHandlers() {
       if (screenDist >= CONSTANTS.MIN_DRAW_DISTANCE) {
         pushUndo();
         state.drawings.push(state.activeShape);
+        spatialInsert(state.activeShape);
       }
       state.activeShape = null;
+    }
+
+    // Update spatial index for any elements that were dragged/moved during this interaction
+    if (state.selectedElements.length > 0) {
+      for (const el of state.selectedElements) spatialUpdate(el);
     }
 
     toggleAlignmentPanelVisibility();
@@ -2093,6 +2121,7 @@ function setupMouseHandlers() {
 
       // Remove the original text element so it can be re-baked
       pushUndo();
+      spatialRemove(state.drawings[i]);
       state.drawings.splice(i, 1);
       state.selectedElements = [];
 
