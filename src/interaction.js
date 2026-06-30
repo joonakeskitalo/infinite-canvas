@@ -1436,10 +1436,38 @@ function setupMouseHandlers() {
       const imgLeft = full.x, imgTop = full.y, imgRight = full.x + full.w, imgBottom = full.y + full.h;
       let newX = r.x, newY = r.y, newW = r.w, newH = r.h;
 
-      if (state.cropDragEdge.includes("w")) { const moved = Math.max(-(r.x - imgLeft), Math.min(mdx, r.w - minSize)); newX = r.x + moved; newW = r.w - moved; }
-      if (state.cropDragEdge.includes("e")) { const moved = Math.max(-(r.w - minSize), Math.min(mdx, imgRight - (r.x + r.w))); newW = r.w + moved; }
-      if (state.cropDragEdge.includes("n")) { const moved = Math.max(-(r.y - imgTop), Math.min(mdy, r.h - minSize)); newY = r.y + moved; newH = r.h - moved; }
-      if (state.cropDragEdge.includes("s")) { const moved = Math.max(-(r.h - minSize), Math.min(mdy, imgBottom - (r.y + r.h))); newH = r.h + moved; }
+      if (e.altKey) {
+        // Alt/Option: crop symmetrically from center — opposite edge moves equally
+        if (state.cropDragEdge.includes("w")) {
+          const moved = Math.max(-(r.x - imgLeft), Math.min(mdx, (r.w - minSize) / 2));
+          newX = r.x + moved; newW = r.w - moved * 2;
+          // Clamp right side to image bounds
+          if (newX + newW > imgRight) { newW = imgRight - newX; }
+        }
+        if (state.cropDragEdge.includes("e")) {
+          const moved = Math.max(-(r.w - minSize) / 2, Math.min(mdx, imgRight - (r.x + r.w)));
+          newW = r.w + moved * 2; newX = r.x - moved;
+          // Clamp left side to image bounds
+          if (newX < imgLeft) { const adj = imgLeft - newX; newX = imgLeft; newW -= adj; }
+        }
+        if (state.cropDragEdge.includes("n")) {
+          const moved = Math.max(-(r.y - imgTop), Math.min(mdy, (r.h - minSize) / 2));
+          newY = r.y + moved; newH = r.h - moved * 2;
+          // Clamp bottom side to image bounds
+          if (newY + newH > imgBottom) { newH = imgBottom - newY; }
+        }
+        if (state.cropDragEdge.includes("s")) {
+          const moved = Math.max(-(r.h - minSize) / 2, Math.min(mdy, imgBottom - (r.y + r.h)));
+          newH = r.h + moved * 2; newY = r.y - moved;
+          // Clamp top side to image bounds
+          if (newY < imgTop) { const adj = imgTop - newY; newY = imgTop; newH -= adj; }
+        }
+      } else {
+        if (state.cropDragEdge.includes("w")) { const moved = Math.max(-(r.x - imgLeft), Math.min(mdx, r.w - minSize)); newX = r.x + moved; newW = r.w - moved; }
+        if (state.cropDragEdge.includes("e")) { const moved = Math.max(-(r.w - minSize), Math.min(mdx, imgRight - (r.x + r.w))); newW = r.w + moved; }
+        if (state.cropDragEdge.includes("n")) { const moved = Math.max(-(r.y - imgTop), Math.min(mdy, r.h - minSize)); newY = r.y + moved; newH = r.h - moved; }
+        if (state.cropDragEdge.includes("s")) { const moved = Math.max(-(r.h - minSize), Math.min(mdy, imgBottom - (r.y + r.h))); newH = r.h + moved; }
+      }
 
       // Shift: snap crop edges to guide lines from other elements, ruler guides, and proportional grid
       if (e.shiftKey) {
@@ -1585,18 +1613,29 @@ function setupMouseHandlers() {
 
         if (el.elementType === "image") {
           let newW, newH, newX, newY;
-          if (hp === "br") { newW = Math.max(20, sb.w + mouseDx); newH = newW / sb.ratio; newX = sb.x; newY = sb.y; }
-          else if (hp === "bl") { newW = Math.max(20, sb.w - mouseDx); newH = newW / sb.ratio; newX = sb.x + sb.w - newW; newY = sb.y; }
-          else if (hp === "tr") { newW = Math.max(20, sb.w + mouseDx); newH = newW / sb.ratio; newX = sb.x; newY = sb.y + sb.h - newH; }
-          else { newW = Math.max(20, sb.w - mouseDx); newH = newW / sb.ratio; newX = sb.x + sb.w - newW; newY = sb.y + sb.h - newH; }
+          if (e.altKey) {
+            // Alt/Option: resize symmetrically from center
+            const centerX = sb.x + sb.w / 2;
+            const centerY = sb.y + sb.h / 2;
+            if (hp === "br" || hp === "tr") { newW = Math.max(20, sb.w + mouseDx * 2); }
+            else { newW = Math.max(20, sb.w - mouseDx * 2); }
+            newH = newW / sb.ratio;
+            newX = centerX - newW / 2;
+            newY = centerY - newH / 2;
+          } else {
+            if (hp === "br") { newW = Math.max(20, sb.w + mouseDx); newH = newW / sb.ratio; newX = sb.x; newY = sb.y; }
+            else if (hp === "bl") { newW = Math.max(20, sb.w - mouseDx); newH = newW / sb.ratio; newX = sb.x + sb.w - newW; newY = sb.y; }
+            else if (hp === "tr") { newW = Math.max(20, sb.w + mouseDx); newH = newW / sb.ratio; newX = sb.x; newY = sb.y + sb.h - newH; }
+            else { newW = Math.max(20, sb.w - mouseDx); newH = newW / sb.ratio; newX = sb.x + sb.w - newW; newY = sb.y + sb.h - newH; }
+          }
           if (e.shiftKey) {
             const naturalW = el.img.naturalWidth || sb.w;
             const naturalH = el.img.naturalHeight || sb.h;
             const stepW = naturalW * 0.25, stepH = naturalH * 0.25;
             newW = Math.max(stepW, Math.round(newW / stepW) * stepW);
             newH = Math.max(stepH, Math.round(newH / stepH) * stepH);
-            if (hp === "bl" || hp === "tl") newX = sb.x + sb.w - newW;
-            if (hp === "tr" || hp === "tl") newY = sb.y + sb.h - newH;
+            if (e.altKey) { const cx = sb.x + sb.w / 2; const cy = sb.y + sb.h / 2; newX = cx - newW / 2; newY = cy - newH / 2; }
+            else { if (hp === "bl" || hp === "tl") newX = sb.x + sb.w - newW; if (hp === "tr" || hp === "tl") newY = sb.y + sb.h - newH; }
             state.activeSnapGuides = [];
           } else {
             // Snap moving edges to guides/other elements
@@ -1611,18 +1650,12 @@ function setupMouseHandlers() {
               // For aspect-ratio-locked images, pick the axis with the smaller correction
               if (snap.dy !== 0 && (snap.dx === 0 || Math.abs(snap.dy) <= Math.abs(snap.dx))) {
                 // Snap via Y axis: adjust height, recalc width for aspect ratio
-                if (hp === "br" || hp === "bl") { newH += snap.dy; }
-                else { newH -= snap.dy; newY += snap.dy; }
-                newW = newH * sb.ratio;
-                if (hp === "bl" || hp === "tl") newX = sb.x + sb.w - newW;
-                if (hp === "tr" || hp === "tl") newY = sb.y + sb.h - newH;
+                if (e.altKey) { newH += snap.dy * 2; newW = newH * sb.ratio; const cx = sb.x + sb.w / 2; const cy = sb.y + sb.h / 2; newX = cx - newW / 2; newY = cy - newH / 2; }
+                else { if (hp === "br" || hp === "bl") { newH += snap.dy; } else { newH -= snap.dy; newY += snap.dy; } newW = newH * sb.ratio; if (hp === "bl" || hp === "tl") newX = sb.x + sb.w - newW; if (hp === "tr" || hp === "tl") newY = sb.y + sb.h - newH; }
               } else if (snap.dx !== 0) {
                 // Snap via X axis: adjust width, recalc height for aspect ratio
-                if (hp === "br" || hp === "tr") { newW += snap.dx; }
-                else { newW -= snap.dx; newX += snap.dx; }
-                newH = newW / sb.ratio;
-                if (hp === "tr" || hp === "tl") newY = sb.y + sb.h - newH;
-                if (hp === "bl" || hp === "tl") newX = sb.x + sb.w - newW;
+                if (e.altKey) { newW += snap.dx * 2; newH = newW / sb.ratio; const cx = sb.x + sb.w / 2; const cy = sb.y + sb.h / 2; newX = cx - newW / 2; newY = cy - newH / 2; }
+                else { if (hp === "br" || hp === "tr") { newW += snap.dx; } else { newW -= snap.dx; newX += snap.dx; } newH = newW / sb.ratio; if (hp === "tr" || hp === "tl") newY = sb.y + sb.h - newH; if (hp === "bl" || hp === "tl") newX = sb.x + sb.w - newW; }
               }
             }
             state.activeSnapGuides = snap.guides;
@@ -1643,15 +1676,22 @@ function setupMouseHandlers() {
           } else {
             let scaleFactor;
             const initialW = sb.w || 50;
-            if (hp === "br" || hp === "tr") scaleFactor = (initialW + mouseDx) / initialW;
-            else scaleFactor = (initialW - mouseDx) / initialW;
+            if (e.altKey) {
+              // Alt/Option: resize text symmetrically from center (double the delta)
+              if (hp === "br" || hp === "tr") scaleFactor = (initialW + mouseDx * 2) / initialW;
+              else scaleFactor = (initialW - mouseDx * 2) / initialW;
+            } else {
+              if (hp === "br" || hp === "tr") scaleFactor = (initialW + mouseDx) / initialW;
+              else scaleFactor = (initialW - mouseDx) / initialW;
+            }
             scaleFactor = Math.max(0.2, scaleFactor);
             if (!e.shiftKey) {
               // Snap text resize edges to guides
               const newW = initialW * scaleFactor;
               const newH = (sb.h || 50) * scaleFactor;
-              let newX = (hp === "bl" || hp === "tl") ? sb.x + sb.w - newW : sb.x;
-              let newY = (hp === "tr" || hp === "tl") ? sb.y + sb.h - newH : sb.y;
+              let newX, newY;
+              if (e.altKey) { newX = sb.x + sb.w / 2 - newW / 2; newY = sb.y + sb.h / 2 - newH / 2; }
+              else { newX = (hp === "bl" || hp === "tl") ? sb.x + sb.w - newW : sb.x; newY = (hp === "tr" || hp === "tl") ? sb.y + sb.h - newH : sb.y; }
               const resizeBounds = { x: newX, y: newY, w: newW, h: newH };
               const snapThreshold = (CONSTANTS.SNAP_THRESHOLD * 2) / state.transform.zoom;
               const targets = getSnapTargets([el.id], resizeBounds);
@@ -1666,22 +1706,39 @@ function setupMouseHandlers() {
               state.activeSnapGuides = [];
             }
             el.fontSize = Math.max(8, Math.round(sb.origFontSize * scaleFactor));
+            // When alt is held, reposition text to keep it centered
+            if (e.altKey) {
+              const newW = initialW * scaleFactor;
+              const newH = (sb.h || 50) * scaleFactor;
+              el.start = { x: sb.x + sb.w / 2 - newW / 2, y: sb.y + sb.h / 2 - newH / 2 };
+            }
           }
         } else if (el.type === "pen") {
           const origBounds = { x: sb.x, y: sb.y, w: sb.w, h: sb.h };
           let scaleX = 1, scaleY = 1, anchorX, anchorY;
-          if (hp === "br") { anchorX = origBounds.x; anchorY = origBounds.y; scaleX = origBounds.w > 0 ? (origBounds.w + mouseDx) / origBounds.w : 1; scaleY = origBounds.h > 0 ? (origBounds.h + mouseDy) / origBounds.h : 1; }
-          else if (hp === "bl") { anchorX = origBounds.x + origBounds.w; anchorY = origBounds.y; scaleX = origBounds.w > 0 ? (origBounds.w - mouseDx) / origBounds.w : 1; scaleY = origBounds.h > 0 ? (origBounds.h + mouseDy) / origBounds.h : 1; }
-          else if (hp === "tr") { anchorX = origBounds.x; anchorY = origBounds.y + origBounds.h; scaleX = origBounds.w > 0 ? (origBounds.w + mouseDx) / origBounds.w : 1; scaleY = origBounds.h > 0 ? (origBounds.h - mouseDy) / origBounds.h : 1; }
-          else { anchorX = origBounds.x + origBounds.w; anchorY = origBounds.y + origBounds.h; scaleX = origBounds.w > 0 ? (origBounds.w - mouseDx) / origBounds.w : 1; scaleY = origBounds.h > 0 ? (origBounds.h - mouseDy) / origBounds.h : 1; }
+          if (e.altKey) {
+            // Alt/Option: resize pen from center
+            anchorX = origBounds.x + origBounds.w / 2;
+            anchorY = origBounds.y + origBounds.h / 2;
+            if (hp === "br" || hp === "tr") { scaleX = origBounds.w > 0 ? (origBounds.w + mouseDx * 2) / origBounds.w : 1; }
+            else { scaleX = origBounds.w > 0 ? (origBounds.w - mouseDx * 2) / origBounds.w : 1; }
+            if (hp === "br" || hp === "bl") { scaleY = origBounds.h > 0 ? (origBounds.h + mouseDy * 2) / origBounds.h : 1; }
+            else { scaleY = origBounds.h > 0 ? (origBounds.h - mouseDy * 2) / origBounds.h : 1; }
+          } else {
+            if (hp === "br") { anchorX = origBounds.x; anchorY = origBounds.y; scaleX = origBounds.w > 0 ? (origBounds.w + mouseDx) / origBounds.w : 1; scaleY = origBounds.h > 0 ? (origBounds.h + mouseDy) / origBounds.h : 1; }
+            else if (hp === "bl") { anchorX = origBounds.x + origBounds.w; anchorY = origBounds.y; scaleX = origBounds.w > 0 ? (origBounds.w - mouseDx) / origBounds.w : 1; scaleY = origBounds.h > 0 ? (origBounds.h + mouseDy) / origBounds.h : 1; }
+            else if (hp === "tr") { anchorX = origBounds.x; anchorY = origBounds.y + origBounds.h; scaleX = origBounds.w > 0 ? (origBounds.w + mouseDx) / origBounds.w : 1; scaleY = origBounds.h > 0 ? (origBounds.h - mouseDy) / origBounds.h : 1; }
+            else { anchorX = origBounds.x + origBounds.w; anchorY = origBounds.y + origBounds.h; scaleX = origBounds.w > 0 ? (origBounds.w - mouseDx) / origBounds.w : 1; scaleY = origBounds.h > 0 ? (origBounds.h - mouseDy) / origBounds.h : 1; }
+          }
           if (e.shiftKey) { const u = Math.max(scaleX, scaleY); scaleX = u; scaleY = u; }
           scaleX = Math.max(0.1, scaleX); scaleY = Math.max(0.1, scaleY);
           if (!e.shiftKey) {
             // Snap resize edges to guides
             const newW = origBounds.w * scaleX;
             const newH = origBounds.h * scaleY;
-            let newX = hp === "bl" || hp === "tl" ? anchorX - newW : anchorX;
-            let newY = hp === "tr" || hp === "tl" ? anchorY - newH : anchorY;
+            let newX, newY;
+            if (e.altKey) { newX = anchorX - newW / 2; newY = anchorY - newH / 2; }
+            else { newX = hp === "bl" || hp === "tl" ? anchorX - newW : anchorX; newY = hp === "tr" || hp === "tl" ? anchorY - newH : anchorY; }
             const resizeBounds = { x: newX, y: newY, w: newW, h: newH };
             const snapThreshold = (CONSTANTS.SNAP_THRESHOLD * 2) / state.transform.zoom;
             const targets = getSnapTargets([el.id], resizeBounds);
@@ -1704,18 +1761,29 @@ function setupMouseHandlers() {
           const origStart = sb.origStart, origEnd = sb.origEnd;
           const origBounds = { x: sb.x, y: sb.y, w: sb.w, h: sb.h };
           let scaleX = 1, scaleY = 1, anchorX, anchorY;
-          if (hp === "br") { anchorX = origBounds.x; anchorY = origBounds.y; scaleX = origBounds.w > 0 ? (origBounds.w + mouseDx) / origBounds.w : 1; scaleY = origBounds.h > 0 ? (origBounds.h + mouseDy) / origBounds.h : 1; }
-          else if (hp === "bl") { anchorX = origBounds.x + origBounds.w; anchorY = origBounds.y; scaleX = origBounds.w > 0 ? (origBounds.w - mouseDx) / origBounds.w : 1; scaleY = origBounds.h > 0 ? (origBounds.h + mouseDy) / origBounds.h : 1; }
-          else if (hp === "tr") { anchorX = origBounds.x; anchorY = origBounds.y + origBounds.h; scaleX = origBounds.w > 0 ? (origBounds.w + mouseDx) / origBounds.w : 1; scaleY = origBounds.h > 0 ? (origBounds.h - mouseDy) / origBounds.h : 1; }
-          else { anchorX = origBounds.x + origBounds.w; anchorY = origBounds.y + origBounds.h; scaleX = origBounds.w > 0 ? (origBounds.w - mouseDx) / origBounds.w : 1; scaleY = origBounds.h > 0 ? (origBounds.h - mouseDy) / origBounds.h : 1; }
+          if (e.altKey) {
+            // Alt/Option: resize shape from center
+            anchorX = origBounds.x + origBounds.w / 2;
+            anchorY = origBounds.y + origBounds.h / 2;
+            if (hp === "br" || hp === "tr") { scaleX = origBounds.w > 0 ? (origBounds.w + mouseDx * 2) / origBounds.w : 1; }
+            else { scaleX = origBounds.w > 0 ? (origBounds.w - mouseDx * 2) / origBounds.w : 1; }
+            if (hp === "br" || hp === "bl") { scaleY = origBounds.h > 0 ? (origBounds.h + mouseDy * 2) / origBounds.h : 1; }
+            else { scaleY = origBounds.h > 0 ? (origBounds.h - mouseDy * 2) / origBounds.h : 1; }
+          } else {
+            if (hp === "br") { anchorX = origBounds.x; anchorY = origBounds.y; scaleX = origBounds.w > 0 ? (origBounds.w + mouseDx) / origBounds.w : 1; scaleY = origBounds.h > 0 ? (origBounds.h + mouseDy) / origBounds.h : 1; }
+            else if (hp === "bl") { anchorX = origBounds.x + origBounds.w; anchorY = origBounds.y; scaleX = origBounds.w > 0 ? (origBounds.w - mouseDx) / origBounds.w : 1; scaleY = origBounds.h > 0 ? (origBounds.h + mouseDy) / origBounds.h : 1; }
+            else if (hp === "tr") { anchorX = origBounds.x; anchorY = origBounds.y + origBounds.h; scaleX = origBounds.w > 0 ? (origBounds.w + mouseDx) / origBounds.w : 1; scaleY = origBounds.h > 0 ? (origBounds.h - mouseDy) / origBounds.h : 1; }
+            else { anchorX = origBounds.x + origBounds.w; anchorY = origBounds.y + origBounds.h; scaleX = origBounds.w > 0 ? (origBounds.w - mouseDx) / origBounds.w : 1; scaleY = origBounds.h > 0 ? (origBounds.h - mouseDy) / origBounds.h : 1; }
+          }
           if (e.shiftKey) { const u = Math.max(scaleX, scaleY); scaleX = u; scaleY = u; }
           scaleX = Math.max(0.1, scaleX); scaleY = Math.max(0.1, scaleY);
           if (!e.shiftKey) {
             // Snap resize edges to guides
             const newW = origBounds.w * scaleX;
             const newH = origBounds.h * scaleY;
-            let newX = hp === "bl" || hp === "tl" ? anchorX - newW : anchorX;
-            let newY = hp === "tr" || hp === "tl" ? anchorY - newH : anchorY;
+            let newX, newY;
+            if (e.altKey) { newX = anchorX - newW / 2; newY = anchorY - newH / 2; }
+            else { newX = hp === "bl" || hp === "tl" ? anchorX - newW : anchorX; newY = hp === "tr" || hp === "tl" ? anchorY - newH : anchorY; }
             const resizeBounds = { x: newX, y: newY, w: newW, h: newH };
             const snapThreshold = (CONSTANTS.SNAP_THRESHOLD * 2) / state.transform.zoom;
             const targets = getSnapTargets([el.id], resizeBounds);
