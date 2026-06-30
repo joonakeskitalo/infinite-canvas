@@ -1441,8 +1441,8 @@ function setupMouseHandlers() {
       if (state.cropDragEdge.includes("n")) { const moved = Math.max(-(r.y - imgTop), Math.min(mdy, r.h - minSize)); newY = r.y + moved; newH = r.h - moved; }
       if (state.cropDragEdge.includes("s")) { const moved = Math.max(-(r.h - minSize), Math.min(mdy, imgBottom - (r.y + r.h))); newH = r.h + moved; }
 
-      // Default: snap crop edges to guide lines from other elements and ruler guides
-      {
+      // Shift: snap crop edges to guide lines from other elements, ruler guides, and proportional grid
+      if (e.shiftKey) {
         const snapThreshold = (CONSTANTS.SNAP_THRESHOLD * 2) / state.transform.zoom;
         const cropBounds = { x: newX, y: newY, w: newW, h: newH };
         const targets = getSnapTargets([state.cropTarget.id], cropBounds);
@@ -1510,10 +1510,8 @@ function setupMouseHandlers() {
           guides.push({ axis: "y", pos: snappedY });
         }
         state.activeSnapGuides = guides;
-      }
 
-      // Shift: additionally snap to image proportional grid (quarters)
-      if (e.shiftKey) {
+        // Also snap to image proportional grid (quarters)
         const propThreshold = 10 / state.transform.zoom;
         const xSnaps = [0, 0.25, 0.5, 0.75, 1].map(f => full.x + f * full.w);
         const ySnaps = [0, 0.25, 0.5, 0.75, 1].map(f => full.y + f * full.h);
@@ -1521,6 +1519,8 @@ function setupMouseHandlers() {
         if (state.cropDragEdge.includes("e")) { for (const sx of xSnaps) { if (Math.abs((newX + newW) - sx) < propThreshold) { newW = sx - newX; break; } } }
         if (state.cropDragEdge.includes("n")) { for (const sy of ySnaps) { if (Math.abs(newY - sy) < propThreshold) { newH += newY - sy; newY = sy; break; } } }
         if (state.cropDragEdge.includes("s")) { for (const sy of ySnaps) { if (Math.abs((newY + newH) - sy) < propThreshold) { newH = sy - newY; break; } } }
+      } else {
+        state.activeSnapGuides = [];
       }
 
       state.cropRect = { x: newX, y: newY, w: newW, h: newH };
