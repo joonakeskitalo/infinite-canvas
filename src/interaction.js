@@ -257,11 +257,20 @@ export function initEventHandlers() {
       pushUndo();
       state.selectedElements.forEach((el) => {
         if (el.elementType === "image") {
-          const naturalW = el.img.naturalWidth || el.w;
-          const naturalH = el.img.naturalHeight || el.h;
+          const fullNatW = el.img.naturalWidth || el.w;
+          const fullNatH = el.img.naturalHeight || el.h;
+          // Use cropped region's natural dimensions if the image is cropped
+          const naturalW = el.crop ? fullNatW * el.crop.w : fullNatW;
+          const naturalH = el.crop ? fullNatH * el.crop.h : fullNatH;
           const newW = naturalW * scale, newH = naturalH * scale;
           const centerX = el.x + el.w / 2, centerY = el.y + el.h / 2;
           el.w = newW; el.h = newH; el.x = centerX - newW / 2; el.y = centerY - newH / 2;
+          // Update fullBounds so crop mode can reconstruct the full image position
+          if (el.crop && el.fullBounds) {
+            const fullW = el.w / el.crop.w;
+            const fullH = el.h / el.crop.h;
+            el.fullBounds = { x: el.x - el.crop.x * fullW, y: el.y - el.crop.y * fullH, w: fullW, h: fullH };
+          }
         }
       });
       render();
@@ -1645,8 +1654,11 @@ function setupMouseHandlers() {
             else { newW = Math.max(20, sb.w - mouseDx); newH = newW / sb.ratio; newX = sb.x + sb.w - newW; newY = sb.y + sb.h - newH; }
           }
           if (e.shiftKey) {
-            const naturalW = el.img.naturalWidth || sb.w;
-            const naturalH = el.img.naturalHeight || sb.h;
+            const fullNatW = el.img.naturalWidth || sb.w;
+            const fullNatH = el.img.naturalHeight || sb.h;
+            // Use cropped region's natural dimensions for step snapping
+            const naturalW = el.crop ? fullNatW * el.crop.w : fullNatW;
+            const naturalH = el.crop ? fullNatH * el.crop.h : fullNatH;
             const stepW = naturalW * 0.25, stepH = naturalH * 0.25;
             newW = Math.max(stepW, Math.round(newW / stepW) * stepW);
             newH = Math.max(stepH, Math.round(newH / stepH) * stepH);
@@ -1677,6 +1689,12 @@ function setupMouseHandlers() {
             state.activeSnapGuides = snap.guides;
           }
           el.x = newX; el.y = newY; el.w = newW; el.h = newH;
+          // Keep fullBounds in sync for cropped images
+          if (el.crop && el.fullBounds) {
+            const fullW = el.w / el.crop.w;
+            const fullH = el.h / el.crop.h;
+            el.fullBounds = { x: el.x - el.crop.x * fullW, y: el.y - el.crop.y * fullH, w: fullW, h: fullH };
+          }
         } else if (el.type === "text") {
           if (e.metaKey) {
             // Cmd+drag: resize text area width (reflow mode)
