@@ -542,14 +542,31 @@ export function initEventHandlers() {
   textEditor.addEventListener("click", (e) => e.stopPropagation());
   textEditor.addEventListener("paste", (e) => {
     e.preventDefault();
-    const text = e.clipboardData.getData("text/plain");
-    document.execCommand("insertText", false, text);
+    const html = e.clipboardData.getData("text/html");
+    if (html) {
+      // Insert rich text preserving formatting (bold, italic, underline, strikethrough, font size)
+      // Clean the HTML to only allow safe formatting tags/styles
+      const temp = document.createElement("div");
+      temp.innerHTML = html;
+      // Remove scripts, styles, and other non-content elements
+      temp.querySelectorAll("script, style, meta, link, head, title").forEach((el) => el.remove());
+      // Insert the sanitized HTML
+      document.execCommand("insertHTML", false, temp.innerHTML);
+    } else {
+      const text = e.clipboardData.getData("text/plain");
+      document.execCommand("insertText", false, text);
+    }
   });
 
   // --- Text formatting bar ---
   const formatBar = document.getElementById("text-format-bar");
   const fmtBoldBtn = document.getElementById("fmt-bold");
   const fmtItalicBtn = document.getElementById("fmt-italic");
+  const fmtUnderlineBtn = document.getElementById("fmt-underline");
+  const fmtStrikethroughBtn = document.getElementById("fmt-strikethrough");
+  const fmtFontSizeInput = document.getElementById("fmt-font-size");
+  const fmtSizeDownBtn = document.getElementById("fmt-size-down");
+  const fmtSizeUpBtn = document.getElementById("fmt-size-up");
 
   fmtBoldBtn.addEventListener("mousedown", (e) => {
     e.preventDefault();
@@ -563,11 +580,98 @@ export function initEventHandlers() {
     document.execCommand("italic");
     updateFormatBarState();
   });
+  fmtUnderlineBtn.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    document.execCommand("underline");
+    updateFormatBarState();
+  });
+  fmtStrikethroughBtn.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    document.execCommand("strikeThrough");
+    updateFormatBarState();
+  });
+
+  // Font size adjustment via format bar
+  function applyFontSizeToSelection(size) {
+    // Save the current selection
+    const sel = window.getSelection();
+    const savedRange = sel.rangeCount > 0 ? sel.getRangeAt(0).cloneRange() : null;
+
+    // Use fontSize command with a placeholder, then replace with inline style
+    document.execCommand("fontSize", false, "7");
+    const fontElements = textEditor.querySelectorAll('font[size="7"]');
+    fontElements.forEach((el) => {
+      const span = document.createElement("span");
+      span.style.fontSize = size + "px";
+      span.innerHTML = el.innerHTML;
+      el.parentNode.replaceChild(span, el);
+      // Update selection to point inside the new span
+      if (sel.rangeCount > 0) {
+        const range = document.createRange();
+        range.selectNodeContents(span);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    });
+    fmtFontSizeInput.value = size;
+    autoResizeTextEditor();
+  }
+
+  fmtSizeDownBtn.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const currentSize = parseInt(fmtFontSizeInput.value) || state.currentFontSize;
+    const newSize = Math.max(8, currentSize - 2);
+    applyFontSizeToSelection(newSize);
+  });
+
+  fmtSizeUpBtn.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const currentSize = parseInt(fmtFontSizeInput.value) || state.currentFontSize;
+    const newSize = Math.min(999, currentSize + 2);
+    applyFontSizeToSelection(newSize);
+  });
+
+  fmtFontSizeInput.addEventListener("change", (e) => {
+    const size = Math.max(8, Math.min(999, parseInt(e.target.value) || state.currentFontSize));
+    e.target.value = size;
+    applyFontSizeToSelection(size);
+    textEditor.focus();
+  });
+
+  fmtFontSizeInput.addEventListener("mousedown", (e) => {
+    e.stopPropagation();
+  });
 
   // Update format bar button active states based on current selection
   function updateFormatBarState() {
     fmtBoldBtn.classList.toggle("active", document.queryCommandState("bold"));
     fmtItalicBtn.classList.toggle("active", document.queryCommandState("italic"));
+    fmtUnderlineBtn.classList.toggle("active", document.queryCommandState("underline"));
+    fmtStrikethroughBtn.classList.toggle("active", document.queryCommandState("strikeThrough"));
+    // Update font size input from selection
+    const sel = window.getSelection();
+    if (sel.rangeCount > 0 && textEditor.contains(sel.anchorNode)) {
+      let node = sel.anchorNode;
+      if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+      let fontSize = null;
+      let el = node;
+      while (el && el !== textEditor) {
+        if (el.style && el.style.fontSize) {
+          fontSize = parseInt(el.style.fontSize);
+          break;
+        }
+        el = el.parentElement;
+      }
+      if (fontSize) {
+        fmtFontSizeInput.value = fontSize;
+      } else {
+        fmtFontSizeInput.value = state.currentFontSize;
+      }
+    }
   }
 
   textEditor.addEventListener("keyup", () => updateFormatBarState());
@@ -576,6 +680,7 @@ export function initEventHandlers() {
   // Show/position format bar when text editor is visible
   function showFormatBar() {
     formatBar.style.display = "flex";
+    fmtFontSizeInput.value = state.currentFontSize;
     positionFormatBar();
   }
 
@@ -620,7 +725,7 @@ function bakeText() {
       start: { x: state.activeTextCoord.x, y: state.activeTextCoord.y },
     };
     // Store rich segments if any formatting exists
-    if (richContent.segments && richContent.segments.some((s) => s.bold || s.italic)) {
+    if (richContent.segments && richContent.segments.some((s) => s.bold || s.italic || s.underline || s.strikethrough || s.fontSize)) {
       // Adjust segments for any leading lines removed by trim
       const leadingNewlines = richContent.text.length - richContent.text.trimStart().length;
       let leadingLinesTrimmed = 0;
@@ -679,34 +784,47 @@ function extractRichContent() {
   const chars = [];
 
   function getStyle(node) {
-    let bold = false, italic = false;
+    let bold = false, italic = false, underline = false, strikethrough = false, fontSize = null;
     let el = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
     while (el && el !== textEditor) {
       const tag = el.nodeName;
       if (tag === "B" || tag === "STRONG") bold = true;
       if (tag === "I" || tag === "EM") italic = true;
+      if (tag === "U") underline = true;
+      if (tag === "S" || tag === "STRIKE" || tag === "DEL") strikethrough = true;
       if (el.style) {
         if (el.style.fontWeight === "bold" || parseInt(el.style.fontWeight) >= 700) bold = true;
         if (el.style.fontStyle === "italic") italic = true;
+        if (el.style.textDecoration) {
+          if (el.style.textDecoration.includes("underline")) underline = true;
+          if (el.style.textDecoration.includes("line-through")) strikethrough = true;
+        }
+        if (el.style.textDecorationLine) {
+          if (el.style.textDecorationLine.includes("underline")) underline = true;
+          if (el.style.textDecorationLine.includes("line-through")) strikethrough = true;
+        }
+        if (el.style.fontSize && !fontSize) {
+          fontSize = parseInt(el.style.fontSize);
+        }
       }
       el = el.parentElement;
     }
-    return { bold, italic };
+    return { bold, italic, underline, strikethrough, fontSize };
   }
 
   function walk(node) {
     if (node.nodeType === Node.TEXT_NODE) {
-      const { bold, italic } = getStyle(node);
+      const { bold, italic, underline, strikethrough, fontSize } = getStyle(node);
       for (const ch of node.textContent) {
-        chars.push({ ch, bold, italic });
+        chars.push({ ch, bold, italic, underline, strikethrough, fontSize });
       }
     } else if (node.nodeName === "BR") {
-      chars.push({ ch: "\n", bold: false, italic: false });
+      chars.push({ ch: "\n", bold: false, italic: false, underline: false, strikethrough: false, fontSize: null });
     } else if (node.nodeType === Node.ELEMENT_NODE) {
       const isBlock = node.nodeName === "DIV" || node.nodeName === "P";
       // Block elements imply a newline before them (unless at start)
       if (isBlock && chars.length > 0 && chars[chars.length - 1].ch !== "\n") {
-        chars.push({ ch: "\n", bold: false, italic: false });
+        chars.push({ ch: "\n", bold: false, italic: false, underline: false, strikethrough: false, fontSize: null });
       }
       node.childNodes.forEach((child) => walk(child));
     }
@@ -719,7 +837,7 @@ function extractRichContent() {
   let lineIndex = 0;
   let currentSeg = null;
 
-  for (const { ch, bold, italic } of chars) {
+  for (const { ch, bold, italic, underline, strikethrough, fontSize } of chars) {
     if (ch === "\n") {
       if (currentSeg) {
         segments.push(currentSeg);
@@ -728,11 +846,11 @@ function extractRichContent() {
       lineIndex++;
       continue;
     }
-    if (currentSeg && currentSeg.bold === bold && currentSeg.italic === italic && currentSeg.line === lineIndex) {
+    if (currentSeg && currentSeg.bold === bold && currentSeg.italic === italic && currentSeg.underline === underline && currentSeg.strikethrough === strikethrough && currentSeg.fontSize === fontSize && currentSeg.line === lineIndex) {
       currentSeg.text += ch;
     } else {
       if (currentSeg) segments.push(currentSeg);
-      currentSeg = { text: ch, bold, italic, line: lineIndex };
+      currentSeg = { text: ch, bold, italic, underline, strikethrough, fontSize, line: lineIndex };
     }
   }
   if (currentSeg) segments.push(currentSeg);
@@ -758,11 +876,16 @@ function setTextEditorContent(text, segments) {
         textEditor.appendChild(document.createElement("br"));
         currentLine++;
       }
-      if (seg.bold || seg.italic) {
+      if (seg.bold || seg.italic || seg.underline || seg.strikethrough || seg.fontSize) {
         const span = document.createElement("span");
         let fontStyle = "";
         if (seg.bold) fontStyle += "font-weight:bold;";
         if (seg.italic) fontStyle += "font-style:italic;";
+        const decorations = [];
+        if (seg.underline) decorations.push("underline");
+        if (seg.strikethrough) decorations.push("line-through");
+        if (decorations.length > 0) fontStyle += `text-decoration:${decorations.join(" ")};`;
+        if (seg.fontSize) fontStyle += `font-size:${seg.fontSize}px;`;
         span.style.cssText = fontStyle;
         span.textContent = seg.text;
         textEditor.appendChild(span);
@@ -783,8 +906,16 @@ function setTextEditorContent(text, segments) {
 function autoResizeTextEditor() {
   const { textEditor, ctx } = getDom();
   const screenFontSize = parseFloat(textEditor.style.fontSize) || 48;
+
+  // Find the largest inline font size in the editor for proper sizing
+  let maxInlineFontSize = screenFontSize;
+  textEditor.querySelectorAll("[style*='font-size']").forEach((el) => {
+    const fs = parseFloat(el.style.fontSize);
+    if (fs > maxInlineFontSize) maxInlineFontSize = fs;
+  });
+
   ctx.save();
-  ctx.font = `bold ${screenFontSize}px ${state.currentFontFamily || "sans-serif"}`;
+  ctx.font = `bold ${maxInlineFontSize}px ${state.currentFontFamily || "sans-serif"}`;
   const text = getTextEditorContent();
   const lines = text.split("\n");
   let maxWidth = 0;
@@ -794,10 +925,10 @@ function autoResizeTextEditor() {
   });
   ctx.restore();
   // Width: fit content + cursor padding
-  const minWidth = screenFontSize * 1.5;
-  textEditor.style.width = Math.max(minWidth, maxWidth + screenFontSize * 0.5) + "px";
-  // Height: auto-fit based on line count
-  const lineHeight = screenFontSize * 1.2;
+  const minWidth = maxInlineFontSize * 1.5;
+  textEditor.style.width = Math.max(minWidth, maxWidth + maxInlineFontSize * 0.5) + "px";
+  // Height: auto-fit based on line count using the largest font size for line height
+  const lineHeight = maxInlineFontSize * 1.2;
   const minHeight = lineHeight;
   textEditor.style.height = Math.max(minHeight, lines.length * lineHeight + 4) + "px";
 }

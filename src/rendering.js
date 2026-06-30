@@ -295,7 +295,7 @@ export function drawShape(targetCtx, shape, isExporting) {
     }
 
     // Measure and cache
-    const segKey = shape.segments ? JSON.stringify(shape.segments.map((s) => ({ b: s.bold ? 1 : 0, i: s.italic ? 1 : 0, t: s.text, l: s.line }))) : "";
+    const segKey = shape.segments ? JSON.stringify(shape.segments.map((s) => ({ b: s.bold ? 1 : 0, i: s.italic ? 1 : 0, u: s.underline ? 1 : 0, s: s.strikethrough ? 1 : 0, fs: s.fontSize || 0, t: s.text, l: s.line }))) : "";
     const cacheKey = shape.text + "|" + shape.fontSize + "|" + (shape.fontFamily || "sans-serif") + "|" + (shape.textWidth || "") + "|" + segKey;
     let cached = _textMeasureCache.get(shape);
     if (!cached || cached.cacheKey !== cacheKey) {
@@ -306,7 +306,8 @@ export function drawShape(targetCtx, shape, isExporting) {
         shape.segments.forEach((seg) => {
           while (lineWidths.length <= seg.line) lineWidths.push(0);
           const prefix = (seg.bold ? "bold " : "") + (seg.italic ? "italic " : "");
-          targetCtx.font = `${prefix}${shape.fontSize}px ${shape.fontFamily || "sans-serif"}`;
+          const segSize = seg.fontSize || shape.fontSize;
+          targetCtx.font = `${prefix}${segSize}px ${shape.fontFamily || "sans-serif"}`;
           lineWidths[seg.line] += targetCtx.measureText(seg.text).width;
         });
         lineWidths.forEach((w) => { if (w > maxWidth) maxWidth = w; });
@@ -342,7 +343,7 @@ export function drawShape(targetCtx, shape, isExporting) {
 
     targetCtx.fillStyle = shape.color;
 
-    // Rich text rendering with per-segment bold/italic
+    // Rich text rendering with per-segment bold/italic/underline/strikethrough/fontSize
     if (shape.segments && shape.segments.length > 0) {
       // Group segments by line
       const lineSegments = [];
@@ -362,7 +363,8 @@ export function drawShape(targetCtx, shape, isExporting) {
           if (segs && segs.length > 0) {
             segs.forEach((seg) => {
               const prefix = (seg.bold ? "bold " : "") + (seg.italic ? "italic " : "");
-              targetCtx.font = `${prefix}${shape.fontSize}px ${shape.fontFamily || "sans-serif"}`;
+              const segSize = seg.fontSize || shape.fontSize;
+              targetCtx.font = `${prefix}${segSize}px ${shape.fontFamily || "sans-serif"}`;
               lineWidth += targetCtx.measureText(seg.text).width;
             });
           } else {
@@ -376,9 +378,40 @@ export function drawShape(targetCtx, shape, isExporting) {
         if (segs && segs.length > 0) {
           segs.forEach((seg) => {
             const prefix = (seg.bold ? "bold " : "") + (seg.italic ? "italic " : "");
-            targetCtx.font = `${prefix}${shape.fontSize}px ${shape.fontFamily || "sans-serif"}`;
+            const segSize = seg.fontSize || shape.fontSize;
+            targetCtx.font = `${prefix}${segSize}px ${shape.fontFamily || "sans-serif"}`;
             targetCtx.fillText(seg.text, x, shape.start.y + i * lineHeight);
-            x += targetCtx.measureText(seg.text).width;
+            const segWidth = targetCtx.measureText(seg.text).width;
+
+            // Draw underline
+            if (seg.underline) {
+              const underlineY = shape.start.y + i * lineHeight + segSize * 1.05;
+              const thickness = Math.max(1, segSize / 16);
+              targetCtx.save();
+              targetCtx.strokeStyle = shape.color;
+              targetCtx.lineWidth = thickness;
+              targetCtx.beginPath();
+              targetCtx.moveTo(x, underlineY);
+              targetCtx.lineTo(x + segWidth, underlineY);
+              targetCtx.stroke();
+              targetCtx.restore();
+            }
+
+            // Draw strikethrough
+            if (seg.strikethrough) {
+              const strikeY = shape.start.y + i * lineHeight + segSize * 0.55;
+              const thickness = Math.max(1, segSize / 18);
+              targetCtx.save();
+              targetCtx.strokeStyle = shape.color;
+              targetCtx.lineWidth = thickness;
+              targetCtx.beginPath();
+              targetCtx.moveTo(x, strikeY);
+              targetCtx.lineTo(x + segWidth, strikeY);
+              targetCtx.stroke();
+              targetCtx.restore();
+            }
+
+            x += segWidth;
           });
         } else {
           targetCtx.font = `${shape.fontSize}px ${shape.fontFamily || "sans-serif"}`;

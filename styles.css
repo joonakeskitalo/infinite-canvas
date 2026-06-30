@@ -435,6 +435,42 @@ input[type="color"]::-webkit-color-swatch {
   border-color: #007acc;
 }
 
+.fmt-separator {
+  width: 1px;
+  height: 18px;
+  background: #555;
+  margin: 0 3px;
+}
+
+.fmt-font-size-input {
+  width: 42px;
+  height: 24px;
+  background: #2a2a2a;
+  border: 1px solid #555;
+  border-radius: 3px;
+  color: #ccc;
+  font-size: 12px;
+  text-align: center;
+  padding: 0 2px;
+  -moz-appearance: textfield;
+}
+
+.fmt-font-size-input::-webkit-outer-spin-button,
+.fmt-font-size-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.fmt-font-size-input:focus {
+  outline: none;
+  border-color: #007acc;
+}
+
+.fmt-size-btn {
+  font-size: 15px;
+  font-weight: bold;
+}
+
 /* Dynamic temporary toast notifications */
 #toast {
   position: fixed;

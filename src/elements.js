@@ -74,7 +74,8 @@ export function getShapeBounds(shape) {
           shape.segments.forEach((seg) => {
             while (lineWidths.length <= seg.line) lineWidths.push(0);
             const prefix = (seg.bold ? "bold " : "") + (seg.italic ? "italic " : "");
-            ctx.font = `${prefix}${shape.fontSize}px ${shape.fontFamily || "sans-serif"}`;
+            const segSize = seg.fontSize || shape.fontSize;
+            ctx.font = `${prefix}${segSize}px ${shape.fontFamily || "sans-serif"}`;
             lineWidths[seg.line] += ctx.measureText(seg.text).width;
           });
           lineWidths.forEach((w) => { if (w > maxWidth) maxWidth = w; });
