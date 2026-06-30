@@ -295,14 +295,29 @@ export function drawShape(targetCtx, shape, isExporting) {
     }
 
     // Measure and cache
-    const cacheKey = shape.text + "|" + shape.fontSize + "|" + (shape.fontFamily || "sans-serif") + "|" + (shape.textWidth || "");
+    const segKey = shape.segments ? JSON.stringify(shape.segments.map((s) => ({ b: s.bold ? 1 : 0, i: s.italic ? 1 : 0, t: s.text, l: s.line }))) : "";
+    const cacheKey = shape.text + "|" + shape.fontSize + "|" + (shape.fontFamily || "sans-serif") + "|" + (shape.textWidth || "") + "|" + segKey;
     let cached = _textMeasureCache.get(shape);
     if (!cached || cached.cacheKey !== cacheKey) {
       let maxWidth = 0;
-      lines.forEach((line) => {
-        const metrics = targetCtx.measureText(line);
-        if (metrics.width > maxWidth) maxWidth = metrics.width;
-      });
+      if (shape.segments && shape.segments.length > 0) {
+        // Measure per-line using segment fonts
+        const lineWidths = [];
+        shape.segments.forEach((seg) => {
+          while (lineWidths.length <= seg.line) lineWidths.push(0);
+          const prefix = (seg.bold ? "bold " : "") + (seg.italic ? "italic " : "");
+          targetCtx.font = `${prefix}${shape.fontSize}px ${shape.fontFamily || "sans-serif"}`;
+          lineWidths[seg.line] += targetCtx.measureText(seg.text).width;
+        });
+        lineWidths.forEach((w) => { if (w > maxWidth) maxWidth = w; });
+        // Reset font
+        targetCtx.font = `${shape.fontSize}px ${shape.fontFamily || "sans-serif"}`;
+      } else {
+        lines.forEach((line) => {
+          const metrics = targetCtx.measureText(line);
+          if (metrics.width > maxWidth) maxWidth = metrics.width;
+        });
+      }
       const effectiveW = shape.textWidth ? shape.textWidth : maxWidth;
       cached = { cacheKey, w: effectiveW, h: lineHeight * (lines.length - 1) + shape.fontSize, lines };
       _textMeasureCache.set(shape, cached);
@@ -326,17 +341,64 @@ export function drawShape(targetCtx, shape, isExporting) {
     }
 
     targetCtx.fillStyle = shape.color;
-    lines.forEach((line, i) => {
-      let x = shape.start.x;
-      if (textAlign === "center") {
-        const lw = targetCtx.measureText(line).width;
-        x = shape.start.x + (shape.w - lw) / 2;
-      } else if (textAlign === "right") {
-        const lw = targetCtx.measureText(line).width;
-        x = shape.start.x + shape.w - lw;
+
+    // Rich text rendering with per-segment bold/italic
+    if (shape.segments && shape.segments.length > 0) {
+      // Group segments by line
+      const lineSegments = [];
+      shape.segments.forEach((seg) => {
+        while (lineSegments.length <= seg.line) lineSegments.push([]);
+        lineSegments[seg.line].push(seg);
+      });
+
+      // Render each line's segments
+      for (let i = 0; i < lines.length; i++) {
+        const segs = lineSegments[i];
+        let x = shape.start.x;
+
+        // Calculate line width for alignment
+        if (textAlign !== "left") {
+          let lineWidth = 0;
+          if (segs && segs.length > 0) {
+            segs.forEach((seg) => {
+              const prefix = (seg.bold ? "bold " : "") + (seg.italic ? "italic " : "");
+              targetCtx.font = `${prefix}${shape.fontSize}px ${shape.fontFamily || "sans-serif"}`;
+              lineWidth += targetCtx.measureText(seg.text).width;
+            });
+          } else {
+            targetCtx.font = `${shape.fontSize}px ${shape.fontFamily || "sans-serif"}`;
+            lineWidth = targetCtx.measureText(lines[i]).width;
+          }
+          if (textAlign === "center") x = shape.start.x + (shape.w - lineWidth) / 2;
+          else if (textAlign === "right") x = shape.start.x + shape.w - lineWidth;
+        }
+
+        if (segs && segs.length > 0) {
+          segs.forEach((seg) => {
+            const prefix = (seg.bold ? "bold " : "") + (seg.italic ? "italic " : "");
+            targetCtx.font = `${prefix}${shape.fontSize}px ${shape.fontFamily || "sans-serif"}`;
+            targetCtx.fillText(seg.text, x, shape.start.y + i * lineHeight);
+            x += targetCtx.measureText(seg.text).width;
+          });
+        } else {
+          targetCtx.font = `${shape.fontSize}px ${shape.fontFamily || "sans-serif"}`;
+          targetCtx.fillText(lines[i], x, shape.start.y + i * lineHeight);
+        }
       }
-      targetCtx.fillText(line, x, shape.start.y + i * lineHeight);
-    });
+    } else {
+      // Plain text path (no segments)
+      lines.forEach((line, i) => {
+        let x = shape.start.x;
+        if (textAlign === "center") {
+          const lw = targetCtx.measureText(line).width;
+          x = shape.start.x + (shape.w - lw) / 2;
+        } else if (textAlign === "right") {
+          const lw = targetCtx.measureText(line).width;
+          x = shape.start.x + shape.w - lw;
+        }
+        targetCtx.fillText(line, x, shape.start.y + i * lineHeight);
+      });
+    }
 
     if (!isExporting && state.currentTool === "select") {
       const isSelected = state.selectedElements.some((el) => el.id === shape.id);
@@ -353,7 +415,7 @@ export function drawShape(targetCtx, shape, isExporting) {
 }
 
 function _doRender(targetCtx, isExporting) {
-  const { canvas, ghostInput } = getDom();
+  const { canvas, textEditor } = getDom();
   const transform = state.transform;
 
   if (!isExporting) {
@@ -837,11 +899,12 @@ function _doRender(targetCtx, isExporting) {
     targetCtx.restore();
   }
 
-  if (!isExporting && ghostInput.style.display === "block" && state.activeTextCoord) {
+  if (!isExporting && textEditor.style.display === "block" && state.activeTextCoord) {
     const screenPos = worldToScreen(state.activeTextCoord.x, state.activeTextCoord.y);
-    ghostInput.style.left = `${screenPos.x}px`;
-    ghostInput.style.top = `${screenPos.y - state.currentFontSize * transform.zoom * 0.2}px`;
-    ghostInput.style.fontSize = `${state.currentFontSize * transform.zoom}px`;
+    textEditor.style.left = `${screenPos.x}px`;
+    textEditor.style.top = `${screenPos.y - state.currentFontSize * transform.zoom * 0.2}px`;
+    textEditor.style.fontSize = `${state.currentFontSize * transform.zoom}px`;
+    if (window._textFormatBar) window._textFormatBar.position();
   }
 }
 

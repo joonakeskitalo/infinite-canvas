@@ -42,7 +42,7 @@ import { applyFilterToImageData } from "./filter-kernels.js";
 
 export function initEventHandlers() {
   const dom = getDom();
-  const { container, canvas, ctx, ghostInput, fontSizeSelect, zoomSlider,
+  const { container, canvas, ctx, textEditor, fontSizeSelect, zoomSlider,
     exportBtn, downloadImagesBtn, centerCanvasBtn, bgColorPicker, colorPicker,
     toolbarMenuBtn, toolbarMenu, filterSelect, opacitySlider, opacityValDisplay } = dom;
 
@@ -73,7 +73,7 @@ export function initEventHandlers() {
     btn.addEventListener("click", (e) => {
       const targetBtn = e.target.closest(".tool-btn");
       if (!targetBtn.dataset.tool) return;
-      if (ghostInput.style.display === "block") bakeText();
+      if (textEditor.style.display === "block") bakeText();
       if (state.cropMode) exitCropMode(false);
       state.currentTool = targetBtn.dataset.tool;
       if (state.currentTool !== "select") state.selectedElements = [];
@@ -139,8 +139,8 @@ export function initEventHandlers() {
   // --- Font size ---
   fontSizeSelect.addEventListener("change", (e) => {
     state.currentFontSize = parseInt(e.target.value);
-    if (ghostInput.style.display === "block") {
-      ghostInput.style.fontSize = `${state.currentFontSize * state.transform.zoom}px`;
+    if (textEditor.style.display === "block") {
+      textEditor.style.fontSize = `${state.currentFontSize * state.transform.zoom}px`;
     }
     applyFontSizeToSelectedText(state.currentFontSize);
   });
@@ -178,7 +178,7 @@ export function initEventHandlers() {
       if (!inserted) fontSizeSelect.appendChild(option);
     }
     fontSizeSelect.value = size;
-    if (ghostInput.style.display === "block") { ghostInput.style.fontSize = `${state.currentFontSize * state.transform.zoom}px`; }
+    if (textEditor.style.display === "block") { textEditor.style.fontSize = `${state.currentFontSize * state.transform.zoom}px`; }
     applyFontSizeToSelectedText(size);
   }
 
@@ -188,8 +188,8 @@ export function initEventHandlers() {
   // --- Font family ---
   dom.fontFamilySelect.addEventListener("change", (e) => {
     state.currentFontFamily = e.target.value;
-    if (ghostInput.style.display === "block") {
-      ghostInput.style.fontFamily = state.currentFontFamily;
+    if (textEditor.style.display === "block") {
+      textEditor.style.fontFamily = state.currentFontFamily;
     }
     applyFontFamilyToSelectedText(state.currentFontFamily);
     e.target.blur();
@@ -530,12 +530,68 @@ export function initEventHandlers() {
   // --- Mouse events ---
   setupMouseHandlers();
 
-  // --- Ghost input ---
-  ghostInput.addEventListener("keydown", (e) => {
+  // --- Text editor overlay ---
+  textEditor.addEventListener("keydown", (e) => {
+    e.stopPropagation();
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); bakeText(); container.focus(); }
-    else if (e.key === "Escape") { ghostInput.style.display = "none"; state.activeTextCoord = null; container.focus(); render(); }
+    else if (e.key === "Escape") { dismissTextEditor(); container.focus(); render(); }
   });
-  ghostInput.addEventListener("input", () => autoResizeGhostInput());
+  textEditor.addEventListener("input", () => autoResizeTextEditor());
+  textEditor.addEventListener("mousedown", (e) => e.stopPropagation());
+  textEditor.addEventListener("mouseup", (e) => e.stopPropagation());
+  textEditor.addEventListener("click", (e) => e.stopPropagation());
+  textEditor.addEventListener("paste", (e) => {
+    e.preventDefault();
+    const text = e.clipboardData.getData("text/plain");
+    document.execCommand("insertText", false, text);
+  });
+
+  // --- Text formatting bar ---
+  const formatBar = document.getElementById("text-format-bar");
+  const fmtBoldBtn = document.getElementById("fmt-bold");
+  const fmtItalicBtn = document.getElementById("fmt-italic");
+
+  fmtBoldBtn.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    document.execCommand("bold");
+    updateFormatBarState();
+  });
+  fmtItalicBtn.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    document.execCommand("italic");
+    updateFormatBarState();
+  });
+
+  // Update format bar button active states based on current selection
+  function updateFormatBarState() {
+    fmtBoldBtn.classList.toggle("active", document.queryCommandState("bold"));
+    fmtItalicBtn.classList.toggle("active", document.queryCommandState("italic"));
+  }
+
+  textEditor.addEventListener("keyup", () => updateFormatBarState());
+  textEditor.addEventListener("mouseup", () => setTimeout(updateFormatBarState, 10));
+
+  // Show/position format bar when text editor is visible
+  function showFormatBar() {
+    formatBar.style.display = "flex";
+    positionFormatBar();
+  }
+
+  function hideFormatBar() {
+    formatBar.style.display = "none";
+  }
+
+  function positionFormatBar() {
+    if (textEditor.style.display !== "block") return;
+    const editorRect = textEditor.getBoundingClientRect();
+    formatBar.style.left = `${editorRect.left}px`;
+    formatBar.style.top = `${editorRect.top - 34}px`;
+  }
+
+  // Expose showFormatBar/hideFormatBar for use in text tool activation
+  window._textFormatBar = { show: showFormatBar, hide: hideFormatBar, position: positionFormatBar };
 
   // --- Initial setup ---
   updateCursor();
@@ -548,8 +604,9 @@ export function initEventHandlers() {
 
 function bakeText() {
   const dom = getDom();
-  const { ghostInput } = dom;
-  const val = ghostInput.value.trim();
+  const { textEditor } = dom;
+  const richContent = extractRichContent();
+  const val = richContent.text.trim();
   if (val && state.activeTextCoord) {
     pushUndo();
     const textEl = {
@@ -557,13 +614,30 @@ function bakeText() {
       elementType: "text",
       type: "text",
       text: val,
-      color: ghostInput.style.color || state.textDrawColor,
+      color: textEditor.style.color || state.textDrawColor,
       fontSize: state.currentFontSize,
       fontFamily: state.currentFontFamily,
       start: { x: state.activeTextCoord.x, y: state.activeTextCoord.y },
     };
-    if (ghostInput.dataset.bgColor) {
-      textEl.bgColor = ghostInput.dataset.bgColor;
+    // Store rich segments if any formatting exists
+    if (richContent.segments && richContent.segments.some((s) => s.bold || s.italic)) {
+      // Adjust segments for any leading lines removed by trim
+      const leadingNewlines = richContent.text.length - richContent.text.trimStart().length;
+      let leadingLinesTrimmed = 0;
+      if (leadingNewlines > 0) {
+        leadingLinesTrimmed = (richContent.text.slice(0, leadingNewlines).match(/\n/g) || []).length;
+      }
+      const trimmedLineCount = val.split("\n").length;
+      const maxLine = trimmedLineCount - 1;
+      const adjusted = richContent.segments
+        .map((s) => ({ ...s, line: s.line - leadingLinesTrimmed }))
+        .filter((s) => s.line >= 0 && s.line <= maxLine);
+      if (adjusted.length > 0) {
+        textEl.segments = adjusted;
+      }
+    }
+    if (textEditor.dataset.bgColor) {
+      textEl.bgColor = textEditor.dataset.bgColor;
     }
     if (state.currentTextAlign && state.currentTextAlign !== "left") {
       textEl.textAlign = state.currentTextAlign;
@@ -571,33 +645,161 @@ function bakeText() {
     state.drawings.push(textEl);
     spatialInsert(textEl);
   }
-  ghostInput.style.display = "none";
-  ghostInput.style.background = "transparent";
-  ghostInput.style.border = "1px dashed #007acc";
-  ghostInput.dataset.bgColor = "";
-  state.activeTextCoord = null;
+  dismissTextEditor();
   render();
 }
 
-function autoResizeGhostInput() {
-  const { ghostInput, ctx } = getDom();
-  ghostInput.style.height = "auto";
-  ghostInput.style.height = ghostInput.scrollHeight + "px";
+function dismissTextEditor() {
+  const { textEditor } = getDom();
+  textEditor.style.display = "none";
+  textEditor.style.background = "transparent";
+  textEditor.style.border = "1px dashed #007acc";
+  textEditor.dataset.bgColor = "";
+  textEditor.textContent = "";
+  state.activeTextCoord = null;
+  if (window._textFormatBar) window._textFormatBar.hide();
+}
 
-  // Auto-resize width based on text content
-  const screenFontSize = parseFloat(ghostInput.style.fontSize) || 48;
+/**
+ * Extract rich text content from the contenteditable editor.
+ * Returns { text: string, segments: Array<{text, bold, italic, line}> }
+ * Each segment represents a styled run within a line.
+ *
+ * Strategy: First get the plain text (using innerText which respects line breaks),
+ * then walk the DOM collecting styled character ranges that map to that text.
+ */
+function extractRichContent() {
+  const { textEditor } = getDom();
+
+  // innerText gives us the user-visible text with \n for line breaks
+  const fullText = textEditor.innerText || "";
+  const lines = fullText.split("\n");
+
+  // Walk the DOM tree, collecting a flat list of {char, bold, italic} entries
+  const chars = [];
+
+  function getStyle(node) {
+    let bold = false, italic = false;
+    let el = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+    while (el && el !== textEditor) {
+      const tag = el.nodeName;
+      if (tag === "B" || tag === "STRONG") bold = true;
+      if (tag === "I" || tag === "EM") italic = true;
+      if (el.style) {
+        if (el.style.fontWeight === "bold" || parseInt(el.style.fontWeight) >= 700) bold = true;
+        if (el.style.fontStyle === "italic") italic = true;
+      }
+      el = el.parentElement;
+    }
+    return { bold, italic };
+  }
+
+  function walk(node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const { bold, italic } = getStyle(node);
+      for (const ch of node.textContent) {
+        chars.push({ ch, bold, italic });
+      }
+    } else if (node.nodeName === "BR") {
+      chars.push({ ch: "\n", bold: false, italic: false });
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      const isBlock = node.nodeName === "DIV" || node.nodeName === "P";
+      // Block elements imply a newline before them (unless at start)
+      if (isBlock && chars.length > 0 && chars[chars.length - 1].ch !== "\n") {
+        chars.push({ ch: "\n", bold: false, italic: false });
+      }
+      node.childNodes.forEach((child) => walk(child));
+    }
+  }
+
+  textEditor.childNodes.forEach((child) => walk(child));
+
+  // Now build segments from the chars array, grouped by line
+  const segments = [];
+  let lineIndex = 0;
+  let currentSeg = null;
+
+  for (const { ch, bold, italic } of chars) {
+    if (ch === "\n") {
+      if (currentSeg) {
+        segments.push(currentSeg);
+        currentSeg = null;
+      }
+      lineIndex++;
+      continue;
+    }
+    if (currentSeg && currentSeg.bold === bold && currentSeg.italic === italic && currentSeg.line === lineIndex) {
+      currentSeg.text += ch;
+    } else {
+      if (currentSeg) segments.push(currentSeg);
+      currentSeg = { text: ch, bold, italic, line: lineIndex };
+    }
+  }
+  if (currentSeg) segments.push(currentSeg);
+
+  // Use innerText as the canonical plain text
+  return { text: fullText, segments };
+}
+
+function getTextEditorContent() {
+  return extractRichContent().text;
+}
+
+function setTextEditorContent(text, segments) {
+  const { textEditor } = getDom();
+  textEditor.textContent = "";
+  if (!text) return;
+
+  if (segments && segments.length > 0) {
+    // Restore rich content from segments
+    let currentLine = 0;
+    segments.forEach((seg) => {
+      while (currentLine < seg.line) {
+        textEditor.appendChild(document.createElement("br"));
+        currentLine++;
+      }
+      if (seg.bold || seg.italic) {
+        const span = document.createElement("span");
+        let fontStyle = "";
+        if (seg.bold) fontStyle += "font-weight:bold;";
+        if (seg.italic) fontStyle += "font-style:italic;";
+        span.style.cssText = fontStyle;
+        span.textContent = seg.text;
+        textEditor.appendChild(span);
+      } else {
+        textEditor.appendChild(document.createTextNode(seg.text));
+      }
+    });
+  } else {
+    // Plain text fallback
+    const lines = text.split("\n");
+    lines.forEach((line, i) => {
+      if (i > 0) textEditor.appendChild(document.createElement("br"));
+      if (line) textEditor.appendChild(document.createTextNode(line));
+    });
+  }
+}
+
+function autoResizeTextEditor() {
+  const { textEditor, ctx } = getDom();
+  const screenFontSize = parseFloat(textEditor.style.fontSize) || 48;
   ctx.save();
-  ctx.font = `${screenFontSize}px ${state.currentFontFamily || "sans-serif"}`;
-  const lines = ghostInput.value.split("\n");
+  ctx.font = `bold ${screenFontSize}px ${state.currentFontFamily || "sans-serif"}`;
+  const text = getTextEditorContent();
+  const lines = text.split("\n");
   let maxWidth = 0;
   lines.forEach((line) => {
-    const w = ctx.measureText(line).width;
+    const w = ctx.measureText(line || " ").width;
     if (w > maxWidth) maxWidth = w;
   });
   ctx.restore();
-  // Add padding for the cursor
+  // Width: fit content + cursor padding
   const minWidth = screenFontSize * 1.5;
-  ghostInput.style.width = Math.max(minWidth, maxWidth + screenFontSize * 0.5) + "px";
+  textEditor.style.width = Math.max(minWidth, maxWidth + screenFontSize * 0.5) + "px";
+  // Height: auto-fit based on line count
+  const lineHeight = screenFontSize * 1.2;
+  const minHeight = lineHeight;
+  textEditor.style.height = Math.max(minHeight, lines.length * lineHeight + 4) + "px";
 }
 
 // HEIF/HEIC file extensions that may not have a recognized MIME type
@@ -672,8 +874,8 @@ function checkAndEraseAtPosition(worldPos) {
 
 function handlePaste(e) {
   const dom = getDom();
-  const { ghostInput } = dom;
-  if (ghostInput.style.display === "block" && document.activeElement === ghostInput) return;
+  const { textEditor } = dom;
+  if (textEditor.style.display === "block" && textEditor.contains(document.activeElement)) return;
 
   const clipboardData = e.clipboardData || e.originalEvent.clipboardData;
   const items = clipboardData.items;
@@ -779,12 +981,12 @@ function handlePaste(e) {
 
 function setupKeyboardHandlers() {
   const dom = getDom();
-  const { container, ghostInput, colorPicker } = dom;
+  const { container, textEditor, colorPicker } = dom;
 
   window.addEventListener("keydown", (e) => {
     if (e.key === "Shift") state.isShiftPressed = true;
     if (e.key === " " || e.code === "Space") {
-      if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA") return;
+      if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA" || e.target.isContentEditable) return;
       e.preventDefault();
       if (!state.isSpacePressed) {
         state.isSpacePressed = true;
@@ -846,7 +1048,7 @@ function setupKeyboardHandlers() {
   }, true);
 
   window.addEventListener("keydown", (e) => {
-    if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA") return;
+    if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA" || e.target.isContentEditable) return;
 
     // Crop mode keyboard shortcuts
     if (state.cropMode) {
@@ -1044,7 +1246,7 @@ function setupKeyboardHandlers() {
 
   // Cmd/Ctrl modifier shortcuts
   window.addEventListener("keydown", (e) => {
-    if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA") return;
+    if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA" || e.target.isContentEditable) return;
     const isMod = e.metaKey || e.ctrlKey;
     if (!isMod) return;
 
@@ -1105,7 +1307,7 @@ function setupKeyboardHandlers() {
 
 function setupMouseHandlers() {
   const dom = getDom();
-  const { container, canvas, ghostInput } = dom;
+  const { container, canvas, textEditor } = dom;
 
   // Global mousemove for swap detection and measure hover
   window.addEventListener("mousemove", (e) => {
@@ -1194,8 +1396,8 @@ function setupMouseHandlers() {
 
   // Container mousedown
   container.addEventListener("mousedown", (e) => {
-    if (ghostInput.style.display === "block") {
-      if (e.target === ghostInput) return;
+    if (textEditor.style.display === "block") {
+      if (textEditor.contains(e.target)) return;
       bakeText();
     }
 
@@ -1246,39 +1448,37 @@ function setupMouseHandlers() {
     if (state.currentTool === "text") {
       state.isInteracting = false;
       state.activeTextCoord = worldPos;
-      ghostInput.value = "";
-      ghostInput.style.display = "block";
-      ghostInput.style.color = state.textDrawColor;
-      ghostInput.dataset.bgColor = "";
+      setTextEditorContent("");
+      textEditor.style.display = "block";
+      textEditor.style.color = state.textDrawColor;
+      textEditor.dataset.bgColor = "";
       const screenPos = worldToScreen(worldPos.x, worldPos.y);
-      ghostInput.style.left = `${screenPos.x}px`;
-      ghostInput.style.top = `${screenPos.y - state.currentFontSize * state.transform.zoom * 0.2}px`;
-      ghostInput.style.fontSize = `${state.currentFontSize * state.transform.zoom}px`;
-      ghostInput.style.fontFamily = state.currentFontFamily;
-      ghostInput.style.lineHeight = "1.2";
-      ghostInput.style.height = "auto";
-      ghostInput.style.background = "transparent";
-      setTimeout(() => { ghostInput.focus(); autoResizeGhostInput(); }, 20);
+      textEditor.style.left = `${screenPos.x}px`;
+      textEditor.style.top = `${screenPos.y - state.currentFontSize * state.transform.zoom * 0.2}px`;
+      textEditor.style.fontSize = `${state.currentFontSize * state.transform.zoom}px`;
+      textEditor.style.fontFamily = state.currentFontFamily;
+      textEditor.style.lineHeight = "1.2";
+      textEditor.style.background = "transparent";
+      setTimeout(() => { textEditor.focus(); autoResizeTextEditor(); if (window._textFormatBar) { window._textFormatBar.show(); } }, 20);
       return;
     }
 
     if (state.currentTool === "text-element") {
       state.isInteracting = false;
       state.activeTextCoord = worldPos;
-      ghostInput.value = "";
-      ghostInput.style.display = "block";
-      ghostInput.style.color = "#333333";
-      ghostInput.dataset.bgColor = "#f5e642";
+      setTextEditorContent("");
+      textEditor.style.display = "block";
+      textEditor.style.color = "#333333";
+      textEditor.dataset.bgColor = "#f5e642";
       const screenPos = worldToScreen(worldPos.x, worldPos.y);
-      ghostInput.style.left = `${screenPos.x}px`;
-      ghostInput.style.top = `${screenPos.y - state.currentFontSize * state.transform.zoom * 0.2}px`;
-      ghostInput.style.fontSize = `${state.currentFontSize * state.transform.zoom}px`;
-      ghostInput.style.fontFamily = state.currentFontFamily;
-      ghostInput.style.lineHeight = "1.2";
-      ghostInput.style.height = "auto";
-      ghostInput.style.background = "#f5e642";
-      ghostInput.style.border = "1px dashed #c4b800";
-      setTimeout(() => { ghostInput.focus(); autoResizeGhostInput(); }, 20);
+      textEditor.style.left = `${screenPos.x}px`;
+      textEditor.style.top = `${screenPos.y - state.currentFontSize * state.transform.zoom * 0.2}px`;
+      textEditor.style.fontSize = `${state.currentFontSize * state.transform.zoom}px`;
+      textEditor.style.fontFamily = state.currentFontFamily;
+      textEditor.style.lineHeight = "1.2";
+      textEditor.style.background = "#f5e642";
+      textEditor.style.border = "1px dashed #c4b800";
+      setTimeout(() => { textEditor.focus(); autoResizeTextEditor(); if (window._textFormatBar) { window._textFormatBar.show(); } }, 20);
       return;
     }
 
@@ -2100,24 +2300,24 @@ function setupMouseHandlers() {
       const editingText = shape;
       state.activeTextCoord = { x: editingText.start.x, y: editingText.start.y };
       state.currentFontSize = editingText.fontSize;
-      ghostInput.value = editingText.text;
-      ghostInput.style.display = "block";
-      ghostInput.style.color = editingText.color;
+      setTextEditorContent(editingText.text, editingText.segments);
+      textEditor.style.display = "block";
+      textEditor.style.color = editingText.color;
       if (editingText.bgColor) {
-        ghostInput.dataset.bgColor = editingText.bgColor;
-        ghostInput.style.background = editingText.bgColor;
-        ghostInput.style.border = "1px dashed #c4b800";
+        textEditor.dataset.bgColor = editingText.bgColor;
+        textEditor.style.background = editingText.bgColor;
+        textEditor.style.border = "1px dashed #c4b800";
       } else {
-        ghostInput.dataset.bgColor = "";
-        ghostInput.style.background = "transparent";
-        ghostInput.style.border = "1px dashed #007acc";
+        textEditor.dataset.bgColor = "";
+        textEditor.style.background = "transparent";
+        textEditor.style.border = "1px dashed #007acc";
       }
       const screenPos = worldToScreen(state.activeTextCoord.x, state.activeTextCoord.y);
-      ghostInput.style.left = `${screenPos.x}px`;
-      ghostInput.style.top = `${screenPos.y - state.currentFontSize * state.transform.zoom * 0.2}px`;
-      ghostInput.style.fontSize = `${state.currentFontSize * state.transform.zoom}px`;
-      ghostInput.style.lineHeight = "1.2";
-      ghostInput.style.height = "auto";
+      textEditor.style.left = `${screenPos.x}px`;
+      textEditor.style.top = `${screenPos.y - state.currentFontSize * state.transform.zoom * 0.2}px`;
+      textEditor.style.fontSize = `${state.currentFontSize * state.transform.zoom}px`;
+      textEditor.style.fontFamily = editingText.fontFamily || state.currentFontFamily;
+      textEditor.style.lineHeight = "1.2";
 
       // Remove the original text element so it can be re-baked
       pushUndo();
@@ -2125,7 +2325,17 @@ function setupMouseHandlers() {
       state.drawings.splice(i, 1);
       state.selectedElements = [];
 
-      setTimeout(() => { ghostInput.focus(); ghostInput.select(); autoResizeGhostInput(); }, 20);
+      setTimeout(() => {
+        textEditor.focus();
+        // Select all text for easy replacement
+        const range = document.createRange();
+        range.selectNodeContents(textEditor);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        autoResizeTextEditor();
+        if (window._textFormatBar) { window._textFormatBar.show(); }
+      }, 20);
       render();
       break;
     }

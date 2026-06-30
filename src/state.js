@@ -219,7 +219,7 @@ export function getDom() {
       container: document.getElementById("canvas-container"),
       canvas: document.getElementById("canvas"),
       ctx: document.getElementById("canvas").getContext("2d"),
-      ghostInput: document.getElementById("text-ghost-input"),
+      textEditor: document.getElementById("text-editor-overlay"),
       fontSizeSelect: document.getElementById("font-size-select"),
       fontFamilySelect: document.getElementById("font-family-select"),
       zoomSlider: document.getElementById("zoom-slider"),

@@ -367,8 +367,8 @@ input[type="color"]::-webkit-color-swatch {
   letter-spacing: 0.5px;
 }
 
-/* Invisible Input element for text tools */
-#text-ghost-input {
+/* Contenteditable text editor overlay */
+#text-editor-overlay {
   position: absolute;
   background: transparent;
   border: 1px dashed #007acc;
@@ -378,11 +378,61 @@ input[type="color"]::-webkit-color-swatch {
   display: none;
   z-index: 100;
   padding: 2px;
-  resize: none;
   overflow: hidden;
   line-height: 1.2;
-  white-space: pre;
+  white-space: pre-wrap;
+  word-break: break-word;
   min-width: 2ch;
+  cursor: text;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+#text-editor-overlay:empty::before {
+  content: attr(data-placeholder);
+  color: rgba(255, 255, 255, 0.35);
+  pointer-events: none;
+}
+
+/* Text formatting toolbar */
+#text-format-bar {
+  display: none;
+  position: absolute;
+  z-index: 101;
+  background: rgba(30, 30, 30, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid #555;
+  border-radius: 4px;
+  padding: 2px 4px;
+  gap: 2px;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.text-format-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #ccc;
+  width: 26px;
+  height: 26px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.1s;
+}
+
+.text-format-btn:hover {
+  background: #444;
+  color: #fff;
+}
+
+.text-format-btn.active {
+  background: #007acc;
+  color: #fff;
+  border-color: #007acc;
 }
 
 /* Dynamic temporary toast notifications */

@@ -68,10 +68,22 @@ export function getShapeBounds(shape) {
         shape.h = lineHeight * (wrappedLineCount - 1) + shape.fontSize;
       } else {
         let maxWidth = 0;
-        rawLines.forEach((line) => {
-          const metrics = ctx.measureText(line);
-          if (metrics.width > maxWidth) maxWidth = metrics.width;
-        });
+        if (shape.segments && shape.segments.length > 0) {
+          // Measure per-line using segment fonts for accurate bold widths
+          const lineWidths = [];
+          shape.segments.forEach((seg) => {
+            while (lineWidths.length <= seg.line) lineWidths.push(0);
+            const prefix = (seg.bold ? "bold " : "") + (seg.italic ? "italic " : "");
+            ctx.font = `${prefix}${shape.fontSize}px ${shape.fontFamily || "sans-serif"}`;
+            lineWidths[seg.line] += ctx.measureText(seg.text).width;
+          });
+          lineWidths.forEach((w) => { if (w > maxWidth) maxWidth = w; });
+        } else {
+          rawLines.forEach((line) => {
+            const metrics = ctx.measureText(line);
+            if (metrics.width > maxWidth) maxWidth = metrics.width;
+          });
+        }
         shape.w = maxWidth;
         shape.h = lineHeight * (rawLines.length - 1) + shape.fontSize;
       }
@@ -287,6 +299,7 @@ export function cloneElement(el) {
     if (el.bgColor) clone.bgColor = el.bgColor;
     if (el.textAlign) clone.textAlign = el.textAlign;
     if (el.textWidth) clone.textWidth = el.textWidth;
+    if (el.segments) clone.segments = el.segments.map((s) => ({ ...s }));
   } else {
     clone.start = { x: el.start.x, y: el.start.y };
     if (el.end) clone.end = { x: el.end.x, y: el.end.y };
@@ -328,6 +341,7 @@ export function serializeElement(el) {
     if (el.bgColor) clone.bgColor = el.bgColor;
     if (el.textAlign) clone.textAlign = el.textAlign;
     if (el.textWidth) clone.textWidth = el.textWidth;
+    if (el.segments) clone.segments = el.segments.map((s) => ({ ...s }));
   } else {
     clone.start = { x: el.start.x, y: el.start.y };
     if (el.end) clone.end = { x: el.end.x, y: el.end.y };

@@ -643,7 +643,11 @@
     </div>
 
     <div id="toast">Canvas copied to clipboard as PNG!</div>
-    <textarea id="text-ghost-input" rows="1"></textarea>
+    <div id="text-editor-overlay" contenteditable="true"></div>
+    <div id="text-format-bar">
+      <button class="text-format-btn" id="fmt-bold" title="Bold (Cmd+B)"><b>B</b></button>
+      <button class="text-format-btn" id="fmt-italic" title="Italic (Cmd+I)"><i>I</i></button>
+    </div>
 
     <div id="ruler-corner"></div>
     <canvas id="ruler-top" class="ruler"></canvas>
