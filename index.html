@@ -246,31 +246,6 @@
 
       <div class="separator"></div>
 
-      <select id="font-family-select" title="Font Family">
-        <option value="sans-serif">Sans-serif</option>
-        <option value="serif">Serif</option>
-        <option value="monospace">Monospace</option>
-        <option value="Georgia">Georgia</option>
-        <option value="Courier New">Courier New</option>
-        <option value="Helvetica">Helvetica</option>
-        <option value="Times New Roman">Times New Roman</option>
-        <option value="Verdana">Verdana</option>
-        <option value="cursive">Cursive</option>
-        <option value="'B612 Mono', 'B612 Mono Regular'">B612 Mono</option>
-        <option value="Crimson Pro">Crimson Pro</option>
-        <option value="DM Mono">DM Mono</option>
-        <option value="Fantasque Sans Mono">Fantasque Sans Mono</option>
-        <option value="Fira Code">Fira Code</option>
-        <option value="Fira Mono">Fira Mono</option>
-        <option value="Fira Sans">Fira Sans</option>
-        <option value="JetBrainsMono-Regular, 'JetBrains Mono Regular'">JetBrains Mono</option>
-        <option value="Roboto Flex">Roboto Flex</option>
-        <option value="Roboto Mono">Roboto Mono</option>
-        <option value="Roboto Serif">Roboto Serif</option>
-        <option value="Roboto Slab">Roboto Slab</option>
-        <option value="Signika Negative">Signika Negative</option>
-      </select>
-
       <div class="control-group">
         <button class="font-size-btn" id="font-size-minus" title="Decrease font size by 16px" style="width:24px;height:24px;padding:2px;background:transparent;border:1px solid transparent;color:#ccc;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;">
           <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><rect x="5" y="11" width="14" height="2" rx="1"/></svg>
@@ -317,9 +292,39 @@
     </div>
 
     <div class="toolbar-menu" id="toolbar-menu">
+      <div class="menu-item menu-item-select">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-typography"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M4 20l3 0" /><path d="M14 20l7 0" /><path d="M6.9 15l6.9 0" /><path d="M10.2 6.3l5.8 13.7" /><path d="M5 20l6 -16l2 0l7 16" /></svg>
+        <select id="font-family-select" class="menu-select" title="Font Family">
+          <option value="sans-serif">Sans-serif</option>
+          <option value="serif">Serif</option>
+          <option value="monospace">Monospace</option>
+          <option value="Georgia">Georgia</option>
+          <option value="Courier New">Courier New</option>
+          <option value="Helvetica">Helvetica</option>
+          <option value="Times New Roman">Times New Roman</option>
+          <option value="Verdana">Verdana</option>
+          <option value="cursive">Cursive</option>
+          <option value="'B612 Mono', 'B612 Mono Regular'">B612 Mono</option>
+          <option value="Crimson Pro">Crimson Pro</option>
+          <option value="DM Mono">DM Mono</option>
+          <option value="Fantasque Sans Mono">Fantasque Sans Mono</option>
+          <option value="Fira Code">Fira Code</option>
+          <option value="Fira Mono">Fira Mono</option>
+          <option value="Fira Sans">Fira Sans</option>
+          <option value="JetBrainsMono-Regular, 'JetBrains Mono Regular'">JetBrains Mono</option>
+          <option value="Roboto Flex">Roboto Flex</option>
+          <option value="Roboto Mono">Roboto Mono</option>
+          <option value="Roboto Serif">Roboto Serif</option>
+          <option value="Roboto Slab">Roboto Slab</option>
+          <option value="Signika Negative">Signika Negative</option>
+        </select>
+      </div>
+
+      <div class="menu-separator"></div>
+
       <div class="menu-item menu-item-select" title="Color Vision Filter">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-glasses-icon lucide-glasses"><circle cx="6" cy="15" r="4"/><circle cx="18" cy="15" r="4"/><path d="M14 15a2 2 0 0 0-2-2 2 2 0 0 0-2 2"/><path d="M2.5 13 5 7c.7-1.3 1.4-2 3-2"/><path d="M21.5 13 19 7c-.7-1.3-1.5-2-3-2"/></svg>
-        <select id="filter-select">
+        <select id="filter-select" class="menu-select">
           <option value="none">No filter</option>
           <option value="grayscale">Grayscale</option>
           <option value="protanopia">Protanopia</option>
