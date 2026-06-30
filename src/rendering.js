@@ -151,7 +151,7 @@ export function drawMeasureLine(targetCtx, start, end, color, isExporting) {
 export function drawShape(targetCtx, shape, isExporting) {
   let calculatedWidth = shape.width;
   if (shape.type !== "text") {
-    calculatedWidth = isExporting ? 8 : CONSTANTS.CONSTANT_LINE_WIDTH / state.transform.zoom;
+    calculatedWidth = isExporting ? shape.width * 2 : shape.width / state.transform.zoom;
   }
 
   targetCtx.save();

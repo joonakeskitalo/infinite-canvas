@@ -128,6 +128,32 @@ input[type="color"]::-webkit-color-swatch {
   border-color: #0098ff;
 }
 
+.line-width-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #ccc;
+  padding: 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+}
+
+.line-width-btn:hover {
+  background: #333;
+  color: #fff;
+}
+
+.line-width-btn.active {
+  background: #007acc;
+  color: #fff;
+  border-color: #0098ff;
+}
+
 #toggle-rulers-btn.active {
   color: #4fc3f7;
 }

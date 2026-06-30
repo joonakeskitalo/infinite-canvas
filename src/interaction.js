@@ -125,6 +125,27 @@ export function initEventHandlers() {
     scheduleSave();
   });
 
+  // --- Line width buttons ---
+  const lineWidthBtns = document.querySelectorAll(".line-width-btn");
+  lineWidthBtns.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const newWidth = parseInt(btn.dataset.width, 10);
+      state.currentLineWidth = newWidth;
+      lineWidthBtns.forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      if (state.selectedElements.length > 0) {
+        let changed = false;
+        state.selectedElements.forEach((el) => {
+          if (el.elementType === "drawing" && el.type !== "text") {
+            el.width = newWidth;
+            changed = true;
+          }
+        });
+        if (changed) render();
+      }
+    });
+  });
+
   // --- Filter select ---
   filterSelect.addEventListener("change", (e) => {
     state.currentFilter = e.target.value;
@@ -1736,7 +1757,7 @@ function setupMouseHandlers() {
         elementType: "drawing",
         type: "connector",
         color: state.drawColor,
-        width: CONSTANTS.CONSTANT_LINE_WIDTH,
+        width: state.currentLineWidth,
         start: startPos,
         end: { ...startPos },
         startConn,
@@ -1752,7 +1773,7 @@ function setupMouseHandlers() {
         elementType: "drawing",
         type: "pen",
         color: state.drawColor,
-        width: CONSTANTS.CONSTANT_LINE_WIDTH,
+        width: state.currentLineWidth,
         points: [worldPos],
       };
     } else {
@@ -1761,7 +1782,7 @@ function setupMouseHandlers() {
         elementType: "drawing",
         type: state.currentTool,
         color: state.drawColor,
-        width: CONSTANTS.CONSTANT_LINE_WIDTH,
+        width: state.currentLineWidth,
         start: worldPos,
         end: worldPos,
       };

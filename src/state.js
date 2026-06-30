@@ -32,6 +32,7 @@ export const state = {
   currentFontSize: 48,
   currentFontFamily: "sans-serif",
   currentTextAlign: "left",
+  currentLineWidth: 4,
 
   // Interaction state
   isInteracting: false,

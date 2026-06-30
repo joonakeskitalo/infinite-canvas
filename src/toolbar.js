@@ -64,6 +64,7 @@ export function toggleAlignmentPanelVisibility() {
   syncFontSizeFromSelection();
   syncFontFamilyFromSelection();
   syncOpacityFromSelection();
+  syncLineWidthFromSelection();
   updateGroupButtons();
 }
 
@@ -123,6 +124,18 @@ export function syncOpacityFromSelection() {
   const val = Math.round(opacity * 100);
   dom.opacitySlider.value = val;
   dom.opacityValDisplay.textContent = val + "%";
+}
+
+export function syncLineWidthFromSelection() {
+  if (state.selectedElements.length === 1 && state.selectedElements[0].elementType === "drawing" && state.selectedElements[0].type !== "text") {
+    const width = state.selectedElements[0].width;
+    state.currentLineWidth = width;
+    const btns = document.querySelectorAll(".line-width-btn");
+    btns.forEach((b) => {
+      if (parseInt(b.dataset.width, 10) === width) b.classList.add("active");
+      else b.classList.remove("active");
+    });
+  }
 }
 
 export function updateSpacingInputs() {
