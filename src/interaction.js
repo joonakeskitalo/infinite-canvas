@@ -204,6 +204,7 @@ export function initEventHandlers() {
     if (state.currentFilter !== "none") {
       showToast(`Filter: ${e.target.options[e.target.selectedIndex].text}`);
     }
+    filterSelect.blur();
   });
 
   // --- Font size ---
