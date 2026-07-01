@@ -1465,6 +1465,32 @@ function setupKeyboardHandlers() {
       return;
     }
 
+    // Shift+1/2/3 set drawing line thickness
+    if (e.shiftKey && (e.code === "Digit1" || e.code === "Digit2" || e.code === "Digit3")) {
+      e.preventDefault();
+      const widthMap = { "Digit1": 2, "Digit2": 4, "Digit3": 10 };
+      const newWidth = widthMap[e.code];
+      state.currentLineWidth = newWidth;
+      const lineWidthBtns = document.querySelectorAll(".line-width-btn");
+      lineWidthBtns.forEach((b) => {
+        if (parseInt(b.dataset.width, 10) === newWidth) b.classList.add("active");
+        else b.classList.remove("active");
+      });
+      // Apply to selected drawing elements if any
+      if (state.selectedElements.length > 0) {
+        let changed = false;
+        state.selectedElements.forEach((el) => {
+          if (el.elementType === "drawing" && el.type !== "text") {
+            el.width = newWidth;
+            changed = true;
+          }
+        });
+        if (changed) render();
+      }
+      showToast(`Line width: ${newWidth}px`);
+      return;
+    }
+
     // Number keys 0-9 set opacity
     if (key >= "0" && key <= "9" && state.currentTool === "select" && state.selectedElements.length > 0) {
       const opacity = key === "0" ? 1 : parseInt(key) / 10;
