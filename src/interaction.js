@@ -2745,15 +2745,6 @@ function setupMouseHandlers() {
       }
     }
 
-    // Check if double-clicking on an image to enter crop mode
-    for (let i = state.images.length - 1; i >= 0; i--) {
-      const img = state.images[i];
-      if (worldPos.x >= img.x && worldPos.x <= img.x + img.w && worldPos.y >= img.y && worldPos.y <= img.y + img.h) {
-        enterCropMode(img);
-        return;
-      }
-    }
-
     // Check if double-clicking on a measurement line to input length
     for (let i = state.drawings.length - 1; i >= 0; i--) {
       const shape = state.drawings[i];
@@ -2776,6 +2767,15 @@ function setupMouseHandlers() {
       render();
       scheduleSave();
       return;
+    }
+
+    // Check if double-clicking on an image to enter crop mode
+    for (let i = state.images.length - 1; i >= 0; i--) {
+      const img = state.images[i];
+      if (worldPos.x >= img.x && worldPos.x <= img.x + img.w && worldPos.y >= img.y && worldPos.y <= img.y + img.h) {
+        enterCropMode(img);
+        return;
+      }
     }
 
     // Check if double-clicking on a text element to edit it
