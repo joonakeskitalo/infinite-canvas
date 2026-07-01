@@ -1248,8 +1248,65 @@ function setupKeyboardHandlers() {
 
     const key = e.key.toLowerCase();
 
-    if (e.key === "+" || e.key === "=") { e.preventDefault(); applyZoom(state.transform.zoom * 1.1, state.lastMousePos.x, state.lastMousePos.y); return; }
-    if (e.key === "-" || e.key === "_") { e.preventDefault(); applyZoom(state.transform.zoom / 1.1, state.lastMousePos.x, state.lastMousePos.y); return; }
+    // Shift+Plus / Shift+Minus adjust font size; plain +/- adjust zoom
+    // When shift is held, match the physical key codes for +/- across layouts
+    // US: Equal(+/=), Minus(-/_)  Nordic: Minus(+), Slash(-)  Also support numpad
+    const isPlusMinusCode = e.code === "Equal" || e.code === "Minus" || e.code === "Slash" ||
+      e.code === "NumpadAdd" || e.code === "NumpadSubtract" || e.code === "BracketRight";
+    const isPlusMinusKey = e.key === "+" || e.key === "-" || e.key === "=" || e.key === "_";
+    if (e.shiftKey && (isPlusMinusKey || isPlusMinusCode)) {
+      // Determine direction: check unshifted key identity via code
+      // NumpadAdd / Equal (US +) / BracketRight → increase
+      // NumpadSubtract / Minus (but on Nordic this is +!) / Slash (Nordic -) → context-dependent
+      // Safest: if the key WITHOUT shift would produce + or =, increase; if - or _, decrease
+      // Since shift is held and may change e.key, we rely on code:
+      // Codes that are "plus" keys: Equal (US), Minus (Nordic +), BracketRight (alt Nordic +), NumpadAdd
+      // Codes that are "minus" keys: Minus (US), Slash (Nordic -), NumpadSubtract
+      // Problem: "Minus" code is + on Nordic but - on US. We need to disambiguate.
+      // Solution: check e.key first (if it's recognizable), fall back to code-based heuristic
+      let isIncrease;
+      if (e.key === "+" || e.key === "=") {
+        isIncrease = true;
+      } else if (e.key === "-" || e.key === "_") {
+        isIncrease = false;
+      } else {
+        // Shift changed e.key to something unrecognizable; use code heuristic
+        // On Nordic: the + physical key has code "Minus", shifted produces "?"
+        // On Nordic: the - physical key has code "Slash", shifted produces "_"
+        isIncrease = e.code === "Equal" || e.code === "NumpadAdd" || e.code === "Minus" || e.code === "BracketRight";
+      }
+      e.preventDefault();
+      const fontSizeSelect = dom.fontSizeSelect || document.getElementById("font-size-select");
+      const step = 16;
+      const newSize = Math.max(4, state.currentFontSize + (isIncrease ? step : -step));
+      state.currentFontSize = newSize;
+      let option = fontSizeSelect.querySelector(`option[value="${newSize}"]`);
+      if (!option) {
+        option = document.createElement("option");
+        option.value = newSize; option.textContent = newSize + "px";
+        const options = Array.from(fontSizeSelect.options);
+        let inserted = false;
+        for (let i = 0; i < options.length; i++) {
+          if (parseInt(options[i].value) > newSize) { fontSizeSelect.insertBefore(option, options[i]); inserted = true; break; }
+        }
+        if (!inserted) fontSizeSelect.appendChild(option);
+      }
+      fontSizeSelect.value = newSize;
+      if (textEditor.style.display === "block") { textEditor.style.fontSize = `${newSize * state.transform.zoom}px`; }
+      // Apply to selected text elements
+      if (state.selectedElements.length > 0) {
+        state.selectedElements.forEach((el) => {
+          if (el.elementType === "text") {
+            if (el.textWidth) { const scale = newSize / el.fontSize; el.textWidth = el.textWidth * scale; }
+            el.fontSize = newSize; el.w = null; el.h = null;
+          }
+        });
+        render();
+      }
+      showToast(`Font size: ${newSize}px`);
+      return;
+    }
+    if (e.key === "+" || e.key === "=" || e.key === "-" || e.key === "_") { e.preventDefault(); const zoomIn = e.key === "+" || e.key === "="; applyZoom(state.transform.zoom * (zoomIn ? 1.1 : 1/1.1), state.lastMousePos.x, state.lastMousePos.y); return; }
 
     if (e.key === "Delete" || e.key === "Backspace") {
       if (state.currentTool === "select" && state.selectedElements.length > 0) {
