@@ -1002,17 +1002,20 @@ function _doRender(targetCtx, isExporting) {
     targetCtx.strokeStyle = state.drawColor;
     targetCtx.lineWidth = lineWidth;
 
-    if (state.isMetaPressed) {
-      // Draw both vertical and horizontal lines when cmd/ctrl is held
-      const lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
-      const ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
+    if (state.isShiftPressed) {
+      // Draw line in the opposite orientation when shift is held
       targetCtx.beginPath();
-      targetCtx.moveTo(lx, img.y);
-      targetCtx.lineTo(lx, img.y + img.h);
-      targetCtx.stroke();
-      targetCtx.beginPath();
-      targetCtx.moveTo(img.x, ly);
-      targetCtx.lineTo(img.x + img.w, ly);
+      if (state.splitLineOrientation === "vertical") {
+        // Opposite: horizontal
+        const ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
+        targetCtx.moveTo(img.x, ly);
+        targetCtx.lineTo(img.x + img.w, ly);
+      } else {
+        // Opposite: vertical
+        const lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
+        targetCtx.moveTo(lx, img.y);
+        targetCtx.lineTo(lx, img.y + img.h);
+      }
       targetCtx.stroke();
     } else {
       targetCtx.beginPath();
@@ -1032,7 +1035,10 @@ function _doRender(targetCtx, isExporting) {
 
     // Draw small label showing orientation
     const fontSize = Math.max(10, 11 / transform.zoom);
-    const label = state.isShiftPressed ? "V+H" : (state.splitLineOrientation === "vertical" ? "V" : "H");
+    const effectiveOrientation = state.isShiftPressed
+      ? (state.splitLineOrientation === "vertical" ? "horizontal" : "vertical")
+      : state.splitLineOrientation;
+    const label = effectiveOrientation === "vertical" ? "V" : "H";
     targetCtx.font = `bold ${fontSize}px sans-serif`;
     targetCtx.textAlign = "left";
     targetCtx.textBaseline = "top";

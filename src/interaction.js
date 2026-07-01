@@ -1745,66 +1745,36 @@ function setupMouseHandlers() {
       if (state.splitLineHoveredImage && state.splitLineWorldPos) {
         const img = state.splitLineHoveredImage;
         const pos = state.splitLineWorldPos;
-        const drawBoth = e.metaKey || e.ctrlKey;
+        const effectiveOrientation = e.shiftKey
+          ? (state.splitLineOrientation === "vertical" ? "horizontal" : "vertical")
+          : state.splitLineOrientation;
 
         pushUndo();
 
-        if (drawBoth) {
-          // Create both vertical and horizontal lines
+        // Create a single line based on effective orientation
+        let start, end;
+        if (effectiveOrientation === "vertical") {
           const lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
-          const ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
-          const vLine = {
-            id: "draw_" + state.elementIdCounter++,
-            elementType: "drawing",
-            type: "line",
-            isSplitLine: true,
-            color: state.drawColor,
-            width: state.currentLineWidth / 4,
-            opacity: 0.7,
-            start: { x: lx, y: img.y },
-            end: { x: lx, y: img.y + img.h },
-          };
-          const hLine = {
-            id: "draw_" + state.elementIdCounter++,
-            elementType: "drawing",
-            type: "line",
-            isSplitLine: true,
-            color: state.drawColor,
-            width: state.currentLineWidth / 4,
-            opacity: 0.7,
-            start: { x: img.x, y: ly },
-            end: { x: img.x + img.w, y: ly },
-          };
-          state.drawings.push(vLine);
-          spatialInsert(vLine);
-          state.drawings.push(hLine);
-          spatialInsert(hLine);
+          start = { x: lx, y: img.y };
+          end = { x: lx, y: img.y + img.h };
         } else {
-          // Create a single line based on current orientation
-          let start, end;
-          if (state.splitLineOrientation === "vertical") {
-            const lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
-            start = { x: lx, y: img.y };
-            end = { x: lx, y: img.y + img.h };
-          } else {
-            const ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
-            start = { x: img.x, y: ly };
-            end = { x: img.x + img.w, y: ly };
-          }
-          const lineEl = {
-            id: "draw_" + state.elementIdCounter++,
-            elementType: "drawing",
-            type: "line",
-            isSplitLine: true,
-            color: state.drawColor,
-            width: state.currentLineWidth / 4,
-            opacity: 0.7,
-            start,
-            end,
-          };
-          state.drawings.push(lineEl);
-          spatialInsert(lineEl);
+          const ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
+          start = { x: img.x, y: ly };
+          end = { x: img.x + img.w, y: ly };
         }
+        const lineEl = {
+          id: "draw_" + state.elementIdCounter++,
+          elementType: "drawing",
+          type: "line",
+          isSplitLine: true,
+          color: state.drawColor,
+          width: state.currentLineWidth / 4,
+          opacity: 0.7,
+          start,
+          end,
+        };
+        state.drawings.push(lineEl);
+        spatialInsert(lineEl);
 
         scheduleSave();
         render();
