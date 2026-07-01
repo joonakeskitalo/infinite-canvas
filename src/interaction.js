@@ -122,6 +122,13 @@ export function initEventHandlers() {
     }
   });
 
+  colorSwatchBtn.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    colorPopup.classList.remove("open");
+    colorPicker.click();
+  });
+
   document.addEventListener("click", (e) => {
     if (!colorPopup.contains(e.target) && !colorSwatchBtn.contains(e.target)) {
       colorPopup.classList.remove("open");

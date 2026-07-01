@@ -221,6 +221,16 @@ input[type="color"]::-webkit-color-swatch {
   border-radius: 3px;
 }
 
+.hidden-color-input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  padding: 0;
+  border: none;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .color-popup {
   display: none;
   position: fixed;

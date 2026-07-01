@@ -210,10 +210,11 @@
 
       <div class="separator"></div>
 
-      <div class="color-picker-inline" title="Draw Color">
+      <div class="color-picker-inline" title="Draw Color (right-click for picker)">
         <button class="color-swatch-btn" id="color-swatch-btn">
           <div class="color-swatch-inner" id="color-swatch-inner" style="background: #ff4444;"></div>
         </button>
+        <input type="color" id="color-picker" value="#ff4444" class="hidden-color-input" />
         <span id="color-label">Color</span>
       </div>
 
@@ -258,11 +259,6 @@
     </div>
 
     <div class="toolbar-menu" id="toolbar-menu">
-      <div class="menu-item menu-item-color" title="Draw Color">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 0 0 0 20 2 2 0 0 0 2-2v-1a2 2 0 0 1 2-2h1a2 2 0 0 0 2-2 10 10 0 0 0-7-13z"/><circle cx="7.5" cy="11.5" r="1.5"/><circle cx="12" cy="7.5" r="1.5"/><circle cx="16.5" cy="11.5" r="1.5"/></svg>
-        <span>Tool Color</span>
-        <input type="color" id="color-picker" value="#ff4444" class="menu-color-input" />
-      </div>
       <div class="menu-item menu-item-color" title="Background Workspace Color">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 3v18"/></svg>
         <span>Background</span>
