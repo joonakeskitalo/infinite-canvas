@@ -997,8 +997,8 @@ function _doRender(targetCtx, isExporting) {
     targetCtx.strokeRect(img.x, img.y, img.w, img.h);
     targetCtx.setLineDash([]);
 
-    // Draw the split line preview (matches committed line: selected color, 1/4 line width, 70% opacity)
-    targetCtx.globalAlpha = 0.7;
+    // Draw the split line preview (matches committed line: selected color, 1/4 line width, 50% opacity)
+    targetCtx.globalAlpha = 0.5;
     targetCtx.strokeStyle = state.drawColor;
     targetCtx.lineWidth = lineWidth;
 
