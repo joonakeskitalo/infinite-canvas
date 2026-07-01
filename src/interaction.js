@@ -1333,6 +1333,14 @@ function setupKeyboardHandlers() {
     render();
   });
 
+  // Reset modifier state when window regains focus (e.g. after macOS screenshot Cmd+Shift+4
+  // which steals focus without triggering blur, leaving shift/meta stuck)
+  window.addEventListener("focus", () => {
+    state.isShiftPressed = false;
+    state.isMetaPressed = false;
+    state.panLockDirection = null;
+  });
+
   // Intercept Cmd/Ctrl+O
   window.addEventListener("keydown", (e) => {
     const isMod = e.metaKey || e.ctrlKey;
@@ -1753,6 +1761,16 @@ function setupMouseHandlers() {
   window.addEventListener("mousemove", (e) => {
     state.lastMousePos.x = e.clientX;
     state.lastMousePos.y = e.clientY;
+
+    // Sync modifier state from actual event to recover from stuck keys
+    // (e.g. after macOS Cmd+Shift+4 screenshot steals keyup events)
+    if (state.isShiftPressed !== e.shiftKey) {
+      state.isShiftPressed = e.shiftKey;
+      if (!e.shiftKey) state.panLockDirection = null;
+    }
+    if (state.isMetaPressed !== e.metaKey) {
+      state.isMetaPressed = e.metaKey;
+    }
 
     // Handle swap drag in progress
     if (state.isSwapDragging) {
