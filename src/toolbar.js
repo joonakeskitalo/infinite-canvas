@@ -187,7 +187,7 @@ export function updateCursor() {
 }
 
 export function applyZoom(newZoom, centerX, centerY) {
-  if (newZoom < 0.05 || newZoom > 2.0) return;
+  if (newZoom < 0.05 || newZoom > 3.0) return;
   const oldZoom = state.transform.zoom;
   state.transform.x = centerX - (centerX - state.transform.x) * (newZoom / oldZoom);
   state.transform.y = centerY - (centerY - state.transform.y) * (newZoom / oldZoom);
