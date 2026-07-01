@@ -250,6 +250,12 @@ input[type="color"]::-webkit-color-swatch {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
   font-size: 11px;
   color: #aaa;
+  opacity: 0.3;
+  transition: opacity 0.2s;
+}
+
+#zoom-overlay:hover {
+  opacity: 1;
 }
 
 #zoom-overlay input[type="range"] {
