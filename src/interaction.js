@@ -75,6 +75,12 @@ export function initEventHandlers() {
       if (!targetBtn.dataset.tool) return;
       if (textEditor.style.display === "block") bakeText();
       if (state.cropMode) exitCropMode(false);
+      // Toggle split-line orientation when clicking the tool icon while already active
+      if (targetBtn.dataset.tool === "split-line" && state.currentTool === "split-line") {
+        state.splitLineOrientation = state.splitLineOrientation === "vertical" ? "horizontal" : "vertical";
+        render();
+        return;
+      }
       state.currentTool = targetBtn.dataset.tool;
       if (state.currentTool !== "select") state.selectedElements = [];
       if (state.currentTool !== "select") { state.swapHoveredElement = null; state.isSwapDragging = false; state.swapSourceElement = null; state.swapDragWorldPos = null; state.swapTargetElement = null; }
