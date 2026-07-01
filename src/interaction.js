@@ -322,6 +322,74 @@ export function initEventHandlers() {
   opacitySlider.addEventListener("mousedown", (e) => { e.stopPropagation(); opacityUndoPushed = false; });
   opacitySlider.addEventListener("change", () => { opacityUndoPushed = false; });
 
+  // --- Dimension inputs ---
+  const dimW = document.getElementById("dim-w");
+  const dimH = document.getElementById("dim-h");
+  const dimLength = document.getElementById("dim-length");
+
+  function handleDimStep(input, e) {
+    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+      if (e.shiftKey) {
+        e.preventDefault();
+        const step = e.key === "ArrowUp" ? 10 : -10;
+        input.value = Math.max(1, parseInt(input.value || 0) + step);
+        input.dispatchEvent(new Event("change"));
+      }
+    }
+  }
+
+  function applyDimensions() {
+    if (state.selectedElements.length !== 1) return;
+    const el = state.selectedElements[0];
+    if (el.elementType === "image") return; // Images are non-editable
+    const newW = parseFloat(dimW.value);
+    const newH = parseFloat(dimH.value);
+    if (isNaN(newW) || isNaN(newH) || newW <= 0 || newH <= 0) return;
+    const b = getShapeBounds(el);
+    if (Math.round(b.w) === Math.round(newW) && Math.round(b.h) === Math.round(newH)) return;
+    pushUndo();
+    if (el.type === "rect-border" || el.type === "rect-fill") {
+      el.end = { x: el.start.x + newW, y: el.start.y + newH };
+    } else if (el.type === "pen" && el.points && el.points.length > 1) {
+      const scaleX = b.w > 0 ? newW / b.w : 1;
+      const scaleY = b.h > 0 ? newH / b.h : 1;
+      el.points = el.points.map((p) => ({ x: b.x + (p.x - b.x) * scaleX, y: b.y + (p.y - b.y) * scaleY }));
+    }
+    spatialUpdate(el);
+    render();
+    scheduleSave();
+  }
+
+  function applyLength() {
+    if (state.selectedElements.length !== 1) return;
+    const el = state.selectedElements[0];
+    const isLineType = el.type === "line" || el.type === "arrow" || el.type === "measure" || el.type === "connector";
+    if (!isLineType) return;
+    const newLen = parseFloat(dimLength.value);
+    if (isNaN(newLen) || newLen <= 0) return;
+    const dx = el.end.x - el.start.x;
+    const dy = el.end.y - el.start.y;
+    const currentLen = Math.sqrt(dx * dx + dy * dy);
+    if (Math.round(currentLen) === Math.round(newLen)) return;
+    pushUndo();
+    const angle = Math.atan2(dy, dx);
+    el.end = { x: el.start.x + Math.cos(angle) * newLen, y: el.start.y + Math.sin(angle) * newLen };
+    spatialUpdate(el);
+    render();
+    scheduleSave();
+  }
+
+  dimW.addEventListener("change", applyDimensions);
+  dimH.addEventListener("change", applyDimensions);
+  dimW.addEventListener("keydown", (e) => { handleDimStep(dimW, e); if (e.key === "Enter") { applyDimensions(); dimW.blur(); } e.stopPropagation(); });
+  dimH.addEventListener("keydown", (e) => { handleDimStep(dimH, e); if (e.key === "Enter") { applyDimensions(); dimH.blur(); } e.stopPropagation(); });
+  dimW.addEventListener("mousedown", (e) => e.stopPropagation());
+  dimH.addEventListener("mousedown", (e) => e.stopPropagation());
+
+  dimLength.addEventListener("change", applyLength);
+  dimLength.addEventListener("keydown", (e) => { handleDimStep(dimLength, e); if (e.key === "Enter") { applyLength(); dimLength.blur(); } e.stopPropagation(); });
+  dimLength.addEventListener("mousedown", (e) => e.stopPropagation());
+
   // --- Undo/Redo/Group buttons ---
   document.getElementById("undo-btn").addEventListener("click", undo);
   document.getElementById("redo-btn").addEventListener("click", redo);

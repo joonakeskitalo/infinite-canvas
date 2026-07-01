@@ -6,6 +6,7 @@
 
 import { state, CONSTANTS, getDom } from "./state.js";
 import { buildAlignmentUnits } from "./selection.js";
+import { getShapeBounds } from "./elements.js";
 
 export function updateToolbarUI() {
   const buttons = document.querySelectorAll(".tool-btn");
@@ -65,6 +66,7 @@ export function toggleAlignmentPanelVisibility() {
   syncFontFamilyFromSelection();
   syncOpacityFromSelection();
   syncLineWidthFromSelection();
+  syncDimensionsFromSelection();
   updateGroupButtons();
 }
 
@@ -135,6 +137,48 @@ export function syncLineWidthFromSelection() {
       if (parseInt(b.dataset.width, 10) === width) b.classList.add("active");
       else b.classList.remove("active");
     });
+  }
+}
+
+export function syncDimensionsFromSelection() {
+  const dom = getDom();
+  if (state.selectedElements.length !== 1) {
+    dom.dimensionsGroup.style.display = "none";
+    dom.lengthGroup.style.display = "none";
+    return;
+  }
+  const el = state.selectedElements[0];
+  const isLineType = el.type === "line" || el.type === "arrow" || el.type === "measure" || el.type === "connector";
+
+  if (isLineType) {
+    // Show length input for line-type elements
+    dom.dimensionsGroup.style.display = "none";
+    dom.lengthGroup.style.display = "flex";
+    const dx = el.end.x - el.start.x;
+    const dy = el.end.y - el.start.y;
+    const len = Math.round(Math.sqrt(dx * dx + dy * dy));
+    dom.dimLength.value = len;
+  } else {
+    // Show W/H for other elements
+    dom.lengthGroup.style.display = "none";
+    dom.dimensionsGroup.style.display = "flex";
+    let w, h;
+    if (el.elementType === "image") {
+      w = Math.round(el.w);
+      h = Math.round(el.h);
+    } else {
+      const b = getShapeBounds(el);
+      w = Math.round(b.w);
+      h = Math.round(b.h);
+    }
+    dom.dimW.value = w;
+    dom.dimH.value = h;
+    // Images are not editable via dimension inputs
+    const isImage = el.elementType === "image";
+    dom.dimW.disabled = isImage;
+    dom.dimH.disabled = isImage;
+    dom.dimW.style.opacity = isImage ? "0.5" : "1";
+    dom.dimH.style.opacity = isImage ? "0.5" : "1";
   }
 }
 

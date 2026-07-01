@@ -247,6 +247,11 @@ export function getDom() {
       spacingInputX: document.getElementById("spacing-input-x"),
       spacingInputY: document.getElementById("spacing-input-y"),
       textAlignGroup: document.getElementById("text-align-group"),
+      dimensionsGroup: document.getElementById("dimensions-group"),
+      dimW: document.getElementById("dim-w"),
+      dimH: document.getElementById("dim-h"),
+      lengthGroup: document.getElementById("length-group"),
+      dimLength: document.getElementById("dim-length"),
     };
   }
   return _domRefs;

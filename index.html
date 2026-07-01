@@ -612,6 +612,18 @@
         <button class="scale-btn" data-scale="1" title="Scale to original size">1x</button>
         <button class="scale-btn" data-scale="2" title="Scale to 200% of original size">2x</button>
       </div>
+      <div id="dimensions-group" style="display:none;align-items:center;gap:4px;">
+        <div style="width: 1px; height: 18px; background: #444; margin: 0 4px"></div>
+        <span class="align-title">W</span>
+        <input type="number" id="dim-w" min="1" step="1" title="Width (px) — Hold Shift for 10px steps" style="width:52px;background:#2d2d2d;color:#fff;border:1px solid #555;border-radius:4px;padding:2px 4px;font-size:11px;text-align:center;outline:none;" />
+        <span class="align-title">H</span>
+        <input type="number" id="dim-h" min="1" step="1" title="Height (px) — Hold Shift for 10px steps" style="width:52px;background:#2d2d2d;color:#fff;border:1px solid #555;border-radius:4px;padding:2px 4px;font-size:11px;text-align:center;outline:none;" />
+      </div>
+      <div id="length-group" style="display:none;align-items:center;gap:4px;">
+        <div style="width: 1px; height: 18px; background: #444; margin: 0 4px"></div>
+        <span class="align-title">L</span>
+        <input type="number" id="dim-length" min="1" step="1" title="Length (px) — Hold Shift for 10px steps" style="width:60px;background:#2d2d2d;color:#fff;border:1px solid #555;border-radius:4px;padding:2px 4px;font-size:11px;text-align:center;outline:none;" />
+      </div>
       <div id="opacity-group" style="display:none;align-items:center;gap:4px;">
         <div style="width: 1px; height: 18px; background: #444; margin: 0 4px"></div>
         <span class="align-title">Opacity</span>
