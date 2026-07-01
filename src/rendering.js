@@ -130,6 +130,7 @@ export function drawMeasureLine(targetCtx, start, end, color, isExporting) {
   targetCtx.strokeStyle = color || "#00bcd4";
   targetCtx.fillStyle = color || "#00bcd4";
   targetCtx.lineWidth = lineWidth;
+  targetCtx.lineCap = "butt";
   targetCtx.setLineDash([4 / zoomFactor, 3 / zoomFactor]);
 
   targetCtx.beginPath();
@@ -152,14 +153,6 @@ export function drawMeasureLine(targetCtx, start, end, color, isExporting) {
   targetCtx.lineTo(end.x - perpX, end.y - perpY);
   targetCtx.stroke();
 
-  const dotR = 3 / zoomFactor;
-  targetCtx.beginPath();
-  targetCtx.arc(start.x, start.y, dotR, 0, Math.PI * 2);
-  targetCtx.fill();
-  targetCtx.beginPath();
-  targetCtx.arc(end.x, end.y, dotR, 0, Math.PI * 2);
-  targetCtx.fill();
-
   const midX = (start.x + end.x) / 2;
   const midY = (start.y + end.y) / 2;
   const labelText = `${Math.round(dist)}px`;
@@ -177,7 +170,9 @@ export function drawMeasureLine(targetCtx, start, end, color, isExporting) {
   const labelCy = midY - Math.cos(angle) * labelOffset;
 
   targetCtx.fillStyle = "rgba(0, 40, 50, 0.4)";
-  targetCtx.fillRect(labelCx - labelW / 2, labelCy - labelH, labelW, labelH);
+  targetCtx.beginPath();
+  targetCtx.roundRect(labelCx - labelW / 2, labelCy - labelH, labelW, labelH, 3 / zoomFactor);
+  targetCtx.fill();
 
   targetCtx.fillStyle = "rgba(255, 255, 255, 0.75)";
   targetCtx.fillText(labelText, labelCx, labelCy - 2 / zoomFactor);
