@@ -1751,6 +1751,7 @@ function setupMouseHandlers() {
           type: "line",
           color: state.drawColor,
           width: state.currentLineWidth / 4,
+          opacity: 0.7,
           start,
           end,
         };
