@@ -1148,6 +1148,10 @@ function setupKeyboardHandlers() {
   const { container, textEditor, colorPicker } = dom;
 
   window.addEventListener("keydown", (e) => {
+    if (e.key === "Meta" || e.key === "Control") {
+      state.isMetaPressed = true;
+      if (state.currentTool === "split-line") render();
+    }
     if (e.key === "Shift") {
       state.isShiftPressed = true;
       // Toggle split-line orientation when tool is active
@@ -1172,6 +1176,10 @@ function setupKeyboardHandlers() {
   });
 
   window.addEventListener("keyup", (e) => {
+    if (e.key === "Meta" || e.key === "Control") {
+      state.isMetaPressed = false;
+      if (state.currentTool === "split-line") render();
+    }
     if (e.key === "Shift") {
       state.isShiftPressed = false;
       state.panLockDirection = null;
@@ -1198,6 +1206,7 @@ function setupKeyboardHandlers() {
 
   window.addEventListener("blur", () => {
     state.isShiftPressed = false;
+    state.isMetaPressed = false;
     state.isSpacePressed = false;
     state.panLockDirection = null;
     if (state.preSpaceTool !== null) {
@@ -1734,30 +1743,67 @@ function setupMouseHandlers() {
       if (state.splitLineHoveredImage && state.splitLineWorldPos) {
         const img = state.splitLineHoveredImage;
         const pos = state.splitLineWorldPos;
-        let start, end;
-        if (state.splitLineOrientation === "vertical") {
-          const lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
-          start = { x: lx, y: img.y };
-          end = { x: lx, y: img.y + img.h };
-        } else {
-          const ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
-          start = { x: img.x, y: ly };
-          end = { x: img.x + img.w, y: ly };
-        }
+        const drawBoth = e.metaKey || e.ctrlKey;
+
         pushUndo();
-        const lineEl = {
-          id: "draw_" + state.elementIdCounter++,
-          elementType: "drawing",
-          type: "line",
-          isSplitLine: true,
-          color: state.drawColor,
-          width: state.currentLineWidth / 4,
-          opacity: 0.7,
-          start,
-          end,
-        };
-        state.drawings.push(lineEl);
-        spatialInsert(lineEl);
+
+        if (drawBoth) {
+          // Create both vertical and horizontal lines
+          const lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
+          const ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
+          const vLine = {
+            id: "draw_" + state.elementIdCounter++,
+            elementType: "drawing",
+            type: "line",
+            isSplitLine: true,
+            color: state.drawColor,
+            width: state.currentLineWidth / 4,
+            opacity: 0.7,
+            start: { x: lx, y: img.y },
+            end: { x: lx, y: img.y + img.h },
+          };
+          const hLine = {
+            id: "draw_" + state.elementIdCounter++,
+            elementType: "drawing",
+            type: "line",
+            isSplitLine: true,
+            color: state.drawColor,
+            width: state.currentLineWidth / 4,
+            opacity: 0.7,
+            start: { x: img.x, y: ly },
+            end: { x: img.x + img.w, y: ly },
+          };
+          state.drawings.push(vLine);
+          spatialInsert(vLine);
+          state.drawings.push(hLine);
+          spatialInsert(hLine);
+        } else {
+          // Create a single line based on current orientation
+          let start, end;
+          if (state.splitLineOrientation === "vertical") {
+            const lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
+            start = { x: lx, y: img.y };
+            end = { x: lx, y: img.y + img.h };
+          } else {
+            const ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
+            start = { x: img.x, y: ly };
+            end = { x: img.x + img.w, y: ly };
+          }
+          const lineEl = {
+            id: "draw_" + state.elementIdCounter++,
+            elementType: "drawing",
+            type: "line",
+            isSplitLine: true,
+            color: state.drawColor,
+            width: state.currentLineWidth / 4,
+            opacity: 0.7,
+            start,
+            end,
+          };
+          state.drawings.push(lineEl);
+          spatialInsert(lineEl);
+        }
+
         scheduleSave();
         render();
       }

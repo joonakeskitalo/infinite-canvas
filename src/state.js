@@ -43,6 +43,7 @@ export const state = {
   isRightClickHand: false,
   lastMousePos: { x: window.innerWidth / 2, y: window.innerHeight / 2 },
   isShiftPressed: false,
+  isMetaPressed: false,
   isSpacePressed: false,
 
   // Element collections

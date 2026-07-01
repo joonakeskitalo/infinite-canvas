@@ -1001,23 +1001,38 @@ function _doRender(targetCtx, isExporting) {
     targetCtx.globalAlpha = 0.7;
     targetCtx.strokeStyle = state.drawColor;
     targetCtx.lineWidth = lineWidth;
-    targetCtx.beginPath();
-    if (state.splitLineOrientation === "vertical") {
-      // Clamp x to image bounds
+
+    if (state.isMetaPressed) {
+      // Draw both vertical and horizontal lines when cmd/ctrl is held
       const lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
+      const ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
+      targetCtx.beginPath();
       targetCtx.moveTo(lx, img.y);
       targetCtx.lineTo(lx, img.y + img.h);
-    } else {
-      // Clamp y to image bounds
-      const ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
+      targetCtx.stroke();
+      targetCtx.beginPath();
       targetCtx.moveTo(img.x, ly);
       targetCtx.lineTo(img.x + img.w, ly);
+      targetCtx.stroke();
+    } else {
+      targetCtx.beginPath();
+      if (state.splitLineOrientation === "vertical") {
+        // Clamp x to image bounds
+        const lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
+        targetCtx.moveTo(lx, img.y);
+        targetCtx.lineTo(lx, img.y + img.h);
+      } else {
+        // Clamp y to image bounds
+        const ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
+        targetCtx.moveTo(img.x, ly);
+        targetCtx.lineTo(img.x + img.w, ly);
+      }
+      targetCtx.stroke();
     }
-    targetCtx.stroke();
 
     // Draw small label showing orientation
     const fontSize = Math.max(10, 11 / transform.zoom);
-    const label = state.splitLineOrientation === "vertical" ? "V" : "H";
+    const label = state.isMetaPressed ? "V+H" : (state.splitLineOrientation === "vertical" ? "V" : "H");
     targetCtx.font = `bold ${fontSize}px sans-serif`;
     targetCtx.textAlign = "left";
     targetCtx.textBaseline = "top";
