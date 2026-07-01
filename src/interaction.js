@@ -1601,6 +1601,25 @@ function setupKeyboardHandlers() {
       return;
     }
 
+    // X key — toggle tool color between dark and light
+    if (key === "x" && !e.shiftKey) {
+      const currentColor = state.currentTool === "text" ? state.textDrawColor : state.drawColor;
+      const newColor = currentColor === "#1e1e1e" ? "#f0f0f0" : "#1e1e1e";
+      if (state.currentTool === "text") { state.textDrawColor = newColor; }
+      else { state.drawColor = newColor; }
+      colorPicker.value = newColor;
+      const swatchEl = document.getElementById("color-swatch-inner");
+      if (swatchEl) swatchEl.style.background = newColor;
+      if (state.selectedElements.length > 0) {
+        state.selectedElements.forEach((el) => {
+          if (el.elementType === "text" || el.elementType === "drawing") { el.color = newColor; }
+        });
+        render();
+      }
+      showToast(`Color: ${newColor}`);
+      return;
+    }
+
     // I key — EyeDropper
     if (key === "i" && !e.shiftKey) {
       if (window.EyeDropper) {
