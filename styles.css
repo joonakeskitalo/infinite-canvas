@@ -233,8 +233,33 @@ input[type="color"]::-webkit-color-swatch {
   font-size: 11px;
 }
 
+/* Zoom overlay – fixed bottom-right */
+#zoom-overlay {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: rgba(30, 30, 30, 0.9);
+  backdrop-filter: blur(10px);
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 10;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  font-size: 11px;
+  color: #aaa;
+}
+
+#zoom-overlay input[type="range"] {
+  width: 120px;
+  accent-color: #007acc;
+  cursor: pointer;
+}
+
 #zoom-val {
-  min-width: 32px;
+  min-width: 38px;
   text-align: right;
 }
 

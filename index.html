@@ -282,27 +282,6 @@
         </button>
       </div>
 
-      <div class="separator"></div>
-
-      <div class="control-group" title="Zoom Slider">
-        <input
-          type="range"
-          id="zoom-slider"
-          min="10"
-          max="200"
-          value="100"
-          step="10"
-          list="range-snap-points"
-        />
-        <datalist id="range-snap-points">
-          <option value="10"></option>
-          <option value="50"></option>
-          <option value="100"></option>
-          <option value="150"></option>
-          <option value="200"></option>
-        </datalist>
-        <span id="zoom-val">100%</span>
-      </div>
     </div>
 
     <div class="toolbar-menu" id="toolbar-menu">
@@ -418,6 +397,26 @@
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M2 12h4"/><path d="M18 12h4"/></svg>
         <span>Center View</span>
       </button>
+    </div>
+
+    <div id="zoom-overlay" title="Zoom Slider">
+      <input
+        type="range"
+        id="zoom-slider"
+        min="10"
+        max="200"
+        value="100"
+        step="10"
+        list="range-snap-points"
+      />
+      <datalist id="range-snap-points">
+        <option value="10"></option>
+        <option value="50"></option>
+        <option value="100"></option>
+        <option value="150"></option>
+        <option value="200"></option>
+      </datalist>
+      <span id="zoom-val">100%</span>
     </div>
 
     <div id="alignment-panel">
