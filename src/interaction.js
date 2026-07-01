@@ -1612,6 +1612,7 @@ function setupKeyboardHandlers() {
           else { state.drawColor = hex; }
           colorPicker.value = hex;
           applyColorToSelectedElements(hex);
+          document.getElementById("color-swatch-inner").style.background = hex;
           const hexAllCaps = hex.toUpperCase();
           navigator.clipboard.writeText(hexAllCaps).then(() => showToast(`Copied ${hexAllCaps} to clipboard`)).catch(() => showToast(`Picked ${hexAllCaps}`));
         }).catch(() => {}).finally(() => {
