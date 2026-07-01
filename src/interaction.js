@@ -1749,6 +1749,7 @@ function setupMouseHandlers() {
           id: "draw_" + state.elementIdCounter++,
           elementType: "drawing",
           type: "line",
+          isSplitLine: true,
           color: state.drawColor,
           width: state.currentLineWidth / 4,
           opacity: 0.7,
