@@ -1406,6 +1406,7 @@ function setupKeyboardHandlers() {
     if (key === "n") targetTool = "text-element";
     if (key === "e") targetTool = "eraser";
     if (key === "m") targetTool = "measure";
+    if (key === "s") targetTool = "split-line";
 
     if (key === "g" && !e.shiftKey && state.currentTool === "select" && state.selectedElements.length >= 2) {
       const gridBtn = document.querySelector('[data-align="gridLayout"]');
