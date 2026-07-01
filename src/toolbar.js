@@ -149,6 +149,13 @@ export function syncDimensionsFromSelection() {
   }
   const el = state.selectedElements[0];
   const isLineType = el.type === "line" || el.type === "arrow" || el.type === "measure" || el.type === "connector";
+  const isText = el.type === "text" || el.elementType === "text";
+
+  if (isText) {
+    dom.dimensionsGroup.style.display = "none";
+    dom.lengthGroup.style.display = "none";
+    return;
+  }
 
   if (isLineType) {
     // Show length input for line-type elements
