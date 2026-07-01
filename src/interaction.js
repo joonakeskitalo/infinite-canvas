@@ -388,29 +388,15 @@ export function initEventHandlers() {
           let currentY = groupMinY;
           units.forEach((unit, i) => { if (i > 0 && i < units.length - 1) translateUnit(unit, 0, currentY - unit.b.y); currentY += unit.b.h + gap; });
         }
-      } else if (alignType.startsWith("spacing")) {
-        const isX = alignType.includes("X"), isPlus = alignType.includes("Plus");
-        const SPACING_STEP = 50;
-        if (isX) {
-          units.sort((a, b) => a.b.x - b.b.x);
-          let totalGap = 0; for (let i = 1; i < units.length; i++) totalGap += units[i].b.x - (units[i - 1].b.x + units[i - 1].b.w);
-          const newGap = Math.max(0, totalGap / (units.length - 1) + (isPlus ? SPACING_STEP : -SPACING_STEP));
-          let currentX = units[0].b.x;
-          for (let i = 0; i < units.length; i++) { const shiftX = currentX - units[i].b.x; if (shiftX !== 0) translateUnit(units[i], shiftX, 0); currentX += units[i].b.w + newGap; }
-        } else {
-          units.sort((a, b) => a.b.y - b.b.y);
-          let totalGap = 0; for (let i = 1; i < units.length; i++) totalGap += units[i].b.y - (units[i - 1].b.y + units[i - 1].b.h);
-          const newGap = Math.max(0, totalGap / (units.length - 1) + (isPlus ? SPACING_STEP : -SPACING_STEP));
-          let currentY = units[0].b.y;
-          for (let i = 0; i < units.length; i++) { const shiftY = currentY - units[i].b.y; if (shiftY !== 0) translateUnit(units[i], 0, shiftY); currentY += units[i].b.h + newGap; }
-        }
-        showToast(`${isX ? "Horizontal" : "Vertical"} spacing ${isPlus ? "increased" : "decreased"}`);
       } else if (alignType === "gridLayout") { applyGridLayout(units); }
       else if (alignType === "rowLayout") { applyRowLayout(units); }
       else if (alignType === "columnLayout") { applyColumnLayout(units); }
       else if (alignType === "arrangeBySizeRow") { applyArrangeBySizeRow(units); }
       else if (alignType === "arrangeByNameRow") { applyArrangeByNameRow(units); }
       else {
+
+        console.log(`🟣106 🟣 interaction:415 AA`, {  });
+        
         units.forEach((unit) => {
           const b = unit.b;
           let shiftX = 0, shiftY = 0;
