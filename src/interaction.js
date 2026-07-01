@@ -23,7 +23,7 @@ import {
 } from "./connectors.js";
 import { enterCropMode, exitCropMode, getCropEdgeAtPoint, getCropCursor, getFullImageBounds } from "./crop.js";
 import {
-  expandSelectionToGroups, groupSelection, ungroupSelection,
+  expandSelectionToGroups, groupSelection, ungroupSelection, toggleLockSelection,
   copySelectionToClipboard, pasteFromClipboard, pasteFromSerializedClipboard,
   pasteTextToCanvas,
   duplicateSelection, selectAllElements, swapElementPositions,
@@ -319,6 +319,7 @@ export function initEventHandlers() {
   document.getElementById("redo-btn").addEventListener("click", redo);
   document.getElementById("group-btn").addEventListener("click", groupSelection);
   document.getElementById("ungroup-btn").addEventListener("click", ungroupSelection);
+  document.getElementById("lock-btn").addEventListener("click", toggleLockSelection);
   document.getElementById("open-file-btn").addEventListener("click", openFile);
   document.getElementById("save-file-btn").addEventListener("click", saveFile);
 
@@ -1011,6 +1012,7 @@ function checkAndEraseAtPosition(worldPos) {
   let erasedSomething = false;
   const erasedIds = [];
   for (let i = state.drawings.length - 1; i >= 0; i--) {
+    if (state.drawings[i].locked) continue;
     if (isPointHittingShape(worldPos, state.drawings[i])) {
       if (!erasedSomething) pushUndo();
       erasedIds.push(state.drawings[i].id);
@@ -1296,8 +1298,10 @@ function setupKeyboardHandlers() {
 
     if (e.key === "Delete" || e.key === "Backspace") {
       if (state.currentTool === "select" && state.selectedElements.length > 0) {
+        const unlocked = state.selectedElements.filter((el) => !el.locked);
+        if (unlocked.length === 0) { showToast("Cannot delete locked element(s)"); return; }
         pushUndo();
-        const idsToRemove = state.selectedElements.map((el) => el.id);
+        const idsToRemove = unlocked.map((el) => el.id);
         for (const shape of state.drawings) {
           if (shape.type !== "connector") continue;
           if (shape.startConn && idsToRemove.includes(shape.startConn.elementId)) shape.startConn = null;
@@ -1309,8 +1313,8 @@ function setupKeyboardHandlers() {
           const el = spatialIndex.elements.get(id);
           if (el) spatialRemove(el);
         }
-        showToast(`Removed ${state.selectedElements.length} selected asset(s)`);
-        state.selectedElements = [];
+        showToast(`Removed ${unlocked.length} selected asset(s)`);
+        state.selectedElements = state.selectedElements.filter((el) => el.locked);
         toggleAlignmentPanelVisibility();
         render();
       }
@@ -1338,6 +1342,8 @@ function setupKeyboardHandlers() {
     if ((e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowRight") &&
         state.currentTool === "select" && state.selectedElements.length > 0) {
       e.preventDefault();
+      const movable = state.selectedElements.filter((el) => !el.locked);
+      if (movable.length === 0) return;
       const step = e.metaKey || e.ctrlKey ? 100 : e.shiftKey ? 10 : 1;
       let dx = 0, dy = 0;
       if (e.key === "ArrowUp") dy = -step;
@@ -1345,9 +1351,9 @@ function setupKeyboardHandlers() {
       if (e.key === "ArrowLeft") dx = -step;
       if (e.key === "ArrowRight") dx = step;
       pushUndo();
-      state.selectedElements.forEach((el) => translateElement(el, dx, dy));
-      updateConnectorsForElements(state.selectedElements.map((el) => el.id));
-      for (const el of state.selectedElements) spatialUpdate(el);
+      movable.forEach((el) => translateElement(el, dx, dy));
+      updateConnectorsForElements(movable.map((el) => el.id));
+      for (const el of movable) spatialUpdate(el);
       render();
       return;
     }
@@ -1476,6 +1482,7 @@ function setupKeyboardHandlers() {
     if (e.key.toLowerCase() === "y") { e.preventDefault(); redo(); return; }
     if (e.key.toLowerCase() === "g" && !e.shiftKey) { e.preventDefault(); groupSelection(); return; }
     if (e.key.toLowerCase() === "g" && e.shiftKey) { e.preventDefault(); ungroupSelection(); return; }
+    if (e.key.toLowerCase() === "l" && !e.shiftKey) { e.preventDefault(); toggleLockSelection(); return; }
     if (e.key.toLowerCase() === "c") {
       if (state.selectedElements.length > 0) { e.preventDefault(); copySelectionToClipboard(); }
       return;
@@ -1749,6 +1756,7 @@ function setupMouseHandlers() {
       const isModifierActive = e.metaKey || e.shiftKey || e.ctrlKey;
 
       for (let i = state.drawings.length - 1; i >= 0; i--) {
+        if (state.drawings[i].locked) continue;
         if (isPointHittingShape(worldPos, state.drawings[i])) {
           clickedElement = state.drawings[i];
           if (clickedElement.type !== "text") clickedElement.elementType = "drawing";
@@ -1759,6 +1767,7 @@ function setupMouseHandlers() {
       if (!clickedElement) {
         for (let i = state.images.length - 1; i >= 0; i--) {
           const img = state.images[i];
+          if (img.locked) continue;
           if (worldPos.x >= img.x && worldPos.x <= img.x + img.w && worldPos.y >= img.y && worldPos.y <= img.y + img.h) {
             clickedElement = img;
             clickedElement.elementType = "image";
@@ -2499,6 +2508,37 @@ function setupMouseHandlers() {
   container.addEventListener("dblclick", (e) => {
     if (state.currentTool !== "select") return;
     const worldPos = screenToWorld(e.clientX, e.clientY);
+
+    // Double-click on a locked element to unlock it
+    for (let i = state.drawings.length - 1; i >= 0; i--) {
+      if (!state.drawings[i].locked) continue;
+      if (isPointHittingShape(worldPos, state.drawings[i])) {
+        pushUndo();
+        state.drawings[i].locked = false;
+        state.selectedElements = [state.drawings[i]];
+        if (state.drawings[i].type !== "text") state.drawings[i].elementType = "drawing";
+        toggleAlignmentPanelVisibility();
+        render();
+        showToast("Unlocked element");
+        scheduleSave();
+        return;
+      }
+    }
+    for (let i = state.images.length - 1; i >= 0; i--) {
+      const img = state.images[i];
+      if (!img.locked) continue;
+      if (worldPos.x >= img.x && worldPos.x <= img.x + img.w && worldPos.y >= img.y && worldPos.y <= img.y + img.h) {
+        pushUndo();
+        img.locked = false;
+        img.elementType = "image";
+        state.selectedElements = [img];
+        toggleAlignmentPanelVisibility();
+        render();
+        showToast("Unlocked element");
+        scheduleSave();
+        return;
+      }
+    }
 
     // Check if double-clicking on an image to enter crop mode
     for (let i = state.images.length - 1; i >= 0; i--) {

@@ -62,6 +62,25 @@ export function ungroupSelection() {
   showToast("Ungrouped");
 }
 
+export function toggleLockSelection() {
+  if (state.selectedElements.length === 0) return;
+  pushUndo();
+  const anyLocked = state.selectedElements.some((el) => el.locked);
+  if (anyLocked) {
+    // Unlock all
+    state.selectedElements.forEach((el) => { el.locked = false; });
+    showToast(`Unlocked ${state.selectedElements.length} element(s)`);
+  } else {
+    // Lock all
+    state.selectedElements.forEach((el) => { el.locked = true; });
+    showToast(`Locked ${state.selectedElements.length} element(s)`);
+    state.selectedElements = [];
+  }
+  toggleAlignmentPanelVisibility();
+  render();
+  scheduleSave();
+}
+
 export function copySelectionToClipboard() {
   if (state.selectedElements.length === 0) return;
   state.clipboardElements = state.selectedElements.map((el) => cloneElement(el));
@@ -342,8 +361,9 @@ export function duplicateSelection() {
 export function selectAllElements() {
   state.currentTool = "select";
   state.selectedElements = [];
-  state.images.forEach((img) => { img.elementType = "image"; state.selectedElements.push(img); });
+  state.images.forEach((img) => { if (img.locked) return; img.elementType = "image"; state.selectedElements.push(img); });
   state.drawings.forEach((shape) => {
+    if (shape.locked) return;
     if (shape.type !== "text") shape.elementType = "drawing";
     state.selectedElements.push(shape);
   });

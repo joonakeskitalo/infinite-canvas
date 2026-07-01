@@ -59,6 +59,7 @@ async function buildZipBlob() {
       x: el.x, y: el.y, w: el.w, h: el.h,
       groupId: el.groupId || null,
       opacity: el.opacity != null ? el.opacity : 1,
+      locked: el.locked || false,
       crop: el.crop || null,
       fullBounds: el.fullBounds || null,
     });
@@ -180,6 +181,7 @@ async function restoreFromZip(arrayBuf) {
             x: data.x, y: data.y, w: data.w, h: data.h,
             groupId: data.groupId || null,
             opacity: data.opacity != null ? data.opacity : 1,
+            locked: data.locked || false,
           };
           if (data.crop) restored.crop = { ...data.crop };
           if (data.fullBounds) restored.fullBounds = { ...data.fullBounds };

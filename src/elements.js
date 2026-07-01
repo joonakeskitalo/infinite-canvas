@@ -275,6 +275,7 @@ export function cloneElement(el) {
       opacity: el.opacity != null ? el.opacity : 1,
     };
     if (el.groupId) c.groupId = el.groupId;
+    if (el.locked) c.locked = true;
     if (el.crop) c.crop = { ...el.crop };
     if (el.fullBounds) c.fullBounds = { ...el.fullBounds };
     return c;
@@ -288,6 +289,7 @@ export function cloneElement(el) {
     opacity: el.opacity != null ? el.opacity : 1,
   };
   if (el.groupId) clone.groupId = el.groupId;
+  if (el.locked) clone.locked = true;
   if (el.type === "pen") {
     clone.points = el.points.map((p) => ({ x: p.x, y: p.y }));
   } else if (el.type === "text") {
@@ -319,6 +321,7 @@ export function serializeElement(el) {
       x: el.x, y: el.y, w: el.w, h: el.h,
       groupId: el.groupId || null,
       opacity: el.opacity != null ? el.opacity : 1,
+      locked: el.locked || false,
     };
     if (el.crop) serialized.crop = { ...el.crop };
     if (el.fullBounds) serialized.fullBounds = { ...el.fullBounds };
@@ -329,6 +332,7 @@ export function serializeElement(el) {
     type: el.type, color: el.color, width: el.width,
     groupId: el.groupId || null,
     opacity: el.opacity != null ? el.opacity : 1,
+    locked: el.locked || false,
   };
   if (el.type === "pen") {
     clone.points = el.points.map((p) => ({ x: p.x, y: p.y }));

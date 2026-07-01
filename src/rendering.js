@@ -78,6 +78,43 @@ export function getFilteredImage(imgData) {
   return offscreen;
 }
 
+/**
+ * Draw a small lock icon at the top-left corner of an element to indicate it's locked.
+ */
+function drawLockIcon(ctx, x, y, zoom) {
+  const size = 16 / zoom;
+  const padding = 4 / zoom;
+  const ix = x + padding;
+  const iy = y + padding;
+
+  ctx.save();
+  // Background circle
+  ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
+  ctx.beginPath();
+  ctx.arc(ix + size / 2, iy + size / 2, size * 0.65, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Lock body
+  const bw = size * 0.55;
+  const bh = size * 0.4;
+  const bx = ix + (size - bw) / 2;
+  const by = iy + size * 0.48;
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(bx, by, bw, bh);
+
+  // Lock shackle
+  const sw = bw * 0.6;
+  const sh = size * 0.3;
+  const sx = ix + (size - sw) / 2;
+  const sy = by - sh;
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 1.5 / zoom;
+  ctx.beginPath();
+  ctx.arc(sx + sw / 2, sy + sh, sw / 2, Math.PI, 0);
+  ctx.stroke();
+  ctx.restore();
+}
+
 export function drawMeasureLine(targetCtx, start, end, color, isExporting) {
   const dx = end.x - start.x;
   const dy = end.y - start.y;
@@ -513,6 +550,11 @@ function _doRender(targetCtx, isExporting) {
       }
       targetCtx.restore();
     }
+
+    // Draw lock indicator for locked images
+    if (!isExporting && imgData.locked && state.currentTool === "select") {
+      drawLockIcon(targetCtx, imgData.x, imgData.y, transform.zoom);
+    }
   });
 
   // 1.5 Render crop mode overlay
@@ -660,6 +702,12 @@ function _doRender(targetCtx, isExporting) {
         }
         targetCtx.restore();
       }
+    }
+
+    // Draw lock indicator for locked drawings
+    if (!isExporting && shape.locked && state.currentTool === "select") {
+      const lb = shapeBounds || getShapeBounds(shape);
+      drawLockIcon(targetCtx, lb.x, lb.y, transform.zoom);
     }
   });
 
