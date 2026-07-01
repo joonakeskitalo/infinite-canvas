@@ -270,6 +270,9 @@
           <option value="high-contrast">High contrast</option>
           <option value="low-quality-display">Low quality</option>
         </select>
+        <button class="tool-btn" id="filter-preview-btn" title="Filter Preview Mode — view all filters on each image [P]">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="12" cy="12" r="4"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="M12 2v4"/><path d="M12 18v4"/></svg>
+        </button>
       </div>
 
     </div>
@@ -643,6 +646,22 @@
     <div id="canvas-container">
       <canvas id="canvas"></canvas>
     </div>
+
+    <!-- Full-screen filter preview overlay -->
+    <div id="filter-preview-overlay" class="filter-preview-overlay" style="display:none;">
+      <div class="filter-preview-header">
+        <span class="filter-preview-title" id="filter-preview-title">Filter Preview</span>
+        <span class="filter-preview-counter" id="filter-preview-counter">1 / 1</span>
+        <span class="filter-preview-flag-count" id="filter-preview-flag-count"></span>
+        <button class="filter-preview-close" id="filter-preview-close" title="Close (Escape)">&times;</button>
+      </div>
+      <div class="filter-preview-grid" id="filter-preview-grid"></div>
+      <div class="filter-preview-nav">
+        <button class="filter-preview-nav-btn" id="filter-preview-prev" title="Previous image (Left arrow)">&larr;</button>
+        <button class="filter-preview-nav-btn" id="filter-preview-next" title="Next image (Right arrow)">&rarr;</button>
+      </div>
+    </div>
+
     <script type="module" src="./src/main.js"></script>
   </body>
 </html>
