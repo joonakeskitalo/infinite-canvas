@@ -87,6 +87,7 @@ export function exitCropMode(apply) {
   state.cropRect = null;
   state.cropDragEdge = null;
   state.cropDragStart = null;
+  if (_toggleAlignmentPanelVisibility) _toggleAlignmentPanelVisibility();
   if (_render) _render();
 }
 
