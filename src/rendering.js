@@ -1032,7 +1032,7 @@ function _doRender(targetCtx, isExporting) {
 
     // Draw small label showing orientation
     const fontSize = Math.max(10, 11 / transform.zoom);
-    const label = state.isMetaPressed ? "V+H" : (state.splitLineOrientation === "vertical" ? "V" : "H");
+    const label = state.isShiftPressed ? "V+H" : (state.splitLineOrientation === "vertical" ? "V" : "H");
     targetCtx.font = `bold ${fontSize}px sans-serif`;
     targetCtx.textAlign = "left";
     targetCtx.textBaseline = "top";

@@ -1150,15 +1150,10 @@ function setupKeyboardHandlers() {
   window.addEventListener("keydown", (e) => {
     if (e.key === "Meta" || e.key === "Control") {
       state.isMetaPressed = true;
-      if (state.currentTool === "split-line") render();
     }
     if (e.key === "Shift") {
       state.isShiftPressed = true;
-      // Toggle split-line orientation when tool is active
-      if (state.currentTool === "split-line") {
-        state.splitLineOrientation = state.splitLineOrientation === "vertical" ? "horizontal" : "vertical";
-        render();
-      }
+      if (state.currentTool === "split-line") render();
     }
     if (e.key === " " || e.code === "Space") {
       if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA" || e.target.isContentEditable) return;
@@ -1178,10 +1173,10 @@ function setupKeyboardHandlers() {
   window.addEventListener("keyup", (e) => {
     if (e.key === "Meta" || e.key === "Control") {
       state.isMetaPressed = false;
-      if (state.currentTool === "split-line") render();
     }
     if (e.key === "Shift") {
       state.isShiftPressed = false;
+      if (state.currentTool === "split-line") render();
       state.panLockDirection = null;
       if (state.activeSnapGuides.length > 0) {
         state.activeSnapGuides = [];
@@ -1420,7 +1415,14 @@ function setupKeyboardHandlers() {
     if (key === "n") targetTool = "text-element";
     if (key === "e") targetTool = "eraser";
     if (key === "m") targetTool = "measure";
-    if (key === "s") targetTool = "split-line";
+    if (key === "s") {
+      if (state.currentTool === "split-line") {
+        state.splitLineOrientation = state.splitLineOrientation === "vertical" ? "horizontal" : "vertical";
+        render();
+        return;
+      }
+      targetTool = "split-line";
+    }
 
     if (key === "g" && !e.shiftKey && state.currentTool === "select" && state.selectedElements.length >= 2) {
       const gridBtn = document.querySelector('[data-align="gridLayout"]');
