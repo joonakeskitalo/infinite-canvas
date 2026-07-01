@@ -980,6 +980,59 @@ function _doRender(targetCtx, isExporting) {
     targetCtx.restore();
   }
 
+  // 5. Draw split-line tool overlay
+  if (!isExporting && state.currentTool === "split-line" && state.splitLineHoveredImage && state.splitLineWorldPos) {
+    targetCtx.save();
+    targetCtx.translate(transform.x, transform.y);
+    targetCtx.scale(transform.zoom, transform.zoom);
+
+    const img = state.splitLineHoveredImage;
+    const pos = state.splitLineWorldPos;
+    const lineWidth = (state.currentLineWidth / 4) / transform.zoom;
+
+    // Draw a highlight border around the hovered image
+    targetCtx.strokeStyle = "rgba(255, 100, 0, 0.6)";
+    targetCtx.lineWidth = 1.5 / transform.zoom;
+    targetCtx.setLineDash([6 / transform.zoom, 4 / transform.zoom]);
+    targetCtx.strokeRect(img.x, img.y, img.w, img.h);
+    targetCtx.setLineDash([]);
+
+    // Draw the split line preview (matches committed line: selected color, 1/4 line width)
+    targetCtx.strokeStyle = state.drawColor;
+    targetCtx.lineWidth = lineWidth;
+    targetCtx.beginPath();
+    if (state.splitLineOrientation === "vertical") {
+      // Clamp x to image bounds
+      const lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
+      targetCtx.moveTo(lx, img.y);
+      targetCtx.lineTo(lx, img.y + img.h);
+    } else {
+      // Clamp y to image bounds
+      const ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
+      targetCtx.moveTo(img.x, ly);
+      targetCtx.lineTo(img.x + img.w, ly);
+    }
+    targetCtx.stroke();
+
+    // Draw small label showing orientation
+    const fontSize = Math.max(10, 11 / transform.zoom);
+    const label = state.splitLineOrientation === "vertical" ? "V" : "H";
+    targetCtx.font = `bold ${fontSize}px sans-serif`;
+    targetCtx.textAlign = "left";
+    targetCtx.textBaseline = "top";
+    const labelX = img.x + 4 / transform.zoom;
+    const labelY = img.y + 4 / transform.zoom;
+    const metrics = targetCtx.measureText(label);
+    const padX = 3 / transform.zoom;
+    const padY = 2 / transform.zoom;
+    targetCtx.fillStyle = "rgba(0, 0, 0, 0.7)";
+    targetCtx.fillRect(labelX - padX, labelY - padY, metrics.width + padX * 2, fontSize + padY * 2);
+    targetCtx.fillStyle = "#fff";
+    targetCtx.fillText(label, labelX, labelY);
+
+    targetCtx.restore();
+  }
+
   if (!isExporting && textEditor.style.display === "block" && state.activeTextCoord) {
     const screenPos = worldToScreen(state.activeTextCoord.x, state.activeTextCoord.y);
     textEditor.style.left = `${screenPos.x}px`;

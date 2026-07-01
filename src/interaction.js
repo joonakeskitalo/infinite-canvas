@@ -79,6 +79,7 @@ export function initEventHandlers() {
       if (state.currentTool !== "select") state.selectedElements = [];
       if (state.currentTool !== "select") { state.swapHoveredElement = null; state.isSwapDragging = false; state.swapSourceElement = null; state.swapDragWorldPos = null; state.swapTargetElement = null; }
       if (state.currentTool !== "measure") { state.measureHoverGuides = []; state.activeMeasureLine = null; }
+      if (state.currentTool !== "split-line") { state.splitLineHoveredImage = null; state.splitLineWorldPos = null; }
       if (state.currentTool === "text") { colorPicker.value = state.textDrawColor; }
       else { colorPicker.value = state.drawColor; }
       updateToolbarUI();
@@ -1147,7 +1148,14 @@ function setupKeyboardHandlers() {
   const { container, textEditor, colorPicker } = dom;
 
   window.addEventListener("keydown", (e) => {
-    if (e.key === "Shift") state.isShiftPressed = true;
+    if (e.key === "Shift") {
+      state.isShiftPressed = true;
+      // Toggle split-line orientation when tool is active
+      if (state.currentTool === "split-line") {
+        state.splitLineOrientation = state.splitLineOrientation === "vertical" ? "horizontal" : "vertical";
+        render();
+      }
+    }
     if (e.key === " " || e.code === "Space") {
       if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA" || e.target.isContentEditable) return;
       e.preventDefault();
@@ -1559,6 +1567,26 @@ function setupMouseHandlers() {
       render();
     }
 
+    // Split-line tool hover — detect image under cursor
+    if (state.currentTool === "split-line" && !state.isInteracting) {
+      const mouseWorld = screenToWorld(e.clientX, e.clientY);
+      let hoveredImage = null;
+      for (let i = state.images.length - 1; i >= 0; i--) {
+        const img = state.images[i];
+        if (mouseWorld.x >= img.x && mouseWorld.x <= img.x + img.w &&
+            mouseWorld.y >= img.y && mouseWorld.y <= img.y + img.h) {
+          hoveredImage = img;
+          break;
+        }
+      }
+      const changed = hoveredImage !== state.splitLineHoveredImage ||
+        (hoveredImage && (state.splitLineWorldPos === null ||
+          state.splitLineWorldPos.x !== mouseWorld.x || state.splitLineWorldPos.y !== mouseWorld.y));
+      state.splitLineHoveredImage = hoveredImage;
+      state.splitLineWorldPos = hoveredImage ? { x: mouseWorld.x, y: mouseWorld.y } : null;
+      if (changed) render();
+    }
+
     // Resize handle cursor
     if (state.currentTool === "select" && !state.isInteracting && !state.cropMode && state.selectedElements.length === 1) {
       const el = state.selectedElements[0];
@@ -1667,6 +1695,39 @@ function setupMouseHandlers() {
     if (state.currentTool === "measure") {
       state.activeMeasureLine = { start: { ...worldPos }, end: { ...worldPos } };
       state.measureHoverGuides = [];
+      return;
+    }
+
+    if (state.currentTool === "split-line") {
+      if (state.splitLineHoveredImage && state.splitLineWorldPos) {
+        const img = state.splitLineHoveredImage;
+        const pos = state.splitLineWorldPos;
+        let start, end;
+        if (state.splitLineOrientation === "vertical") {
+          const lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
+          start = { x: lx, y: img.y };
+          end = { x: lx, y: img.y + img.h };
+        } else {
+          const ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
+          start = { x: img.x, y: ly };
+          end = { x: img.x + img.w, y: ly };
+        }
+        pushUndo();
+        const lineEl = {
+          id: "draw_" + state.elementIdCounter++,
+          elementType: "drawing",
+          type: "line",
+          color: state.drawColor,
+          width: state.currentLineWidth / 4,
+          start,
+          end,
+        };
+        state.drawings.push(lineEl);
+        spatialInsert(lineEl);
+        scheduleSave();
+        render();
+      }
+      state.isInteracting = false;
       return;
     }
 

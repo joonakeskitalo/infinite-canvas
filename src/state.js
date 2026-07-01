@@ -96,6 +96,11 @@ export const state = {
   activeConnector: null,
   connectorHoverTarget: null,
 
+  // Split-line tool
+  splitLineOrientation: "vertical", // "vertical" or "horizontal"
+  splitLineHoveredImage: null,
+  splitLineWorldPos: null,
+
   // Color filter
   currentFilter: "none",
   filteredImageCache: new WeakMap(),
