@@ -652,6 +652,22 @@ input[type="color"]::-webkit-color-swatch {
   flex: 1;
 }
 
+.menu-item-color {
+  cursor: default;
+}
+
+.menu-color-input {
+  border: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  cursor: pointer;
+  background: transparent;
+  padding: 0;
+  border: 1px solid #555;
+  flex-shrink: 0;
+}
+
 #toolbar-menu-btn.menu-open {
   background: #333;
   color: #fff;
