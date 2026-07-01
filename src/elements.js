@@ -132,7 +132,7 @@ export function isPointHittingShape(p, shape) {
 }
 
 export function getElementResizeHandles(el) {
-  if (el.type === "connector" || el.type === "line" || el.type === "arrow") {
+  if (el.type === "connector" || el.type === "line" || el.type === "arrow" || el.type === "measure") {
     return [
       { x: el.start.x, y: el.start.y, cursor: "move", position: "start" },
       { x: el.end.x, y: el.end.y, cursor: "move", position: "end" },

@@ -2226,7 +2226,7 @@ function setupMouseHandlers() {
         const mouseDx = worldPos.x - sb.startMouse.x;
         const mouseDy = worldPos.y - sb.startMouse.y;
 
-        if ((el.type === "connector" || el.type === "line" || el.type === "arrow") && (hp === "start" || hp === "end")) {
+        if ((el.type === "connector" || el.type === "line" || el.type === "arrow" || el.type === "measure") && (hp === "start" || hp === "end")) {
           let targetPos = { ...worldPos };
           if (e.shiftKey) { const anchor = hp === "start" ? el.end : el.start; targetPos = constraintToAngle(anchor, worldPos); }
           if (hp === "start") {

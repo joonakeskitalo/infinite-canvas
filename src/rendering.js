@@ -672,7 +672,7 @@ function _doRender(targetCtx, isExporting) {
         targetCtx.lineWidth = 1.5 / transform.zoom;
         targetCtx.setLineDash([4 / transform.zoom, 4 / transform.zoom]);
 
-        if (shape.type === "connector" || shape.type === "line" || shape.type === "arrow") {
+        if (shape.type === "connector" || shape.type === "line" || shape.type === "arrow" || shape.type === "measure") {
           // No bounding rect for line-like elements
         } else {
           targetCtx.strokeRect(b.x - 4, b.y - 4, b.w + 8, b.h + 8);
@@ -680,7 +680,7 @@ function _doRender(targetCtx, isExporting) {
 
         if (state.selectedElements.length === 1) {
           const handles = getElementResizeHandles(shape);
-          if (shape.type === "connector" || shape.type === "line" || shape.type === "arrow") {
+          if (shape.type === "connector" || shape.type === "line" || shape.type === "arrow" || shape.type === "measure") {
             const radius = 5 / transform.zoom;
             targetCtx.setLineDash([]);
             targetCtx.fillStyle = "#ffffff";
