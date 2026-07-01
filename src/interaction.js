@@ -1235,6 +1235,11 @@ function setupKeyboardHandlers() {
         state.selectedElements = [];
         toggleAlignmentPanelVisibility();
         render();
+      } else if (state.currentTool !== "select") {
+        state.currentTool = "select";
+        updateToolbarUI();
+        updateCursor();
+        render();
       }
       if (document.activeElement && document.activeElement !== document.body) {
         document.activeElement.blur();
