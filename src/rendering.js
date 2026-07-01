@@ -65,10 +65,19 @@ export function getFilteredImage(imgData) {
 
   const w = imgData.img.naturalWidth || imgData.img.width;
   const h = imgData.img.naturalHeight || imgData.img.height;
-  const offscreen = document.createElement("canvas");
-  offscreen.width = w;
-  offscreen.height = h;
-  const offCtx = offscreen.getContext("2d");
+
+  // Use OffscreenCanvas when available for better performance (no DOM overhead)
+  let offscreen, offCtx;
+  if (typeof OffscreenCanvas !== "undefined") {
+    offscreen = new OffscreenCanvas(w, h);
+    offCtx = offscreen.getContext("2d");
+  } else {
+    offscreen = document.createElement("canvas");
+    offscreen.width = w;
+    offscreen.height = h;
+    offCtx = offscreen.getContext("2d");
+  }
+
   offCtx.drawImage(imgData.img, 0, 0);
   const imageData = offCtx.getImageData(0, 0, w, h);
   applyFilterToImageData(imageData, state.currentFilter);

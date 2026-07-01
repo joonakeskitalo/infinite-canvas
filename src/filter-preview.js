@@ -3,8 +3,11 @@
  * Web Worker pool for off-main-thread pixel processing, plus utilities
  * for applying filters to images and exporting results.
  *
- * This file handles the worker pool and filter application pipeline.
- * Grid/overlay UI is intentionally NOT included here.
+ * Performance optimizations:
+ * - Workers receive/return raw ArrayBuffers via transferable objects (zero-copy)
+ * - No PNG encode/decode round-trip inside workers
+ * - Pixel data extracted once on main thread and shared across filter variants
+ * - Results returned as ImageData ready for direct putImageData or bitmap creation
  */
 
 import { FILTER_OPTIONS, FILTER_LABELS } from "./color-filter.js";
@@ -32,12 +35,16 @@ const initWorkerPool = () => {
     const worker = new Worker(url);
     worker._pending = new Map();
     worker.onmessage = (e) => {
-      const { id, type, blob, error } = e.data;
+      const { id, type, buffer, width, height, error } = e.data;
       const pending = worker._pending.get(id);
       if (!pending) return;
       worker._pending.delete(id);
-      if (type === "result") pending.resolve(blob);
-      else pending.reject(new Error(error));
+      if (type === "result") {
+        const imageData = new ImageData(new Uint8ClampedArray(buffer), width, height);
+        pending.resolve(imageData);
+      } else {
+        pending.reject(new Error(error));
+      }
     };
     worker.onerror = (e) => {
       console.error("[FilterWorker] Error:", e.message);
@@ -63,86 +70,98 @@ export const destroyWorkerPool = () => {
 };
 
 /**
- * Apply a filter to an ImageBitmap via the worker pool.
- * The bitmap is transferred (zero-copy) to the worker and cannot be used after this call.
+ * Extract pixel data from a source into a transferable ArrayBuffer.
+ * Uses OffscreenCanvas when available for better performance.
  *
- * @param {ImageBitmap} imageBitmap - Source image (will be closed by the worker)
- * @param {string} filter - Filter name from FILTER_OPTIONS
- * @returns {Promise<Blob>} PNG blob of the filtered image
+ * @param {HTMLImageElement|HTMLCanvasElement|ImageBitmap} source
+ * @returns {{buffer: ArrayBuffer, width: number, height: number}}
  */
-export const applyFilterViaWorker = (imageBitmap, filter) => {
+const extractPixelData = (source) => {
+  const w = source.naturalWidth || source.width;
+  const h = source.naturalHeight || source.height;
+
+  let ctx;
+  if (typeof OffscreenCanvas !== "undefined") {
+    const offscreen = new OffscreenCanvas(w, h);
+    ctx = offscreen.getContext("2d");
+  } else {
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    ctx = canvas.getContext("2d");
+  }
+
+  ctx.drawImage(source, 0, 0);
+  const imageData = ctx.getImageData(0, 0, w, h);
+  return { buffer: imageData.data.buffer, width: w, height: h };
+};
+
+/**
+ * Apply a filter via the worker pool using transferable ArrayBuffer.
+ * The buffer is transferred (zero-copy) to the worker.
+ *
+ * @param {ArrayBuffer} buffer - Raw RGBA pixel data (will be neutered after transfer)
+ * @param {number} width
+ * @param {number} height
+ * @param {string} filter - Filter name from FILTER_OPTIONS
+ * @returns {Promise<ImageData>} Filtered ImageData
+ */
+export const applyFilterViaWorker = (buffer, width, height, filter) => {
   initWorkerPool();
   const id = workerIdCounter++;
   const worker = workerPool[workerRoundRobin % workerPool.length];
   workerRoundRobin++;
   return new Promise((resolve, reject) => {
     worker._pending.set(id, { resolve, reject });
-    worker.postMessage({ type: "apply", imageBitmap, filter, id }, [imageBitmap]);
+    worker.postMessage({ type: "apply", buffer, width, height, filter, id }, [buffer]);
   });
-};
-
-// --- Bitmap Utilities ---
-
-/**
- * Clone an ImageBitmap without re-decoding the source.
- * @param {ImageBitmap} sourceBitmap
- * @returns {Promise<ImageBitmap>}
- */
-export const cloneBitmap = (sourceBitmap) => {
-  const canvas = new OffscreenCanvas(sourceBitmap.width, sourceBitmap.height);
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(sourceBitmap, 0, 0);
-  return createImageBitmap(canvas);
 };
 
 /**
  * Apply all available filters to a single source image in parallel via the worker pool.
- * Returns an array of {filter, blob} results.
+ * Extracts pixel data once, then copies the buffer for each filter variant.
+ * Returns an array of {filter, label, imageData} results.
  *
- * @param {HTMLImageElement|ImageBitmap} source - The source image
- * @returns {Promise<Array<{filter: string, label: string, blob: Blob}>>}
+ * @param {HTMLImageElement|HTMLCanvasElement|ImageBitmap} source - The source image
+ * @returns {Promise<Array<{filter: string, label: string, imageData: ImageData}>>}
  */
 export const applyAllFilters = async (source) => {
-  const sourceBitmap = source instanceof ImageBitmap
-    ? source
-    : await createImageBitmap(source);
+  const { buffer: sourceBuffer, width, height } = extractPixelData(source);
 
   const results = await Promise.all(
     FILTER_OPTIONS.map(async (filter) => {
-      const bitmap = await cloneBitmap(sourceBitmap);
-      const blob = await applyFilterViaWorker(bitmap, filter);
-      return { filter, label: FILTER_LABELS[filter], blob };
+      if (filter === "none") {
+        // No processing needed for "none" — just copy the source data
+        const copy = new Uint8ClampedArray(sourceBuffer.byteLength);
+        copy.set(new Uint8ClampedArray(sourceBuffer));
+        const imageData = new ImageData(copy, width, height);
+        return { filter, label: FILTER_LABELS[filter], imageData };
+      }
+      // Copy buffer for each filter (source stays valid for all variants)
+      const copy = sourceBuffer.slice(0);
+      const imageData = await applyFilterViaWorker(copy, width, height, filter);
+      return { filter, label: FILTER_LABELS[filter], imageData };
     })
   );
-
-  // Close the source bitmap if we created it
-  if (!(source instanceof ImageBitmap)) {
-    sourceBitmap.close();
-  }
 
   return results;
 };
 
 /**
- * Apply a single filter to an image and return the result as a Blob.
+ * Apply a single filter to an image via the worker pool.
  * Convenience wrapper for one-off filter application.
  *
- * @param {HTMLImageElement|ImageBitmap} source - The source image
+ * @param {HTMLImageElement|HTMLCanvasElement|ImageBitmap} source - The source image
  * @param {string} filter - Filter name from FILTER_OPTIONS
- * @returns {Promise<Blob>} PNG blob of the filtered image
+ * @returns {Promise<ImageData>} Filtered ImageData
  */
 export const applySingleFilter = async (source, filter) => {
-  const sourceBitmap = source instanceof ImageBitmap
-    ? source
-    : await createImageBitmap(source);
-
-  const bitmap = await cloneBitmap(sourceBitmap);
-
-  if (!(source instanceof ImageBitmap)) {
-    sourceBitmap.close();
+  if (!filter || filter === "none") {
+    const { buffer, width, height } = extractPixelData(source);
+    return new ImageData(new Uint8ClampedArray(buffer), width, height);
   }
-
-  return applyFilterViaWorker(bitmap, filter);
+  const { buffer, width, height } = extractPixelData(source);
+  return applyFilterViaWorker(buffer, width, height, filter);
 };
 
 /**
@@ -194,6 +213,31 @@ export const revokeAllBlobUrls = () => {
     URL.revokeObjectURL(url);
   }
   managedBlobUrls = [];
+};
+
+/**
+ * Convert ImageData to a Blob (useful for download/export).
+ * @param {ImageData} imageData
+ * @param {string} mimeType - e.g. "image/png"
+ * @returns {Promise<Blob>}
+ */
+export const imageDataToBlob = (imageData, mimeType = "image/png") => {
+  let canvas;
+  if (typeof OffscreenCanvas !== "undefined") {
+    canvas = new OffscreenCanvas(imageData.width, imageData.height);
+  } else {
+    canvas = document.createElement("canvas");
+    canvas.width = imageData.width;
+    canvas.height = imageData.height;
+  }
+  const ctx = canvas.getContext("2d");
+  ctx.putImageData(imageData, 0, 0);
+
+  if (canvas.convertToBlob) {
+    return canvas.convertToBlob({ type: mimeType });
+  }
+  // Fallback for regular canvas
+  return new Promise((resolve) => canvas.toBlob(resolve, mimeType));
 };
 
 // Re-export for convenience
