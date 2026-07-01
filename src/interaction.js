@@ -2813,30 +2813,6 @@ function setupMouseHandlers() {
       }
     }
 
-    // Check if double-clicking on a measurement line to input length
-    for (let i = state.drawings.length - 1; i >= 0; i--) {
-      const shape = state.drawings[i];
-      if (shape.type !== "measure") continue;
-      if (!isPointHittingShape(worldPos, shape) && !isPointOnMeasureLabel(worldPos, shape)) continue;
-
-      const dx = shape.end.x - shape.start.x;
-      const dy = shape.end.y - shape.start.y;
-      const currentLen = Math.sqrt(dx * dx + dy * dy);
-      const input = prompt("Enter measurement line length (px):", Math.round(currentLen).toString());
-      if (input == null) return;
-      const newLen = parseFloat(input);
-      if (isNaN(newLen) || newLen <= 0) return;
-
-      pushUndo();
-      // Keep the start point fixed and adjust the end point along the same direction
-      const angle = Math.atan2(dy, dx);
-      shape.end = { x: shape.start.x + Math.cos(angle) * newLen, y: shape.start.y + Math.sin(angle) * newLen };
-      spatialUpdate(shape);
-      render();
-      scheduleSave();
-      return;
-    }
-
     // Check if double-clicking on an image to enter crop mode
     for (let i = state.images.length - 1; i >= 0; i--) {
       const img = state.images[i];
