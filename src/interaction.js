@@ -2758,7 +2758,7 @@ function setupMouseHandlers() {
     for (let i = state.drawings.length - 1; i >= 0; i--) {
       const shape = state.drawings[i];
       if (shape.type !== "measure") continue;
-      if (!isPointHittingShape(worldPos, shape)) continue;
+      if (!isPointHittingShape(worldPos, shape) && !isPointOnMeasureLabel(worldPos, shape)) continue;
 
       const dx = shape.end.x - shape.start.x;
       const dy = shape.end.y - shape.start.y;
