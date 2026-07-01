@@ -92,6 +92,11 @@ export function initEventHandlers() {
       updateToolbarUI();
       updateCursor();
       render();
+      // Update swatch color when switching tools
+      const swatchInner = document.getElementById("color-swatch-inner");
+      if (swatchInner) {
+        swatchInner.style.background = state.currentTool === "text" ? state.textDrawColor : state.drawColor;
+      }
     });
   });
 
@@ -100,7 +105,34 @@ export function initEventHandlers() {
     if (state.currentTool === "text") { state.textDrawColor = e.target.value; }
     else { state.drawColor = e.target.value; }
     applyColorToSelectedElements(e.target.value);
+    updateColorSwatch();
   });
+
+  // --- Color swatch popup ---
+  const colorSwatchBtn = document.getElementById("color-swatch-btn");
+  const colorPopup = document.getElementById("color-popup");
+
+  colorSwatchBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const isOpen = colorPopup.classList.toggle("open");
+    if (isOpen) {
+      const rect = colorSwatchBtn.getBoundingClientRect();
+      colorPopup.style.top = (rect.bottom + 6) + "px";
+      colorPopup.style.left = (rect.left + rect.width / 2 - colorPopup.offsetWidth / 2) + "px";
+    }
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!colorPopup.contains(e.target) && !colorSwatchBtn.contains(e.target)) {
+      colorPopup.classList.remove("open");
+    }
+  });
+
+  function updateColorSwatch() {
+    const swatch = document.getElementById("color-swatch-inner");
+    const color = state.currentTool === "text" ? state.textDrawColor : state.drawColor;
+    swatch.style.background = color;
+  }
 
   const presetBtns = document.querySelectorAll(".preset-btn");
   presetBtns.forEach((btn) => {
@@ -113,6 +145,8 @@ export function initEventHandlers() {
         else { state.drawColor = color; }
         colorPicker.value = color;
         applyColorToSelectedElements(color);
+        updateColorSwatch();
+        colorPopup.classList.remove("open");
       }
     });
   });
@@ -1548,6 +1582,8 @@ function setupKeyboardHandlers() {
       if (state.currentTool === "text") { state.textDrawColor = newColor; }
       else { state.drawColor = newColor; }
       colorPicker.value = newColor;
+      const swatchEl = document.getElementById("color-swatch-inner");
+      if (swatchEl) swatchEl.style.background = newColor;
       if (state.selectedElements.length > 0) {
         state.selectedElements.forEach((el) => {
           if (el.elementType === "text" || el.elementType === "drawing") { el.color = newColor; }

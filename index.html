@@ -210,46 +210,10 @@
 
       <div class="separator"></div>
 
-      <div class="color-picker-wrapper" title="Draw Color Presets">
-        <div style="display: flex; align-items: center; gap: 2px">
-          <div class="color-presets">
-            <div
-              class="preset-btn"
-              style="background: #ff4444"
-              data-color="#ff4444"
-            ></div>
-            <div
-              class="preset-btn"
-              style="background: #ff00ff"
-              data-color="#ff00ff"
-            ></div>
-            <div
-              class="preset-btn"
-              style="background: #28a745"
-              data-color="#28a745"
-            ></div>
-            <div
-              class="preset-btn"
-              style="background: #007acc"
-              data-color="#007acc"
-            ></div>
-            <div
-              class="preset-btn"
-              style="background: #f5e542"
-              data-color="#f5e542"
-            ></div>
-            <div
-              class="preset-btn"
-              style="background: #f0f0f0"
-              data-color="#f0f0f0"
-            ></div>
-            <div
-              class="preset-btn"
-              style="background: #1e1e1e"
-              data-color="#1e1e1e"
-            ></div>
-          </div>
-        </div>
+      <div class="color-picker-inline" title="Draw Color">
+        <button class="color-swatch-btn" id="color-swatch-btn">
+          <div class="color-swatch-inner" id="color-swatch-inner" style="background: #ff4444;"></div>
+        </button>
         <span id="color-label">Color</span>
       </div>
 
@@ -422,6 +386,18 @@
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M2 12h4"/><path d="M18 12h4"/></svg>
         <span>Center View</span>
       </button>
+    </div>
+
+    <div class="color-popup" id="color-popup">
+      <div class="color-popup-presets">
+        <div class="preset-btn" style="background: #ff4444" data-color="#ff4444"></div>
+        <div class="preset-btn" style="background: #ff00ff" data-color="#ff00ff"></div>
+        <div class="preset-btn" style="background: #28a745" data-color="#28a745"></div>
+        <div class="preset-btn" style="background: #007acc" data-color="#007acc"></div>
+        <div class="preset-btn" style="background: #f5e542" data-color="#f5e542"></div>
+        <div class="preset-btn" style="background: #f0f0f0" data-color="#f0f0f0"></div>
+        <div class="preset-btn" style="background: #1e1e1e" data-color="#1e1e1e"></div>
+      </div>
     </div>
 
     <div id="zoom-overlay" title="Zoom Slider">
