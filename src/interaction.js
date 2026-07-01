@@ -625,7 +625,9 @@ export function initEventHandlers() {
     const fontElements = textEditor.querySelectorAll('font[size="7"]');
     fontElements.forEach((el) => {
       const span = document.createElement("span");
-      span.style.fontSize = size + "px";
+      // Store world-unit size as data attribute for extraction, display at zoom-scaled size
+      span.dataset.worldFontSize = size;
+      span.style.fontSize = (size * state.transform.zoom) + "px";
       span.innerHTML = el.innerHTML;
       el.parentNode.replaceChild(span, el);
       // Update selection to point inside the new span
@@ -644,7 +646,7 @@ export function initEventHandlers() {
     e.preventDefault();
     e.stopPropagation();
     const currentSize = parseInt(fmtFontSizeInput.value) || state.currentFontSize;
-    const newSize = Math.max(8, currentSize - 2);
+    const newSize = Math.max(8, currentSize - 4);
     applyFontSizeToSelection(newSize);
   });
 
@@ -652,7 +654,7 @@ export function initEventHandlers() {
     e.preventDefault();
     e.stopPropagation();
     const currentSize = parseInt(fmtFontSizeInput.value) || state.currentFontSize;
-    const newSize = Math.min(999, currentSize + 2);
+    const newSize = Math.min(999, currentSize + 4);
     applyFontSizeToSelection(newSize);
   });
 
@@ -681,8 +683,11 @@ export function initEventHandlers() {
       let fontSize = null;
       let el = node;
       while (el && el !== textEditor) {
-        if (el.style && el.style.fontSize) {
-          fontSize = parseInt(el.style.fontSize);
+        if (el.dataset && el.dataset.worldFontSize) {
+          fontSize = parseInt(el.dataset.worldFontSize);
+          break;
+        } else if (el.style && el.style.fontSize) {
+          fontSize = Math.round(parseInt(el.style.fontSize) / state.transform.zoom);
           break;
         }
         el = el.parentElement;
@@ -760,6 +765,16 @@ function bakeText() {
         .filter((s) => s.line >= 0 && s.line <= maxLine);
       if (adjusted.length > 0) {
         textEl.segments = adjusted;
+        // Update element fontSize to the max segment fontSize so that
+        // lineHeight, bounds, and layout calculations reflect the actual
+        // rendered size on canvas.
+        let maxSegFontSize = 0;
+        adjusted.forEach((s) => {
+          if (s.fontSize && s.fontSize > maxSegFontSize) maxSegFontSize = s.fontSize;
+        });
+        if (maxSegFontSize > 0) {
+          textEl.fontSize = maxSegFontSize;
+        }
       }
     }
     if (textEditor.dataset.bgColor) {
@@ -824,8 +839,13 @@ function extractRichContent() {
           if (el.style.textDecorationLine.includes("underline")) underline = true;
           if (el.style.textDecorationLine.includes("line-through")) strikethrough = true;
         }
-        if (el.style.fontSize && !fontSize) {
-          fontSize = parseInt(el.style.fontSize);
+        if (!fontSize) {
+          // Prefer world-unit size stored in data attribute (set by format bar)
+          if (el.dataset && el.dataset.worldFontSize) {
+            fontSize = parseInt(el.dataset.worldFontSize);
+          } else if (el.style.fontSize) {
+            fontSize = Math.round(parseInt(el.style.fontSize) / state.transform.zoom);
+          }
         }
       }
       el = el.parentElement;
@@ -906,7 +926,10 @@ function setTextEditorContent(text, segments) {
         if (seg.underline) decorations.push("underline");
         if (seg.strikethrough) decorations.push("line-through");
         if (decorations.length > 0) fontStyle += `text-decoration:${decorations.join(" ")};`;
-        if (seg.fontSize) fontStyle += `font-size:${seg.fontSize}px;`;
+        if (seg.fontSize) {
+          fontStyle += `font-size:${seg.fontSize * state.transform.zoom}px;`;
+          span.dataset.worldFontSize = seg.fontSize;
+        }
         span.style.cssText = fontStyle;
         span.textContent = seg.text;
         textEditor.appendChild(span);
