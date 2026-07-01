@@ -124,7 +124,7 @@ export function drawMeasureLine(targetCtx, start, end, color, isExporting) {
   const zoomFactor = isExporting ? 1 : state.transform.zoom;
   const lineWidth = (isExporting ? 2 : 1.5) / zoomFactor;
   const capSize = 6 / zoomFactor;
-  const fontSize = Math.max(11, 13 / zoomFactor);
+  const fontSize = Math.max(9, 10 / zoomFactor);
 
   targetCtx.save();
   targetCtx.strokeStyle = color || "#00bcd4";
@@ -164,7 +164,7 @@ export function drawMeasureLine(targetCtx, start, end, color, isExporting) {
   const midY = (start.y + end.y) / 2;
   const labelText = `${Math.round(dist)}px`;
 
-  targetCtx.font = `bold ${fontSize}px sans-serif`;
+  targetCtx.font = `${fontSize}px sans-serif`;
   targetCtx.textAlign = "center";
   targetCtx.textBaseline = "bottom";
 
@@ -172,11 +172,11 @@ export function drawMeasureLine(targetCtx, start, end, color, isExporting) {
   const labelW = metrics.width + 8 / zoomFactor;
   const labelH = fontSize + 6 / zoomFactor;
 
-  const labelOffset = 12 / zoomFactor;
+  const labelOffset = 4 / zoomFactor;
   const labelCx = midX + Math.sin(angle) * labelOffset;
   const labelCy = midY - Math.cos(angle) * labelOffset;
 
-  targetCtx.fillStyle = "rgba(0, 40, 50, 0.55)";
+  targetCtx.fillStyle = "rgba(0, 40, 50, 0.4)";
   targetCtx.fillRect(labelCx - labelW / 2, labelCy - labelH, labelW, labelH);
 
   targetCtx.fillStyle = "rgba(255, 255, 255, 0.75)";
