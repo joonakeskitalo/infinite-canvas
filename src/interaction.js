@@ -1465,6 +1465,28 @@ function setupKeyboardHandlers() {
       return;
     }
 
+    // D / Shift+D to cycle tool colors through presets
+    if (key === "d") {
+      const presetColors = Array.from(document.querySelectorAll(".preset-btn")).map((btn) => btn.dataset.color).filter(x => x !== "#1e1e1e" && x !== "#f0f0f0")
+      if (presetColors.length === 0) return;
+      const currentColor = state.currentTool === "text" ? state.textDrawColor : state.drawColor;
+      let idx = presetColors.indexOf(currentColor);
+      if (e.shiftKey) { idx = (idx - 1 + presetColors.length) % presetColors.length; }
+      else { idx = (idx + 1) % presetColors.length; }
+      const newColor = presetColors[idx];
+      if (state.currentTool === "text") { state.textDrawColor = newColor; }
+      else { state.drawColor = newColor; }
+      colorPicker.value = newColor;
+      if (state.selectedElements.length > 0) {
+        state.selectedElements.forEach((el) => {
+          if (el.elementType === "text" || el.elementType === "drawing") { el.color = newColor; }
+        });
+      }
+      render();
+      showToast(`Color: ${newColor}`);
+      return;
+    }
+
     // I key — EyeDropper
     if (key === "i" && !e.shiftKey) {
       if (window.EyeDropper) {
