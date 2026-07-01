@@ -9,6 +9,7 @@ import { screenToWorld, worldToScreen, showToast, constraintToAngle } from "./ut
 import {
   getShapeBounds, isPointHittingShape, getElementResizeHandles,
   getElementAtWorldPos, isPointOnSwapHandle, translateElement,
+  isPointOnMeasureLabel,
 } from "./elements.js";
 import { pushUndo, undo, redo } from "./history.js";
 import { scheduleSave, saveFile, saveAs, openFile } from "./persistence.js";
@@ -1157,6 +1158,7 @@ function setupKeyboardHandlers() {
     if (e.key === "Meta" || e.key === "Control") {
       state.isMetaPressed = true;
       if (state.currentTool === "split-line") render();
+      if (state.currentTool === "measure" && state.activeMeasureLine) render();
     }
     if (e.key === "Shift") {
       state.isShiftPressed = true;
@@ -1181,6 +1183,7 @@ function setupKeyboardHandlers() {
     if (e.key === "Meta" || e.key === "Control") {
       state.isMetaPressed = false;
       if (state.currentTool === "split-line") render();
+      if (state.currentTool === "measure" && state.activeMeasureLine) render();
     }
     if (e.key === "Shift") {
       state.isShiftPressed = false;
@@ -1932,7 +1935,7 @@ function setupMouseHandlers() {
 
       for (let i = state.drawings.length - 1; i >= 0; i--) {
         if (state.drawings[i].locked) continue;
-        if (isPointHittingShape(worldPos, state.drawings[i])) {
+        if (isPointHittingShape(worldPos, state.drawings[i]) || isPointOnMeasureLabel(worldPos, state.drawings[i])) {
           clickedElement = state.drawings[i];
           if (clickedElement.type !== "text") clickedElement.elementType = "drawing";
           break;
@@ -2592,14 +2595,41 @@ function setupMouseHandlers() {
       const dy2 = state.activeMeasureLine.end.y - state.activeMeasureLine.start.y;
       if (Math.sqrt(dx2 * dx2 + dy2 * dy2) > 5 / state.transform.zoom) {
         pushUndo();
-        const measureEl = {
-          id: "draw_" + state.elementIdCounter++,
-          elementType: "drawing", type: "measure",
-          color: "#00bcd4", width: CONSTANTS.CONSTANT_LINE_WIDTH,
-          start: { ...state.activeMeasureLine.start }, end: { ...state.activeMeasureLine.end },
-        };
-        state.drawings.push(measureEl);
-        spatialInsert(measureEl);
+        if (e.metaKey || e.ctrlKey) {
+          // Insert both horizontal and vertical measurement lines
+          const start = state.activeMeasureLine.start;
+          const end = state.activeMeasureLine.end;
+          const hMeasure = {
+            id: "draw_" + state.elementIdCounter++,
+            elementType: "drawing", type: "measure",
+            color: "#00bcd4", width: CONSTANTS.CONSTANT_LINE_WIDTH,
+            start: { x: start.x, y: start.y }, end: { x: end.x, y: start.y },
+          };
+          const vMeasure = {
+            id: "draw_" + state.elementIdCounter++,
+            elementType: "drawing", type: "measure",
+            color: "#00bcd4", width: CONSTANTS.CONSTANT_LINE_WIDTH,
+            start: { x: end.x, y: start.y }, end: { x: end.x, y: end.y },
+          };
+          // Only insert if the line has meaningful length
+          if (Math.abs(dx2) > 5 / state.transform.zoom) {
+            state.drawings.push(hMeasure);
+            spatialInsert(hMeasure);
+          }
+          if (Math.abs(dy2) > 5 / state.transform.zoom) {
+            state.drawings.push(vMeasure);
+            spatialInsert(vMeasure);
+          }
+        } else {
+          const measureEl = {
+            id: "draw_" + state.elementIdCounter++,
+            elementType: "drawing", type: "measure",
+            color: "#00bcd4", width: CONSTANTS.CONSTANT_LINE_WIDTH,
+            start: { ...state.activeMeasureLine.start }, end: { ...state.activeMeasureLine.end },
+          };
+          state.drawings.push(measureEl);
+          spatialInsert(measureEl);
+        }
       }
       state.activeMeasureLine = null;
       render(); scheduleSave();
@@ -2722,6 +2752,30 @@ function setupMouseHandlers() {
         enterCropMode(img);
         return;
       }
+    }
+
+    // Check if double-clicking on a measurement line to input length
+    for (let i = state.drawings.length - 1; i >= 0; i--) {
+      const shape = state.drawings[i];
+      if (shape.type !== "measure") continue;
+      if (!isPointHittingShape(worldPos, shape)) continue;
+
+      const dx = shape.end.x - shape.start.x;
+      const dy = shape.end.y - shape.start.y;
+      const currentLen = Math.sqrt(dx * dx + dy * dy);
+      const input = prompt("Enter measurement line length (px):", Math.round(currentLen).toString());
+      if (input == null) return;
+      const newLen = parseFloat(input);
+      if (isNaN(newLen) || newLen <= 0) return;
+
+      pushUndo();
+      // Keep the start point fixed and adjust the end point along the same direction
+      const angle = Math.atan2(dy, dx);
+      shape.end = { x: shape.start.x + Math.cos(angle) * newLen, y: shape.start.y + Math.sin(angle) * newLen };
+      spatialUpdate(shape);
+      render();
+      scheduleSave();
+      return;
     }
 
     // Check if double-clicking on a text element to edit it

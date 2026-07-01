@@ -176,10 +176,10 @@ export function drawMeasureLine(targetCtx, start, end, color, isExporting) {
   const labelCx = midX + Math.sin(angle) * labelOffset;
   const labelCy = midY - Math.cos(angle) * labelOffset;
 
-  targetCtx.fillStyle = "rgba(0, 40, 50, 0.85)";
+  targetCtx.fillStyle = "rgba(0, 40, 50, 0.55)";
   targetCtx.fillRect(labelCx - labelW / 2, labelCy - labelH, labelW, labelH);
 
-  targetCtx.fillStyle = "#fff";
+  targetCtx.fillStyle = "rgba(255, 255, 255, 0.75)";
   targetCtx.fillText(labelText, labelCx, labelCy - 2 / zoomFactor);
 
   targetCtx.restore();
@@ -940,7 +940,16 @@ function _doRender(targetCtx, isExporting) {
     targetCtx.translate(transform.x, transform.y);
     targetCtx.scale(transform.zoom, transform.zoom);
     if (state.activeMeasureLine) {
-      drawMeasureLine(targetCtx, state.activeMeasureLine.start, state.activeMeasureLine.end, "#00bcd4", false);
+      if (state.isMetaPressed) {
+        // Preview as H+V measurement lines
+        const start = state.activeMeasureLine.start;
+        const end = state.activeMeasureLine.end;
+        const corner = { x: end.x, y: start.y };
+        drawMeasureLine(targetCtx, start, corner, "#00bcd4", false);
+        drawMeasureLine(targetCtx, corner, end, "#00bcd4", false);
+      } else {
+        drawMeasureLine(targetCtx, state.activeMeasureLine.start, state.activeMeasureLine.end, "#00bcd4", false);
+      }
     }
     if (state.measureHoverGuides.length > 0) {
       state.measureHoverGuides.forEach((g) => {

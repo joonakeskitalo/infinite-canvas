@@ -14,6 +14,38 @@ export function getTextMeasureCache() {
   return _textMeasureCache;
 }
 
+export function isPointOnMeasureLabel(p, shape) {
+  if (shape.type !== "measure") return false;
+  const dx = shape.end.x - shape.start.x;
+  const dy = shape.end.y - shape.start.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist < 0.1) return false;
+
+  const zoomFactor = state.transform.zoom;
+  const fontSize = Math.max(11, 13 / zoomFactor);
+  const angle = Math.atan2(dy, dx);
+  const midX = (shape.start.x + shape.end.x) / 2;
+  const midY = (shape.start.y + shape.end.y) / 2;
+
+  // Approximate label width based on digit count
+  const labelText = `${Math.round(dist)}px`;
+  const charWidth = fontSize * 0.65;
+  const labelW = labelText.length * charWidth + 8 / zoomFactor;
+  const labelH = fontSize + 6 / zoomFactor;
+
+  const labelOffset = 12 / zoomFactor;
+  const labelCx = midX + Math.sin(angle) * labelOffset;
+  const labelCy = midY - Math.cos(angle) * labelOffset;
+
+  // Check if point is within the label rect
+  return (
+    p.x >= labelCx - labelW / 2 &&
+    p.x <= labelCx + labelW / 2 &&
+    p.y >= labelCy - labelH &&
+    p.y <= labelCy
+  );
+}
+
 export function getShapeBounds(shape) {
   const ctx = getDom().ctx;
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -206,7 +238,7 @@ export function getElementAtWorldPos(worldPos, excludeElement) {
           if (idx > hitImageIdx) { hitImage = el; hitImageIdx = idx; }
         }
       } else {
-        if (isPointHittingShape(worldPos, el)) {
+        if (isPointHittingShape(worldPos, el) || isPointOnMeasureLabel(worldPos, el)) {
           const idx = state.drawings.indexOf(el);
           if (idx > hitDrawingIdx) { hitDrawing = el; hitDrawingIdx = idx; }
         }
@@ -221,7 +253,7 @@ export function getElementAtWorldPos(worldPos, excludeElement) {
   // Direct iteration for small element counts (original fast path)
   for (let i = state.drawings.length - 1; i >= 0; i--) {
     if (excludeElement && state.drawings[i].id === excludeElement.id) continue;
-    if (isPointHittingShape(worldPos, state.drawings[i])) {
+    if (isPointHittingShape(worldPos, state.drawings[i]) || isPointOnMeasureLabel(worldPos, state.drawings[i])) {
       return state.drawings[i];
     }
   }
