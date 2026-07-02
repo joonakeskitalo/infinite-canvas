@@ -811,6 +811,33 @@ function applyPreviewZoom() {
   });
 }
 
+/**
+ * Calculate default zoom so all filter cells fit on screen without scrolling.
+ */
+function calculateFitZoom(imgEl) {
+  const filterCount = FILTER_OPTIONS.length;
+  // Available width: viewport minus grid padding (left 16 + right 16) and gaps
+  const availableWidth = window.innerWidth - 32 - (filterCount - 1) * 10;
+  // Available height: viewport minus top padding (80) and bottom padding (56) and footer (~28) and cell padding (12)
+  const availableHeight = window.innerHeight - 80 - 56 - 28 - 12;
+
+  const imgW = imgEl.img.naturalWidth || imgEl.img.width;
+  const imgH = imgEl.img.naturalHeight || imgEl.img.height;
+  const aspect = imgW / imgH;
+
+  // Each cell has 6px padding on each side = 12px total, plus border 6px
+  const cellPaddingX = 18;
+  const maxCellWidth = (availableWidth / filterCount) - cellPaddingX;
+
+  // Also constrain by height
+  const maxCellByHeight = availableHeight * aspect;
+
+  const fittingMaxW = Math.min(maxCellWidth, maxCellByHeight);
+  // previewZoom is relative to 400px base
+  const zoom = Math.max(0.25, Math.min(2.0, fittingMaxW / 400));
+  return zoom;
+}
+
 // --- Open / Close ---
 
 export function openFilterPreview() {
@@ -827,6 +854,7 @@ export function openFilterPreview() {
   currentIndex = 0;
   flaggedItems = [];
   cellShapes.clear();
+  previewZoom = calculateFitZoom(previewImages[0]);
   overlay.style.display = "flex";
   buildPreviewToolbar();
   renderGrid(0);
