@@ -2125,6 +2125,7 @@ function setupMouseHandlers() {
         }
         expandSelectionToGroups();
         pushUndo();
+        state.hasDragThresholdBeenMet = false;
         state.dragOffsets = state.selectedElements.map((el) => {
           if (el.elementType === "image") {
             return { id: el.id, type: "image", x: el.x, y: el.y, startMouse: { ...worldPos } };
@@ -2626,6 +2627,13 @@ function setupMouseHandlers() {
 
       if (state.isRegionSelecting) { state.regionEnd = { ...worldPos }; render(); }
       else if (state.selectedElements.length > 0) {
+        // Don't move elements until the drag distance exceeds the minimum threshold
+        if (!state.hasDragThresholdBeenMet) {
+          const screenDx = e.clientX - state.startX;
+          const screenDy = e.clientY - state.startY;
+          if (Math.sqrt(screenDx * screenDx + screenDy * screenDy) < CONSTANTS.MIN_MOVE_DISTANCE) return;
+          state.hasDragThresholdBeenMet = true;
+        }
         const excludeIds = state.selectedElements.map((el) => el.id);
         state.selectedElements.forEach((el) => {
           const offset = state.dragOffsets.find((o) => o.id === el.id);
@@ -2856,6 +2864,10 @@ function setupMouseHandlers() {
 
     // Update spatial index for any elements that were dragged/moved during this interaction
     if (state.selectedElements.length > 0) {
+      // If the drag threshold was never met, the elements weren't actually moved — remove the premature undo entry
+      if (!state.hasDragThresholdBeenMet && state.dragOffsets.length > 0) {
+        state.undoStack.pop();
+      }
       for (const el of state.selectedElements) spatialUpdate(el);
     }
 

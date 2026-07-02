@@ -17,6 +17,7 @@ export const CONSTANTS = {
   INTERNAL_COPY_MIME: "text/x-infinite-canvas",
   RULER_SIZE: 12,
   MIN_DRAW_DISTANCE: 5, // Minimum screen-pixel drag distance before drawing tools activate
+  MIN_MOVE_DISTANCE: 4, // Minimum screen-pixel drag distance before moving selected elements
 };
 
 export const state = {
@@ -58,6 +59,7 @@ export const state = {
   regionStart: { x: 0, y: 0 },
   regionEnd: { x: 0, y: 0 },
   dragOffsets: [],
+  hasDragThresholdBeenMet: false,
   resizingElement: null,
   resizeStartBounds: null,
 
