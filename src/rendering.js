@@ -44,6 +44,21 @@ export function addRenderCallback(cb) {
   _renderAfterCallbacks.push(cb);
 }
 
+/**
+ * Snap a split-line preview position to the nearest fraction (halves, thirds, quarters).
+ */
+function snapSplitLinePreviewPos(pos, origin, size) {
+  const threshold = size * 0.02;
+  const fractions = [1/4, 1/3, 1/2, 2/3, 3/4];
+  for (const f of fractions) {
+    const snapTarget = origin + size * f;
+    if (Math.abs(pos - snapTarget) < threshold) {
+      return snapTarget;
+    }
+  }
+  return pos;
+}
+
 export function render(targetCtx, isExporting = false) {
   if (!targetCtx) targetCtx = getDom().ctx;
   if (isExporting || targetCtx !== getDom().ctx) {
@@ -1015,10 +1030,14 @@ function _doRender(targetCtx, isExporting) {
     targetCtx.strokeStyle = state.drawColor;
     targetCtx.lineWidth = lineWidth;
 
-    if (state.isMetaPressed) {
-      // Draw both vertical and horizontal lines when meta is held
-      const lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
-      const ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
+    if (state.isCtrlPressed) {
+      // Draw both vertical and horizontal lines when ctrl is held
+      let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
+      let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
+      if (state.isShiftPressed) {
+        lx = snapSplitLinePreviewPos(lx, img.x, img.w);
+        ly = snapSplitLinePreviewPos(ly, img.y, img.h);
+      }
       targetCtx.beginPath();
       targetCtx.moveTo(lx, img.y);
       targetCtx.lineTo(lx, img.y + img.h);
@@ -1027,17 +1046,19 @@ function _doRender(targetCtx, isExporting) {
       targetCtx.moveTo(img.x, ly);
       targetCtx.lineTo(img.x + img.w, ly);
       targetCtx.stroke();
-    } else if (state.isShiftPressed) {
-      // Draw line in the opposite orientation when shift is held
+    } else if (state.isMetaPressed) {
+      // Draw line in the opposite orientation when meta is held
       targetCtx.beginPath();
       if (state.splitLineOrientation === "vertical") {
         // Opposite: horizontal
-        const ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
+        let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
+        if (state.isShiftPressed) ly = snapSplitLinePreviewPos(ly, img.y, img.h);
         targetCtx.moveTo(img.x, ly);
         targetCtx.lineTo(img.x + img.w, ly);
       } else {
         // Opposite: vertical
-        const lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
+        let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
+        if (state.isShiftPressed) lx = snapSplitLinePreviewPos(lx, img.x, img.w);
         targetCtx.moveTo(lx, img.y);
         targetCtx.lineTo(lx, img.y + img.h);
       }
@@ -1046,12 +1067,14 @@ function _doRender(targetCtx, isExporting) {
       targetCtx.beginPath();
       if (state.splitLineOrientation === "vertical") {
         // Clamp x to image bounds
-        const lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
+        let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
+        if (state.isShiftPressed) lx = snapSplitLinePreviewPos(lx, img.x, img.w);
         targetCtx.moveTo(lx, img.y);
         targetCtx.lineTo(lx, img.y + img.h);
       } else {
         // Clamp y to image bounds
-        const ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
+        let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
+        if (state.isShiftPressed) ly = snapSplitLinePreviewPos(ly, img.y, img.h);
         targetCtx.moveTo(img.x, ly);
         targetCtx.lineTo(img.x + img.w, ly);
       }
@@ -1061,14 +1084,15 @@ function _doRender(targetCtx, isExporting) {
     // Draw small label showing orientation
     const fontSize = Math.max(10, 11 / transform.zoom);
     let label;
-    if (state.isMetaPressed) {
+    if (state.isCtrlPressed) {
       label = "V+H";
     } else {
-      const effectiveOrientation = state.isShiftPressed
+      const effectiveOrientation = state.isMetaPressed
         ? (state.splitLineOrientation === "vertical" ? "horizontal" : "vertical")
         : state.splitLineOrientation;
       label = effectiveOrientation === "vertical" ? "V" : "H";
     }
+    if (state.isShiftPressed) label += " snap";
     targetCtx.font = `bold ${fontSize}px sans-serif`;
     targetCtx.textAlign = "left";
     targetCtx.textBaseline = "top";

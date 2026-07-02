@@ -45,6 +45,7 @@ export const state = {
   lastMousePos: { x: window.innerWidth / 2, y: window.innerHeight / 2 },
   isShiftPressed: false,
   isMetaPressed: false,
+  isCtrlPressed: false,
   isSpacePressed: false,
 
   // Element collections

@@ -42,6 +42,23 @@ import { FILTER_OPTIONS, FILTER_LABELS } from "./color-filter.js";
 import { openFilterPreview, isFilterPreviewActive } from "./filter-preview-mode.js";
 import { applyFilterToImageData } from "./filter-kernels.js";
 
+/**
+ * Snap a split-line position to the nearest fraction (halves, thirds, quarters)
+ * of the image dimension. Returns the snapped position if close enough, otherwise
+ * the original position.
+ */
+function snapSplitLinePos(pos, origin, size) {
+  const threshold = size * 0.02; // 2% of dimension
+  const fractions = [1/4, 1/3, 1/2, 2/3, 3/4];
+  for (const f of fractions) {
+    const snapTarget = origin + size * f;
+    if (Math.abs(pos - snapTarget) < threshold) {
+      return snapTarget;
+    }
+  }
+  return pos;
+}
+
 export function initEventHandlers() {
   const dom = getDom();
   const { container, canvas, ctx, textEditor, fontSizeSelect, zoomSlider,
@@ -1266,8 +1283,13 @@ function setupKeyboardHandlers() {
   const { container, textEditor, colorPicker } = dom;
 
   window.addEventListener("keydown", (e) => {
-    if (e.key === "Meta" || e.key === "Control") {
+    if (e.key === "Meta") {
       state.isMetaPressed = true;
+      if (state.currentTool === "split-line") render();
+      if (state.currentTool === "measure" && state.activeMeasureLine) render();
+    }
+    if (e.key === "Control") {
+      state.isCtrlPressed = true;
       if (state.currentTool === "split-line") render();
       if (state.currentTool === "measure" && state.activeMeasureLine) render();
     }
@@ -1291,8 +1313,13 @@ function setupKeyboardHandlers() {
   });
 
   window.addEventListener("keyup", (e) => {
-    if (e.key === "Meta" || e.key === "Control") {
+    if (e.key === "Meta") {
       state.isMetaPressed = false;
+      if (state.currentTool === "split-line") render();
+      if (state.currentTool === "measure" && state.activeMeasureLine) render();
+    }
+    if (e.key === "Control") {
+      state.isCtrlPressed = false;
       if (state.currentTool === "split-line") render();
       if (state.currentTool === "measure" && state.activeMeasureLine) render();
     }
@@ -1324,6 +1351,7 @@ function setupKeyboardHandlers() {
   window.addEventListener("blur", () => {
     state.isShiftPressed = false;
     state.isMetaPressed = false;
+    state.isCtrlPressed = false;
     state.isSpacePressed = false;
     state.panLockDirection = null;
     if (state.preSpaceTool !== null) {
@@ -1340,6 +1368,7 @@ function setupKeyboardHandlers() {
   window.addEventListener("focus", () => {
     state.isShiftPressed = false;
     state.isMetaPressed = false;
+    state.isCtrlPressed = false;
     state.panLockDirection = null;
   });
 
@@ -1780,6 +1809,9 @@ function setupMouseHandlers() {
     if (state.isMetaPressed !== e.metaKey) {
       state.isMetaPressed = e.metaKey;
     }
+    if (state.isCtrlPressed !== e.ctrlKey) {
+      state.isCtrlPressed = e.ctrlKey;
+    }
 
     // Handle swap drag in progress
     if (state.isSwapDragging) {
@@ -1939,10 +1971,14 @@ function setupMouseHandlers() {
 
         pushUndo();
 
-        if (state.isMetaPressed) {
-          // Create both vertical and horizontal lines when meta is held
-          const lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
-          const ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
+        if (state.isCtrlPressed) {
+          // Create both vertical and horizontal lines when ctrl is held
+          let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
+          let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
+          if (e.shiftKey) {
+            lx = snapSplitLinePos(lx, img.x, img.w);
+            ly = snapSplitLinePos(ly, img.y, img.h);
+          }
           const vLine = {
             id: "draw_" + state.elementIdCounter++,
             elementType: "drawing",
@@ -1971,16 +2007,18 @@ function setupMouseHandlers() {
           spatialInsert(hLine);
         } else {
           // Create a single line based on effective orientation
-          const effectiveOrientation = e.shiftKey
+          const effectiveOrientation = e.metaKey
             ? (state.splitLineOrientation === "vertical" ? "horizontal" : "vertical")
             : state.splitLineOrientation;
           let start, end;
           if (effectiveOrientation === "vertical") {
-            const lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
+            let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
+            if (e.shiftKey) lx = snapSplitLinePos(lx, img.x, img.w);
             start = { x: lx, y: img.y };
             end = { x: lx, y: img.y + img.h };
           } else {
-            const ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
+            let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
+            if (e.shiftKey) ly = snapSplitLinePos(ly, img.y, img.h);
             start = { x: img.x, y: ly };
             end = { x: img.x + img.w, y: ly };
           }
