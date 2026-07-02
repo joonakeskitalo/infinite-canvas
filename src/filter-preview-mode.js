@@ -838,6 +838,15 @@ function calculateFitZoom(imgEl) {
   return zoom;
 }
 
+// --- Background click to close ---
+
+function onOverlayBackgroundClick(e) {
+  // Only close if clicking directly on the overlay or the grid container (not on cells/toolbar/nav)
+  if (e.target === overlay || e.target === grid) {
+    closeFilterPreview();
+  }
+}
+
 // --- Open / Close ---
 
 export function openFilterPreview() {
@@ -894,6 +903,9 @@ export function openFilterPreview() {
   closeBtn.addEventListener("click", closeFilterPreview);
   prevBtn.addEventListener("click", goPrev);
   nextBtn.addEventListener("click", goNext);
+
+  // Close on background click (only if clicking directly on overlay or grid background)
+  overlay.addEventListener("mousedown", onOverlayBackgroundClick);
 }
 
 export function closeFilterPreview() {
@@ -911,6 +923,7 @@ export function closeFilterPreview() {
   closeBtn.removeEventListener("click", closeFilterPreview);
   prevBtn.removeEventListener("click", goPrev);
   nextBtn.removeEventListener("click", goNext);
+  overlay.removeEventListener("mousedown", onOverlayBackgroundClick);
 
   placeFlaggedImages();
   cellShapes.clear();
