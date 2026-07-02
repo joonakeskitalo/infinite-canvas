@@ -1151,10 +1151,23 @@ function checkAndEraseAtPosition(worldPos) {
     if (state.drawings[i].locked) continue;
     if (isPointHittingShape(worldPos, state.drawings[i])) {
       if (!erasedSomething) pushUndo();
-      erasedIds.push(state.drawings[i].id);
-      spatialRemove(state.drawings[i]);
-      state.drawings.splice(i, 1);
+      const hit = state.drawings[i];
+      // If the hit element belongs to a group, remove all group members
+      if (hit.groupId) {
+        for (let j = state.drawings.length - 1; j >= 0; j--) {
+          if (state.drawings[j].groupId === hit.groupId) {
+            erasedIds.push(state.drawings[j].id);
+            spatialRemove(state.drawings[j]);
+            state.drawings.splice(j, 1);
+          }
+        }
+      } else {
+        erasedIds.push(hit.id);
+        spatialRemove(hit);
+        state.drawings.splice(i, 1);
+      }
       erasedSomething = true;
+      break;
     }
   }
   if (erasedSomething) {
@@ -1588,6 +1601,187 @@ function setupKeyboardHandlers() {
         return;
       }
       targetTool = "split-line";
+    }
+
+    // Z key: insert 4x4 grid + diagonal lines + edge inset lines on hovered image
+    // Shift+Z: insert 8x8 grid lines on hovered image
+    if (key === "z") {
+      const cursorWorld = screenToWorld(state.lastMousePos.x, state.lastMousePos.y);
+      let hoveredImg = null;
+      for (let i = state.images.length - 1; i >= 0; i--) {
+        const img = state.images[i];
+        if (cursorWorld.x >= img.x && cursorWorld.x <= img.x + img.w &&
+            cursorWorld.y >= img.y && cursorWorld.y <= img.y + img.h) {
+          hoveredImg = img;
+          break;
+        }
+      }
+      if (hoveredImg) {
+        e.preventDefault();
+        pushUndo();
+        const img = hoveredImg;
+        const lineWidth = 0.5;
+        const color = state.drawColor;
+        const opacity = 0.7;
+        const lines = [];
+
+        if (e.shiftKey) {
+          // 40x40px grid lines (grouped as a single unit)
+          const gridSize = 40;
+          const gridLineWidth = 0.3;
+          const gridGroupId = "group_" + state.groupIdCounter++;
+          // Vertical lines
+          for (let x = img.x + gridSize; x < img.x + img.w; x += gridSize) {
+            lines.push({
+              id: "draw_" + state.elementIdCounter++,
+              elementType: "drawing",
+              type: "line",
+              isSplitLine: true,
+              color,
+              width: gridLineWidth,
+              opacity,
+              groupId: gridGroupId,
+              start: { x, y: img.y },
+              end: { x, y: img.y + img.h },
+            });
+          }
+          // Horizontal lines
+          for (let y = img.y + gridSize; y < img.y + img.h; y += gridSize) {
+            lines.push({
+              id: "draw_" + state.elementIdCounter++,
+              elementType: "drawing",
+              type: "line",
+              isSplitLine: true,
+              color,
+              width: gridLineWidth,
+              opacity,
+              groupId: gridGroupId,
+              start: { x: img.x, y },
+              end: { x: img.x + img.w, y },
+            });
+          }
+        } else {
+          // 4x4 grid: 3 vertical + 3 horizontal interior lines
+          const zGroupId = "group_" + state.groupIdCounter++;
+          for (let i = 1; i <= 3; i++) {
+            const vx = img.x + (img.w * i) / 4;
+            lines.push({
+              id: "draw_" + state.elementIdCounter++,
+              elementType: "drawing",
+              type: "line",
+              isSplitLine: true,
+              color,
+              width: lineWidth,
+              opacity,
+              groupId: zGroupId,
+              start: { x: vx, y: img.y },
+              end: { x: vx, y: img.y + img.h },
+            });
+            const hy = img.y + (img.h * i) / 4;
+            lines.push({
+              id: "draw_" + state.elementIdCounter++,
+              elementType: "drawing",
+              type: "line",
+              isSplitLine: true,
+              color,
+              width: lineWidth,
+              opacity,
+              groupId: zGroupId,
+              start: { x: img.x, y: hy },
+              end: { x: img.x + img.w, y: hy },
+            });
+          }
+
+          // Diagonal lines (corner to corner)
+          lines.push({
+            id: "draw_" + state.elementIdCounter++,
+            elementType: "drawing",
+            type: "line",
+            isSplitLine: true,
+            color,
+            width: lineWidth,
+            opacity,
+            groupId: zGroupId,
+            start: { x: img.x, y: img.y },
+            end: { x: img.x + img.w, y: img.y + img.h },
+          });
+          lines.push({
+            id: "draw_" + state.elementIdCounter++,
+            elementType: "drawing",
+            type: "line",
+            isSplitLine: true,
+            color,
+            width: lineWidth,
+            opacity,
+            groupId: zGroupId,
+            start: { x: img.x + img.w, y: img.y },
+            end: { x: img.x, y: img.y + img.h },
+          });
+
+          // 40px inset lines from each edge
+          const inset = 40;
+          // Left inset
+          lines.push({
+            id: "draw_" + state.elementIdCounter++,
+            elementType: "drawing",
+            type: "line",
+            isSplitLine: true,
+            color,
+            width: lineWidth,
+            opacity,
+            groupId: zGroupId,
+            start: { x: img.x + inset, y: img.y },
+            end: { x: img.x + inset, y: img.y + img.h },
+          });
+          // Right inset
+          lines.push({
+            id: "draw_" + state.elementIdCounter++,
+            elementType: "drawing",
+            type: "line",
+            isSplitLine: true,
+            color,
+            width: lineWidth,
+            opacity,
+            groupId: zGroupId,
+            start: { x: img.x + img.w - inset, y: img.y },
+            end: { x: img.x + img.w - inset, y: img.y + img.h },
+          });
+          // Top inset
+          lines.push({
+            id: "draw_" + state.elementIdCounter++,
+            elementType: "drawing",
+            type: "line",
+            isSplitLine: true,
+            color,
+            width: lineWidth,
+            opacity,
+            groupId: zGroupId,
+            start: { x: img.x, y: img.y + inset },
+            end: { x: img.x + img.w, y: img.y + inset },
+          });
+          // Bottom inset
+          lines.push({
+            id: "draw_" + state.elementIdCounter++,
+            elementType: "drawing",
+            type: "line",
+            isSplitLine: true,
+            color,
+            width: lineWidth,
+            opacity,
+            groupId: zGroupId,
+            start: { x: img.x, y: img.y + img.h - inset },
+            end: { x: img.x + img.w, y: img.y + img.h - inset },
+          });
+        }
+
+        for (const line of lines) {
+          state.drawings.push(line);
+          spatialInsert(line);
+        }
+        scheduleSave();
+        render();
+        return;
+      }
     }
 
     if (key === "g" && !e.shiftKey && state.currentTool === "select" && state.selectedElements.length >= 2) {
