@@ -39,6 +39,7 @@ import {
 } from "./toolbar.js";
 import { setRulersVisible, resizeRulers } from "./rulers.js";
 import { FILTER_OPTIONS, FILTER_LABELS } from "./color-filter.js";
+import { openFilterPreview, isFilterPreviewActive } from "./filter-preview-mode.js";
 import { applyFilterToImageData } from "./filter-kernels.js";
 
 export function initEventHandlers() {
@@ -1527,6 +1528,13 @@ function setupKeyboardHandlers() {
         if (alignBtn) alignBtn.click();
         return;
       }
+    }
+
+    // Alt+P to open filter preview mode (uses e.code for macOS compatibility)
+    if (e.altKey && !e.metaKey && !e.ctrlKey && e.code === "KeyP") {
+      e.preventDefault();
+      if (!isFilterPreviewActive()) openFilterPreview();
+      return;
     }
 
     let targetTool = null;
