@@ -15,6 +15,7 @@ import { setRenderFn, toggleAlignmentPanelVisibility } from "./toolbar.js";
 import { initRulers, renderRulers, renderGuides } from "./rulers.js";
 import { initEventHandlers } from "./interaction.js";
 import { initFilterPreviewMode } from "./filter-preview-mode.js";
+import { initWelcomeModal } from "./welcome.js";
 
 // --- Wire up forward dependencies to break circular imports ---
 setHistoryDeps({
@@ -67,3 +68,6 @@ initFilterPreviewMode();
 
 // --- Build spatial index from any pre-existing elements ---
 rebuildSpatialIndex();
+
+// --- Show welcome modal on first visit ---
+initWelcomeModal();
