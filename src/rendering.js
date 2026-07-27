@@ -393,8 +393,50 @@ export function drawShape(targetCtx, shape, isExporting) {
       const by = shape.start.y - padding;
       const bw = shape.w + padding * 2;
       const bh = shape.h + padding * 2;
-      targetCtx.roundRect(bx, by, bw, bh, rx);
+      if (shape.bgBorder) {
+        // Pin tip at top-left: the tip point is the pick location
+        const tipSize = padding * 0.6;
+        targetCtx.moveTo(bx - tipSize, by - tipSize); // tip = pick point
+        targetCtx.lineTo(bx + tipSize * 1.5, by);
+        targetCtx.lineTo(bx + bw - rx, by);
+        targetCtx.arcTo(bx + bw, by, bx + bw, by + rx, rx);
+        targetCtx.lineTo(bx + bw, by + bh - rx);
+        targetCtx.arcTo(bx + bw, by + bh, bx + bw - rx, by + bh, rx);
+        targetCtx.lineTo(bx + rx, by + bh);
+        targetCtx.arcTo(bx, by + bh, bx, by + bh - rx, rx);
+        targetCtx.lineTo(bx, by + tipSize * 1.5);
+        targetCtx.closePath();
+      } else {
+        targetCtx.roundRect(bx, by, bw, bh, rx);
+      }
       targetCtx.fill();
+
+      // Inset border with matching pin shape
+      if (shape.bgBorder) {
+        const borderWidth = 2 / (isExporting ? 1 : state.transform.zoom);
+        const inset = borderWidth / 2;
+        const ibx = bx + inset;
+        const iby = by + inset;
+        const ibw = bw - borderWidth;
+        const ibh = bh - borderWidth;
+        const tipSize = padding * 0.6;
+
+        targetCtx.strokeStyle = shape.bgBorder;
+        targetCtx.lineWidth = borderWidth;
+        targetCtx.lineJoin = "miter";
+        targetCtx.beginPath();
+        targetCtx.moveTo(ibx - tipSize + inset, iby - tipSize + inset); // tip
+        targetCtx.lineTo(ibx + tipSize * 1.5, iby);
+        targetCtx.lineTo(ibx + ibw - rx, iby);
+        targetCtx.arcTo(ibx + ibw, iby, ibx + ibw, iby + rx, rx);
+        targetCtx.lineTo(ibx + ibw, iby + ibh - rx);
+        targetCtx.arcTo(ibx + ibw, iby + ibh, ibx + ibw - rx, iby + ibh, rx);
+        targetCtx.lineTo(ibx + rx, iby + ibh);
+        targetCtx.arcTo(ibx, iby + ibh, ibx, iby + ibh - rx, rx);
+        targetCtx.lineTo(ibx, iby + tipSize * 1.5);
+        targetCtx.closePath();
+        targetCtx.stroke();
+      }
     }
 
     targetCtx.fillStyle = shape.color;

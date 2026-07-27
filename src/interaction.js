@@ -2246,8 +2246,9 @@ function setupMouseHandlers() {
         const size = _sizeDiff > 12 ? _sizeDiff : 12
 
         pushUndo();
-        // Offset start so the background top-left aligns with the click position
+        // Offset start so the pin tip aligns with the click (pick) position
         const bgPadding = size * 0.4;
+        const tipSize = bgPadding * 0.6;
         const textEl = {
           id: "text_" + state.elementIdCounter++,
           elementType: "text",
@@ -2255,9 +2256,10 @@ function setupMouseHandlers() {
           text: hexUpper,
           color: textColor,
           bgColor: hex,
+          bgBorder: textColor,
           fontSize: size,
           fontFamily: state.currentFontFamily,
-          start: { x: worldPos.x + bgPadding, y: worldPos.y + bgPadding },
+          start: { x: worldPos.x + bgPadding + tipSize, y: worldPos.y + bgPadding + tipSize },
         };
         state.drawings.push(textEl);
         spatialInsert(textEl);
