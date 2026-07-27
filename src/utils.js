@@ -84,6 +84,36 @@ export function isRectInViewport(x, y, w, h, vp) {
 export function showToast(message) {
   const toast = document.getElementById("toast");
   toast.textContent = message;
+  toast.classList.remove("color-toast");
   toast.style.display = "block";
-  setTimeout(() => (toast.style.display = "none"), 4000);
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(() => (toast.style.display = "none"), 4000);
+}
+
+/**
+ * Show a color-preview toast/snackbar with a swatch and hex code.
+ * Copies the color to clipboard and displays a temporary notification.
+ */
+export function showColorToast(hexColor) {
+  const toast = document.getElementById("toast");
+  toast.innerHTML = "";
+  toast.classList.add("color-toast");
+
+  const swatch = document.createElement("span");
+  swatch.className = "color-toast-swatch";
+  swatch.style.background = hexColor;
+
+  const label = document.createElement("span");
+  label.className = "color-toast-label";
+  label.textContent = `${hexColor} copied`;
+
+  toast.appendChild(swatch);
+  toast.appendChild(label);
+  toast.style.display = "flex";
+
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(() => {
+    toast.style.display = "none";
+    toast.classList.remove("color-toast");
+  }, 3000);
 }

@@ -5,7 +5,7 @@
  */
 
 import { state, CONSTANTS, getDom, spatialInsert, spatialRemove, spatialUpdate, spatialIndex, rebuildSpatialIndex } from "./state.js";
-import { screenToWorld, worldToScreen, showToast, constraintToAngle } from "./utils.js";
+import { screenToWorld, worldToScreen, showToast, showColorToast, constraintToAngle } from "./utils.js";
 import {
   getShapeBounds, isPointHittingShape, getElementResizeHandles,
   getElementAtWorldPos, isPointOnSwapHandle, translateElement,
@@ -2268,7 +2268,10 @@ function setupMouseHandlers() {
         showToast(`Inserted ${hexUpper} as text`);
       } else {
         // Normal click: just pick color and copy to clipboard
-        navigator.clipboard.writeText(hexUpper).then(() => showToast(`Copied ${hexUpper} to clipboard`)).catch(() => showToast(`Picked ${hexUpper}`));
+        showColorToast(hexUpper);
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(hexUpper).catch(() => {});
+        }
       }
       return;
     }
