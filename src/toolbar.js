@@ -232,6 +232,7 @@ export function updateCursor() {
   else if (state.currentTool === "eraser") container.style.cursor = "pointer";
   else if (state.currentTool === "text") container.style.cursor = "text";
   else if (state.currentTool === "text-element") container.style.cursor = "text";
+  else if (state.currentTool === "eyedropper") container.style.cursor = "crosshair";
   else if (state.currentTool === "measure") container.style.cursor = "crosshair";
   else if (state.currentTool === "split-line") container.style.cursor = "crosshair";
   else container.style.cursor = "crosshair";

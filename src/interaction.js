@@ -1860,28 +1860,14 @@ function setupKeyboardHandlers() {
       return;
     }
 
-    // I key — EyeDropper
-    if (key === "i" && !e.shiftKey) {
-      if (window.EyeDropper) {
-        const toolBeforeDropper = state.preSpaceTool || state.currentTool;
-        const dropper = new EyeDropper();
-        dropper.open().then((result) => {
-          const hex = result.sRGBHex;
-          if (toolBeforeDropper === "text") { state.textDrawColor = hex; }
-          else { state.drawColor = hex; }
-          colorPicker.value = hex;
-          applyColorToSelectedElements(hex);
-          document.getElementById("color-swatch-inner").style.background = hex;
-          const hexAllCaps = hex.toUpperCase();
-          navigator.clipboard.writeText(hexAllCaps).then(() => showToast(`Copied ${hexAllCaps} to clipboard`)).catch(() => showToast(`Picked ${hexAllCaps}`));
-        }).catch(() => {}).finally(() => {
-          state.isShiftPressed = false; state.isSpacePressed = false; state.panLockDirection = null; state.preSpaceTool = null;
-          state.currentTool = toolBeforeDropper;
-          updateToolbarUI(); updateCursor(); render();
-        });
-      } else {
-        showToast("EyeDropper not supported in this browser");
-      }
+    // I key — Eyedropper tool mode
+    if (key === "i") {
+      state.currentTool = "eyedropper";
+      state.selectedElements = [];
+      updateToolbarUI();
+      updateCursor();
+      render();
+      showToast("Eyedropper: click to pick color, Shift+click to insert hex as text");
       return;
     }
 
@@ -1987,7 +1973,7 @@ function setupKeyboardHandlers() {
 
 function setupMouseHandlers() {
   const dom = getDom();
-  const { container, canvas, textEditor } = dom;
+  const { container, canvas, ctx, textEditor } = dom;
 
   // Global mousemove for swap detection and measure hover
   window.addEventListener("mousemove", (e) => {
@@ -2235,6 +2221,53 @@ function setupMouseHandlers() {
         render();
       }
       state.isInteracting = false;
+      return;
+    }
+
+    if (state.currentTool === "eyedropper") {
+      state.isInteracting = false;
+      // Pick the color from the canvas pixel at the click position
+      const pixelData = ctx.getImageData(e.clientX - canvas.getBoundingClientRect().left, e.clientY - canvas.getBoundingClientRect().top, 1, 1).data;
+      const hex = "#" + ((1 << 24) + (pixelData[0] << 16) + (pixelData[1] << 8) + pixelData[2]).toString(16).slice(1);
+      const hexUpper = hex.toUpperCase();
+
+      // Always set as current draw color
+      state.drawColor = hex;
+      dom.colorPicker.value = hex;
+      document.getElementById("color-swatch-inner").style.background = hex;
+
+      if (e.shiftKey) {
+        // Shift+click: insert the hex code as a text element on the canvas
+        // Determine contrasting text color based on luminance
+        const luminance = (pixelData[0] * 299 + pixelData[1] * 587 + pixelData[2] * 114) / 1000;
+        const textColor = luminance > 128 ? "#000000" : "#FFFFFF";
+
+        const _sizeDiff = state.currentFontSize -  24
+        const size = _sizeDiff > 12 ? _sizeDiff : 12
+
+        pushUndo();
+        // Offset start so the background top-left aligns with the click position
+        const bgPadding = size * 0.4;
+        const textEl = {
+          id: "text_" + state.elementIdCounter++,
+          elementType: "text",
+          type: "text",
+          text: hexUpper,
+          color: textColor,
+          bgColor: hex,
+          fontSize: size,
+          fontFamily: state.currentFontFamily,
+          start: { x: worldPos.x + bgPadding, y: worldPos.y + bgPadding },
+        };
+        state.drawings.push(textEl);
+        spatialInsert(textEl);
+        scheduleSave();
+        render();
+        showToast(`Inserted ${hexUpper} as text`);
+      } else {
+        // Normal click: just pick color and copy to clipboard
+        navigator.clipboard.writeText(hexUpper).then(() => showToast(`Copied ${hexUpper} to clipboard`)).catch(() => showToast(`Picked ${hexUpper}`));
+      }
       return;
     }
 
