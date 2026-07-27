@@ -1586,7 +1586,7 @@ function setupKeyboardHandlers() {
     if (key === "v") targetTool = "select";
     if (key === "b") targetTool = "pen";
     if (key === "l") targetTool = "line";
-    if (key === "a") targetTool = "arrow";
+    if (key === "a" && !e.shiftKey) targetTool = "arrow";
     if (key === "c") targetTool = "connector";
     if (key === "r") targetTool = "rect-border";
     if (key === "f") targetTool = "rect-fill";
@@ -1860,8 +1860,8 @@ function setupKeyboardHandlers() {
       return;
     }
 
-    // I key — Eyedropper tool mode
-    if (key === "i") {
+    // I key or Shift+A — Eyedropper tool mode
+    if (key === "i" || (key === "a" && e.shiftKey)) {
       state.currentTool = "eyedropper";
       state.selectedElements = [];
       updateToolbarUI();
