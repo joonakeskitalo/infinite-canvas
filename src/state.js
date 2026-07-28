@@ -30,7 +30,7 @@ export const state = {
   drawColor: "#ff4444",
   textDrawColor: "#000000",
   bgColor: "#f0f0f0",
-  currentFontSize: 48,
+  currentFontSize: 28,
   currentFontFamily: "sans-serif",
   currentTextAlign: "left",
   currentLineWidth: 4,
