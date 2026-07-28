@@ -41,6 +41,7 @@ import { setRulersVisible, resizeRulers } from "./rulers.js";
 import { FILTER_OPTIONS, FILTER_LABELS } from "./color-filter.js";
 import { openFilterPreview, isFilterPreviewActive } from "./filter-preview-mode.js";
 import { applyFilterToImageData } from "./filter-kernels.js";
+import { setCustomColorsDeps, getCustomColors } from "./custom-colors.js";
 
 /**
  * Snap a split-line position to the nearest fraction (halves, thirds, quarters)
@@ -184,6 +185,19 @@ export function initEventHandlers() {
     });
     if (changed) render();
   }
+
+  // --- Wire custom colors selection callback ---
+  setCustomColorsDeps({
+    onColorSelect(hex, label) {
+      if (state.currentTool === "text") { state.textDrawColor = hex; }
+      else { state.drawColor = hex; }
+      colorPicker.value = hex;
+      applyColorToSelectedElements(hex);
+      updateColorSwatch();
+      colorPopup.classList.remove("open");
+      showColorToast(hex);
+    },
+  });
 
   bgColorPicker.addEventListener("input", (e) => {
     state.bgColor = e.target.value;
@@ -1188,6 +1202,12 @@ function handlePaste(e) {
   const dom = getDom();
   const { textEditor } = dom;
   if (textEditor.style.display === "block" && textEditor.contains(document.activeElement)) return;
+
+  // Allow paste in custom color dialogs and other standard inputs/textareas
+  const activeEl = document.activeElement;
+  if (activeEl && (activeEl.tagName === "TEXTAREA" || (activeEl.tagName === "INPUT" && activeEl.type === "text"))) {
+    return;
+  }
 
   const clipboardData = e.clipboardData || e.originalEvent.clipboardData;
   const items = clipboardData.items;
@@ -2237,7 +2257,11 @@ function setupMouseHandlers() {
       document.getElementById("color-swatch-inner").style.background = hex;
 
       if (e.shiftKey) {
-        // Shift+click: insert the hex code as a text element on the canvas
+        // Shift+click: insert the hex code (and label if custom color) as a text element on the canvas
+        // Look up label from custom colors
+        const customMatch = getCustomColors().find((c) => c.hex === hex.toLowerCase());
+        const insertText = customMatch ? `${hexUpper} ${customMatch.label}` : hexUpper;
+
         // Determine contrasting text color based on luminance
         const luminance = (pixelData[0] * 299 + pixelData[1] * 587 + pixelData[2] * 114) / 1000;
         const textColor = luminance > 128 ? "#000000" : "#FFFFFF";
@@ -2253,7 +2277,7 @@ function setupMouseHandlers() {
           id: "text_" + state.elementIdCounter++,
           elementType: "text",
           type: "text",
-          text: hexUpper,
+          text: insertText,
           color: textColor,
           bgColor: hex,
           bgBorder: textColor,
@@ -2265,7 +2289,7 @@ function setupMouseHandlers() {
         spatialInsert(textEl);
         scheduleSave();
         render();
-        showToast(`Inserted ${hexUpper} as text`);
+        showToast(`Inserted ${insertText} as text`);
       } else {
         // Normal click: just pick color and copy to clipboard
         showColorToast(hexUpper);

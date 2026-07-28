@@ -1464,3 +1464,351 @@ input[type="color"]::-webkit-color-swatch {
 .welcome-get-started-btn:active {
   background: #005f99;
 }
+
+
+/* --- Custom Colors Palette --- */
+.color-popup-separator {
+  height: 1px;
+  background: #444;
+  margin: 6px 0;
+}
+
+.custom-colors-section {
+  max-width: 260px;
+}
+
+.custom-colors-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.custom-colors-title {
+  font-size: 10px;
+  color: #888;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.custom-colors-actions {
+  display: flex;
+  gap: 2px;
+}
+
+.custom-colors-action-btn {
+  background: transparent;
+  border: 1px solid #555;
+  color: #aaa;
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s;
+  padding: 0;
+  line-height: 1;
+}
+
+.custom-colors-action-btn:hover {
+  background: #444;
+  color: #fff;
+  border-color: #777;
+}
+
+.custom-colors-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.custom-colors-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-colors-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-colors-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+
+.custom-colors-empty {
+  font-size: 10px;
+  color: #666;
+  text-align: center;
+  padding: 6px 0;
+  font-style: italic;
+}
+
+.custom-color-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.custom-color-item:hover {
+  background: #3a3a3a;
+}
+
+.custom-color-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
+}
+
+.custom-color-label {
+  font-size: 11px;
+  color: #ddd;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.custom-color-hex {
+  font-size: 9px;
+  color: #777;
+  font-family: "SF Mono", "Fira Code", monospace;
+  flex-shrink: 0;
+}
+
+.custom-color-edit-btn,
+.custom-color-delete-btn {
+  background: transparent;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  font-size: 12px;
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.12s;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.custom-color-item:hover .custom-color-edit-btn,
+.custom-color-item:hover .custom-color-delete-btn {
+  opacity: 1;
+}
+
+.custom-color-edit-btn:hover {
+  background: #555;
+  color: #fff;
+}
+
+.custom-color-delete-btn:hover {
+  background: #663333;
+  color: #ff6666;
+}
+
+/* --- Custom Color Dialog --- */
+.custom-color-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(3px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.custom-color-dialog {
+  background: #2a2a2a;
+  border: 1px solid #555;
+  border-radius: 10px;
+  padding: 20px 24px;
+  min-width: 320px;
+  max-width: 440px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  animation: custom-color-dialog-in 0.15s ease-out;
+}
+
+@keyframes custom-color-dialog-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.custom-color-dialog-title {
+  margin: 0 0 14px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #eee;
+}
+
+.custom-color-dialog-hint {
+  font-size: 11px;
+  color: #999;
+  margin: 0 0 10px;
+  line-height: 1.4;
+}
+
+.custom-color-dialog-hint code {
+  background: #1a1a1a;
+  border: 1px solid #444;
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-size: 10px;
+  color: #aaa;
+}
+
+.custom-color-dialog-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.custom-color-dialog-row label {
+  font-size: 12px;
+  color: #aaa;
+  min-width: 42px;
+  flex-shrink: 0;
+}
+
+.custom-color-dialog-picker {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #555;
+  border-radius: 4px;
+  cursor: pointer;
+  background: transparent;
+  padding: 2px;
+  flex-shrink: 0;
+}
+
+.custom-color-dialog-picker::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.custom-color-dialog-picker::-webkit-color-swatch {
+  border: none;
+  border-radius: 2px;
+}
+
+.custom-color-dialog-hex {
+  flex: 1;
+  background: #1e1e1e;
+  border: 1px solid #555;
+  border-radius: 4px;
+  color: #ddd;
+  font-size: 12px;
+  font-family: "SF Mono", "Fira Code", monospace;
+  padding: 6px 8px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.custom-color-dialog-hex:focus {
+  border-color: #007acc;
+}
+
+.custom-color-dialog-label {
+  flex: 1;
+  background: #1e1e1e;
+  border: 1px solid #555;
+  border-radius: 4px;
+  color: #ddd;
+  font-size: 12px;
+  padding: 6px 8px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.custom-color-dialog-label:focus {
+  border-color: #007acc;
+}
+
+.custom-color-dialog-textarea {
+  width: 100%;
+  background: #1e1e1e;
+  border: 1px solid #555;
+  border-radius: 4px;
+  color: #ddd;
+  font-size: 11px;
+  font-family: "SF Mono", "Fira Code", monospace;
+  padding: 8px;
+  outline: none;
+  resize: vertical;
+  margin-bottom: 10px;
+  transition: border-color 0.15s;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.custom-color-dialog-textarea:focus {
+  border-color: #007acc;
+}
+
+.custom-color-dialog-file-btn {
+  background: #333;
+  border: 1px solid #555;
+  color: #ccc;
+  font-size: 11px;
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.custom-color-dialog-file-btn:hover {
+  background: #444;
+  color: #fff;
+}
+
+.custom-color-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.custom-color-dialog-cancel,
+.custom-color-dialog-confirm {
+  background: #333;
+  border: 1px solid #555;
+  color: #ccc;
+  font-size: 12px;
+  padding: 7px 16px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.custom-color-dialog-cancel:hover {
+  background: #444;
+  color: #fff;
+}
+
+.custom-color-dialog-confirm {
+  background: #007acc;
+  border-color: #0098ff;
+  color: #fff;
+}
+
+.custom-color-dialog-confirm:hover {
+  background: #0098ff;
+}

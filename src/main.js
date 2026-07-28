@@ -6,7 +6,7 @@
  */
 
 import { state, rebuildSpatialIndex } from "./state.js";
-import { formatShortcut, isMacPlatform } from "./utils.js";
+import { formatShortcut, isMacPlatform, showToast } from "./utils.js";
 import { render, setPostRenderHook } from "./rendering.js";
 import { setHistoryDeps } from "./history.js";
 import { setCropDeps } from "./crop.js";
@@ -16,6 +16,7 @@ import { initRulers, renderRulers, renderGuides } from "./rulers.js";
 import { initEventHandlers } from "./interaction.js";
 import { initFilterPreviewMode } from "./filter-preview-mode.js";
 import { initWelcomeModal } from "./welcome.js";
+import { initCustomColors, setCustomColorsToast } from "./custom-colors.js";
 
 // --- Wire up forward dependencies to break circular imports ---
 setHistoryDeps({
@@ -71,3 +72,7 @@ rebuildSpatialIndex();
 
 // --- Show welcome modal on first visit ---
 initWelcomeModal();
+
+// --- Initialize custom color palette ---
+setCustomColorsToast(showToast);
+initCustomColors();
