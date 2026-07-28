@@ -15,12 +15,6 @@ export function updateToolbarUI() {
     if (b.dataset.tool === state.currentTool) b.classList.add("active");
     else b.classList.remove("active");
   });
-  const colorLabel = document.getElementById("color-label");
-  if (state.currentTool === "text") {
-    colorLabel.textContent = "Text";
-  } else {
-    colorLabel.textContent = "Color";
-  }
   toggleAlignmentPanelVisibility();
 }
 
