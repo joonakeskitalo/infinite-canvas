@@ -68,6 +68,15 @@ export function render(targetCtx, isExporting = false) {
   scheduleRender();
 }
 
+/**
+ * Force a synchronous render to the main canvas.
+ * Use sparingly — needed when pixel sampling must follow immediately after a state change.
+ */
+export function renderSync() {
+  const { ctx } = getDom();
+  _doRender(ctx, false);
+}
+
 export function getFilteredImage(imgData) {
   if (state.filteredImageCacheFilter !== state.currentFilter) {
     state.filteredImageCache = new WeakMap();
@@ -204,6 +213,116 @@ export function drawMeasureLine(targetCtx, start, end, color, isExporting) {
   targetCtx.restore();
 }
 
+/**
+ * Draw a contrast line between two sampled color points.
+ * Shows color swatches at each end and the contrast ratio in the middle.
+ */
+export function drawContrastLine(targetCtx, shape, isExporting) {
+  const { start, end, hex1, hex2, ratio } = shape;
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist < 0.1) return;
+
+  const zoomFactor = isExporting ? 1 : state.transform.zoom;
+  const lineWidth = (isExporting ? 2 : 2) / zoomFactor;
+  const swatchRadius = 10 / zoomFactor;
+  const fontSize = Math.max(9, 11 / zoomFactor);
+
+  targetCtx.save();
+
+  // Draw connecting line
+  targetCtx.strokeStyle = "#e040fb";
+  targetCtx.lineWidth = lineWidth;
+  targetCtx.lineCap = "round";
+  targetCtx.setLineDash([6 / zoomFactor, 4 / zoomFactor]);
+  targetCtx.beginPath();
+  targetCtx.moveTo(start.x, start.y);
+  targetCtx.lineTo(end.x, end.y);
+  targetCtx.stroke();
+  targetCtx.setLineDash([]);
+
+  // Draw color swatches at endpoints — larger with shadow and strong border
+  // Swatch 1 (start)
+  targetCtx.shadowColor = "rgba(0, 0, 0, 0.5)";
+  targetCtx.shadowBlur = 4 / zoomFactor;
+  targetCtx.shadowOffsetX = 0;
+  targetCtx.shadowOffsetY = 1 / zoomFactor;
+
+  targetCtx.fillStyle = hex1;
+  targetCtx.beginPath();
+  targetCtx.arc(start.x, start.y, swatchRadius, 0, Math.PI * 2);
+  targetCtx.fill();
+
+  targetCtx.shadowColor = "transparent";
+  targetCtx.strokeStyle = "#ffffff";
+  targetCtx.lineWidth = 2.5 / zoomFactor;
+  targetCtx.stroke();
+  targetCtx.strokeStyle = "rgba(0, 0, 0, 0.4)";
+  targetCtx.lineWidth = 1 / zoomFactor;
+  targetCtx.beginPath();
+  targetCtx.arc(start.x, start.y, swatchRadius + 1.5 / zoomFactor, 0, Math.PI * 2);
+  targetCtx.stroke();
+
+  // Swatch 2 (end)
+  targetCtx.shadowColor = "rgba(0, 0, 0, 0.5)";
+  targetCtx.shadowBlur = 4 / zoomFactor;
+  targetCtx.shadowOffsetX = 0;
+  targetCtx.shadowOffsetY = 1 / zoomFactor;
+
+  targetCtx.fillStyle = hex2;
+  targetCtx.beginPath();
+  targetCtx.arc(end.x, end.y, swatchRadius, 0, Math.PI * 2);
+  targetCtx.fill();
+
+  targetCtx.shadowColor = "transparent";
+  targetCtx.strokeStyle = "#ffffff";
+  targetCtx.lineWidth = 2.5 / zoomFactor;
+  targetCtx.stroke();
+  targetCtx.strokeStyle = "rgba(0, 0, 0, 0.4)";
+  targetCtx.lineWidth = 1 / zoomFactor;
+  targetCtx.beginPath();
+  targetCtx.arc(end.x, end.y, swatchRadius + 1.5 / zoomFactor, 0, Math.PI * 2);
+  targetCtx.stroke();
+
+  // Draw ratio label at midpoint
+  const midX = (start.x + end.x) / 2;
+  const midY = (start.y + end.y) / 2;
+  const ratioText = ratio.toFixed(1) + ":1";
+  const passes45 = ratio >= 4.5;
+
+  targetCtx.font = `bold ${fontSize}px sans-serif`;
+  targetCtx.textAlign = "center";
+  targetCtx.textBaseline = "middle";
+
+  const metrics = targetCtx.measureText(ratioText);
+  const labelW = metrics.width + 10 / zoomFactor;
+  const labelH = fontSize + 8 / zoomFactor;
+
+  // Offset label perpendicular to line
+  const angle = Math.atan2(dy, dx);
+  const labelOffset = 10 / zoomFactor;
+  const labelCx = midX + Math.sin(angle) * labelOffset;
+  const labelCy = midY - Math.cos(angle) * labelOffset;
+
+  // Background pill
+  targetCtx.fillStyle = passes45 ? "rgba(20, 80, 40, 0.85)" : "rgba(100, 20, 20, 0.85)";
+  targetCtx.beginPath();
+  targetCtx.roundRect(labelCx - labelW / 2, labelCy - labelH / 2, labelW, labelH, 4 / zoomFactor);
+  targetCtx.fill();
+
+  // Border
+  targetCtx.strokeStyle = passes45 ? "rgba(92, 219, 92, 0.6)" : "rgba(255, 107, 107, 0.6)";
+  targetCtx.lineWidth = 1 / zoomFactor;
+  targetCtx.stroke();
+
+  // Ratio text
+  targetCtx.fillStyle = passes45 ? "#5cdb5c" : "#ff6b6b";
+  targetCtx.fillText(ratioText, labelCx, labelCy);
+
+  targetCtx.restore();
+}
+
 export function drawShape(targetCtx, shape, isExporting) {
   let calculatedWidth = shape.width;
   if (shape.type !== "text") {
@@ -267,6 +386,8 @@ export function drawShape(targetCtx, shape, isExporting) {
     targetCtx.fillRect(shape.start.x, shape.start.y, shape.end.x - shape.start.x, shape.end.y - shape.start.y);
   } else if (shape.type === "measure") {
     drawMeasureLine(targetCtx, shape.start, shape.end, shape.color, isExporting);
+  } else if (shape.type === "contrast-line") {
+    drawContrastLine(targetCtx, shape, isExporting);
   } else if (shape.type === "connector") {
     const dx = shape.end.x - shape.start.x;
     const dy = shape.end.y - shape.start.y;
@@ -1047,6 +1168,44 @@ function _doRender(targetCtx, isExporting) {
         targetCtx.restore();
       });
     }
+    targetCtx.restore();
+  }
+
+  // 4b. Draw active contrast line preview during drag
+  if (!isExporting && state.currentTool === "contrast" && state.activeContrastLine) {
+    targetCtx.save();
+    targetCtx.translate(transform.x, transform.y);
+    targetCtx.scale(transform.zoom, transform.zoom);
+    const s = state.activeContrastLine.start;
+    const en = state.activeContrastLine.end;
+    const zf = transform.zoom;
+    const lineWidth = 2 / zf;
+
+    // Dashed preview line
+    targetCtx.strokeStyle = "#e040fb";
+    targetCtx.lineWidth = lineWidth;
+    targetCtx.lineCap = "round";
+    targetCtx.setLineDash([6 / zf, 4 / zf]);
+    targetCtx.beginPath();
+    targetCtx.moveTo(s.x, s.y);
+    targetCtx.lineTo(en.x, en.y);
+    targetCtx.stroke();
+    targetCtx.setLineDash([]);
+
+    // Endpoint markers
+    const markerRadius = 6 / zf;
+    targetCtx.fillStyle = "rgba(224, 64, 251, 0.3)";
+    targetCtx.strokeStyle = "#e040fb";
+    targetCtx.lineWidth = 2 / zf;
+    targetCtx.beginPath();
+    targetCtx.arc(s.x, s.y, markerRadius, 0, Math.PI * 2);
+    targetCtx.fill();
+    targetCtx.stroke();
+    targetCtx.beginPath();
+    targetCtx.arc(en.x, en.y, markerRadius, 0, Math.PI * 2);
+    targetCtx.fill();
+    targetCtx.stroke();
+
     targetCtx.restore();
   }
 

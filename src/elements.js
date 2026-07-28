@@ -143,7 +143,7 @@ export function isPointHittingShape(p, shape) {
       if (getPtToSegmentDist(p, shape.points[i], shape.points[i + 1]) < threshold)
         return true;
     }
-  } else if (shape.type === "line" || shape.type === "arrow" || shape.type === "measure" || shape.type === "connector") {
+  } else if (shape.type === "line" || shape.type === "arrow" || shape.type === "measure" || shape.type === "connector" || shape.type === "contrast-line") {
     return getPtToSegmentDist(p, shape.start, shape.end) < threshold;
   } else if (shape.type === "rect-border" || shape.type === "rect-fill") {
     const b = getShapeBounds(shape);

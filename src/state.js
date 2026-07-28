@@ -112,6 +112,8 @@ export const state = {
   contrastColor1: null, // {r, g, b} of first click
   contrastColor2: null, // {r, g, b} of second click
   contrastClickCount: 0, // 0 = waiting for first, 1 = waiting for second
+  contrastWorldPos1: null, // {x, y} world position of first click (for shift-click line)
+  activeContrastLine: null, // {start, end} during drag to create contrast line
 
   // Color filter
   currentFilter: "none",

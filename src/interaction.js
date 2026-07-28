@@ -13,7 +13,7 @@ import {
 } from "./elements.js";
 import { pushUndo, undo, redo } from "./history.js";
 import { scheduleSave, saveFile, saveAs, openFile } from "./persistence.js";
-import { render, executePNGExport, executeJPEGExport } from "./rendering.js";
+import { render, renderSync, executePNGExport, executeJPEGExport } from "./rendering.js";
 import {
   getSnapTargets, snapToElements, snapToSpacing, snapResizeEdges,
   getProximityGuides, getSpacingGuides, computeMeasureHoverGuides,
@@ -42,7 +42,7 @@ import { FILTER_OPTIONS, FILTER_LABELS } from "./color-filter.js";
 import { openFilterPreview, isFilterPreviewActive } from "./filter-preview-mode.js";
 import { applyFilterToImageData } from "./filter-kernels.js";
 import { setCustomColorsDeps, getCustomColors } from "./custom-colors.js";
-import { showContrastResult, showContrastWaiting, hideContrastPanel } from "./contrast-checker.js";
+import { showContrastResult, showContrastWaiting, hideContrastPanel, contrastRatio, rgbToHex } from "./contrast-checker.js";
 
 /**
  * Snap a split-line position to the nearest fraction (halves, thirds, quarters)
@@ -107,7 +107,7 @@ export function initEventHandlers() {
       if (state.currentTool !== "select") { state.swapHoveredElement = null; state.isSwapDragging = false; state.swapSourceElement = null; state.swapDragWorldPos = null; state.swapTargetElement = null; }
       if (state.currentTool !== "measure") { state.measureHoverGuides = []; state.activeMeasureLine = null; }
       if (state.currentTool !== "split-line") { state.splitLineHoveredImage = null; state.splitLineWorldPos = null; }
-      if (state.currentTool === "contrast") { state.contrastClickCount = 0; state.contrastColor1 = null; state.contrastColor2 = null; showContrastWaiting(1); }
+      if (state.currentTool === "contrast") { state.contrastClickCount = 0; state.contrastColor1 = null; state.contrastColor2 = null; state.contrastWorldPos1 = null; state.activeContrastLine = null; showContrastWaiting(1); }
       else { hideContrastPanel(); }
       if (state.currentTool === "text") { colorPicker.value = state.textDrawColor; }
       else { colorPicker.value = state.drawColor; }
@@ -2178,6 +2178,14 @@ function setupMouseHandlers() {
       return;
     }
 
+    if (state.currentTool === "contrast") {
+      state.activeContrastLine = { start: { ...worldPos }, end: { ...worldPos } };
+      // Sample start color immediately at mousedown
+      const pixelData = ctx.getImageData(e.clientX - canvas.getBoundingClientRect().left, e.clientY - canvas.getBoundingClientRect().top, 1, 1).data;
+      state.activeContrastLine.startColor = { r: pixelData[0], g: pixelData[1], b: pixelData[2] };
+      return;
+    }
+
     if (state.currentTool === "split-line") {
       if (state.splitLineHoveredImage && state.splitLineWorldPos) {
         const img = state.splitLineHoveredImage;
@@ -2310,27 +2318,6 @@ function setupMouseHandlers() {
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(hexUpper).catch(() => {});
         }
-      }
-      return;
-    }
-
-    if (state.currentTool === "contrast") {
-      state.isInteracting = false;
-      // Sample pixel color at click position
-      const pixelData = ctx.getImageData(e.clientX - canvas.getBoundingClientRect().left, e.clientY - canvas.getBoundingClientRect().top, 1, 1).data;
-      const color = { r: pixelData[0], g: pixelData[1], b: pixelData[2] };
-
-      if (state.contrastClickCount === 0) {
-        // First click
-        state.contrastColor1 = color;
-        state.contrastColor2 = null;
-        state.contrastClickCount = 1;
-        showContrastWaiting(2);
-      } else {
-        // Second click — show result
-        state.contrastColor2 = color;
-        state.contrastClickCount = 0;
-        showContrastResult();
       }
       return;
     }
@@ -3032,6 +3019,14 @@ function setupMouseHandlers() {
       if (e.shiftKey) worldPos = constraintToAngle(state.activeMeasureLine.start, worldPos);
       state.activeMeasureLine.end = { ...worldPos };
       render();
+    } else if (state.activeContrastLine) {
+      // Don't update contrast line until user has dragged beyond minimum distance
+      const screenDx = e.clientX - state.startX;
+      const screenDy = e.clientY - state.startY;
+      if (Math.sqrt(screenDx * screenDx + screenDy * screenDy) < CONSTANTS.MIN_DRAW_DISTANCE) return;
+
+      state.activeContrastLine.end = { ...worldPos };
+      render();
     } else if (state.activeConnector) {
       // Don't update connector until user has dragged beyond minimum distance
       const screenDx = e.clientX - state.startX;
@@ -3127,6 +3122,98 @@ function setupMouseHandlers() {
         }
       }
       state.activeMeasureLine = null;
+      render(); scheduleSave();
+      state.isMiddleClick = false; state.isRightClickHand = false; updateCursor();
+      return;
+    }
+
+    if (state.currentTool === "contrast" && state.activeContrastLine) {
+      const dx2 = state.activeContrastLine.end.x - state.activeContrastLine.start.x;
+      const dy2 = state.activeContrastLine.end.y - state.activeContrastLine.start.y;
+      if (Math.sqrt(dx2 * dx2 + dy2 * dy2) > 5 / state.transform.zoom) {
+        // Drag completed — store line data before clearing preview
+        const c1 = state.activeContrastLine.startColor;
+        const lineStart = { ...state.activeContrastLine.start };
+        const lineEnd = { ...state.activeContrastLine.end };
+
+        // Clear preview and re-render cleanly so we can sample the end color
+        // without picking up the preview line's purple color
+        state.activeContrastLine = null;
+        renderSync();
+
+        // Sample end color at current mouse position (now unobstructed)
+        const canvasRect = canvas.getBoundingClientRect();
+        const px2 = ctx.getImageData(
+          e.clientX - canvasRect.left,
+          e.clientY - canvasRect.top, 1, 1
+        ).data;
+        const c2 = { r: px2[0], g: px2[1], b: px2[2] };
+
+        const ratio = contrastRatio(c1, c2);
+        pushUndo();
+        const contrastEl = {
+          id: "draw_" + state.elementIdCounter++,
+          elementType: "drawing",
+          type: "contrast-line",
+          color: "#e040fb",
+          width: CONSTANTS.CONSTANT_LINE_WIDTH,
+          start: lineStart,
+          end: lineEnd,
+          color1: c1,
+          color2: c2,
+          hex1: rgbToHex(c1.r, c1.g, c1.b),
+          hex2: rgbToHex(c2.r, c2.g, c2.b),
+          ratio: ratio,
+        };
+        state.drawings.push(contrastEl);
+        spatialInsert(contrastEl);
+
+        // Also show the panel result
+        state.contrastColor1 = c1;
+        state.contrastColor2 = c2;
+        state.contrastClickCount = 0;
+        showContrastResult();
+      } else {
+        // Drag too short — treat as click for click-click mode
+        const color = state.activeContrastLine.startColor;
+        const worldPos = state.activeContrastLine.start;
+
+        if (state.contrastClickCount === 0) {
+          state.contrastColor1 = color;
+          state.contrastColor2 = null;
+          state.contrastWorldPos1 = { ...worldPos };
+          state.contrastClickCount = 1;
+          showContrastWaiting(2);
+        } else {
+          state.contrastColor2 = color;
+          state.contrastClickCount = 0;
+
+          if (e.shiftKey) {
+            // Shift-click: store a persistent contrast line on the canvas
+            const ratio = contrastRatio(state.contrastColor1, color);
+            pushUndo();
+            const contrastEl = {
+              id: "draw_" + state.elementIdCounter++,
+              elementType: "drawing",
+              type: "contrast-line",
+              color: "#e040fb",
+              width: CONSTANTS.CONSTANT_LINE_WIDTH,
+              start: { ...state.contrastWorldPos1 },
+              end: { ...worldPos },
+              color1: { ...state.contrastColor1 },
+              color2: { ...color },
+              hex1: rgbToHex(state.contrastColor1.r, state.contrastColor1.g, state.contrastColor1.b),
+              hex2: rgbToHex(color.r, color.g, color.b),
+              ratio: ratio,
+            };
+            state.drawings.push(contrastEl);
+            spatialInsert(contrastEl);
+          }
+
+          showContrastResult();
+        }
+      }
+      state.activeContrastLine = null;
       render(); scheduleSave();
       state.isMiddleClick = false; state.isRightClickHand = false; updateCursor();
       return;
