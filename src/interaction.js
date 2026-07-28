@@ -1880,14 +1880,24 @@ function setupKeyboardHandlers() {
       return;
     }
 
-    // I key or Shift+A — Eyedropper tool mode
+    // I key or Shift+A — Eyedropper tool mode; Shift+I toggles insert mode lock
+    if (key === "i" && e.shiftKey && state.currentTool === "eyedropper") {
+      // Shift+I while in eyedropper mode — toggle insert mode lock
+      state.eyedropperInsertMode = !state.eyedropperInsertMode;
+      showToast(state.eyedropperInsertMode
+        ? "Eyedropper insert mode ON — click to insert hex as text"
+        : "Eyedropper insert mode OFF — click to pick color");
+      return;
+    }
     if (key === "i" || (key === "a" && e.shiftKey)) {
       state.currentTool = "eyedropper";
       state.selectedElements = [];
       updateToolbarUI();
       updateCursor();
       render();
-      showToast("Eyedropper: click to pick color, Shift+click to insert hex as text");
+      showToast(state.eyedropperInsertMode
+        ? "Eyedropper (insert mode): click to insert hex as text, Shift+I to toggle"
+        : "Eyedropper: click to pick color, Shift+click to insert hex as text, Shift+I to toggle insert mode");
       return;
     }
 
@@ -2256,7 +2266,7 @@ function setupMouseHandlers() {
       dom.colorPicker.value = hex;
       document.getElementById("color-swatch-inner").style.background = hex;
 
-      if (e.shiftKey) {
+      if (e.shiftKey || state.eyedropperInsertMode) {
         // Shift+click: insert the hex code (and label if custom color) as a text element on the canvas
         // Look up label from custom colors
         const customMatch = getCustomColors().find((c) => c.hex === hex.toLowerCase());

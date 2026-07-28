@@ -100,6 +100,9 @@ export const state = {
   activeConnector: null,
   connectorHoverTarget: null,
 
+  // Eyedropper insert mode (shift-click behavior without holding shift)
+  eyedropperInsertMode: false,
+
   // Split-line tool
   splitLineOrientation: "vertical", // "vertical" or "horizontal"
   splitLineHoveredImage: null,
