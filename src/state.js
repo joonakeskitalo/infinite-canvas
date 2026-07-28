@@ -108,6 +108,11 @@ export const state = {
   splitLineHoveredImage: null,
   splitLineWorldPos: null,
 
+  // Contrast checker tool
+  contrastColor1: null, // {r, g, b} of first click
+  contrastColor2: null, // {r, g, b} of second click
+  contrastClickCount: 0, // 0 = waiting for first, 1 = waiting for second
+
   // Color filter
   currentFilter: "none",
   filteredImageCache: new WeakMap(),

@@ -212,6 +212,14 @@
 
       <button
         class="tool-btn"
+        id="tool-contrast"
+        data-tool="contrast"
+        title="Contrast Checker [K] — Click two spots to compare"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20z"/></svg>
+      </button>
+      <button
+        class="tool-btn"
         id="tool-eyedropper"
         data-tool="eyedropper"
         title="Color Picker / Eyedropper [I]"
@@ -655,6 +663,8 @@
         </button>
       </div>
     </div>
+
+    <div id="contrast-checker-panel" style="display:none;"></div>
 
     <div id="toast">Canvas copied to clipboard as PNG!</div>
     <div id="text-editor-overlay" contenteditable="true"></div>

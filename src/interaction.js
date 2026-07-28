@@ -42,6 +42,7 @@ import { FILTER_OPTIONS, FILTER_LABELS } from "./color-filter.js";
 import { openFilterPreview, isFilterPreviewActive } from "./filter-preview-mode.js";
 import { applyFilterToImageData } from "./filter-kernels.js";
 import { setCustomColorsDeps, getCustomColors } from "./custom-colors.js";
+import { showContrastResult, showContrastWaiting, hideContrastPanel } from "./contrast-checker.js";
 
 /**
  * Snap a split-line position to the nearest fraction (halves, thirds, quarters)
@@ -106,6 +107,8 @@ export function initEventHandlers() {
       if (state.currentTool !== "select") { state.swapHoveredElement = null; state.isSwapDragging = false; state.swapSourceElement = null; state.swapDragWorldPos = null; state.swapTargetElement = null; }
       if (state.currentTool !== "measure") { state.measureHoverGuides = []; state.activeMeasureLine = null; }
       if (state.currentTool !== "split-line") { state.splitLineHoveredImage = null; state.splitLineWorldPos = null; }
+      if (state.currentTool === "contrast") { state.contrastClickCount = 0; state.contrastColor1 = null; state.contrastColor2 = null; showContrastWaiting(1); }
+      else { hideContrastPanel(); }
       if (state.currentTool === "text") { colorPicker.value = state.textDrawColor; }
       else { colorPicker.value = state.drawColor; }
       updateToolbarUI();
@@ -1614,6 +1617,7 @@ function setupKeyboardHandlers() {
     if (key === "n") targetTool = "text-element";
     if (key === "e") targetTool = "eraser";
     if (key === "m") targetTool = "measure";
+    if (key === "k") targetTool = "contrast";
     if (key === "s") {
       if (state.currentTool === "split-line") {
         state.splitLineOrientation = state.splitLineOrientation === "vertical" ? "horizontal" : "vertical";
@@ -2306,6 +2310,27 @@ function setupMouseHandlers() {
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(hexUpper).catch(() => {});
         }
+      }
+      return;
+    }
+
+    if (state.currentTool === "contrast") {
+      state.isInteracting = false;
+      // Sample pixel color at click position
+      const pixelData = ctx.getImageData(e.clientX - canvas.getBoundingClientRect().left, e.clientY - canvas.getBoundingClientRect().top, 1, 1).data;
+      const color = { r: pixelData[0], g: pixelData[1], b: pixelData[2] };
+
+      if (state.contrastClickCount === 0) {
+        // First click
+        state.contrastColor1 = color;
+        state.contrastColor2 = null;
+        state.contrastClickCount = 1;
+        showContrastWaiting(2);
+      } else {
+        // Second click — show result
+        state.contrastColor2 = color;
+        state.contrastClickCount = 0;
+        showContrastResult();
       }
       return;
     }
