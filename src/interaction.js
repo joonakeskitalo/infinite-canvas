@@ -1086,7 +1086,7 @@ function setTextEditorContent(text, segments) {
 
 function autoResizeTextEditor() {
   const { textEditor, ctx } = getDom();
-  const screenFontSize = parseFloat(textEditor.style.fontSize) || 48;
+  const screenFontSize = parseFloat(textEditor.style.fontSize) || 28;
 
   // Find the largest inline font size in the editor for proper sizing
   let maxInlineFontSize = screenFontSize;
@@ -2266,8 +2266,7 @@ function setupMouseHandlers() {
         const luminance = (pixelData[0] * 299 + pixelData[1] * 587 + pixelData[2] * 114) / 1000;
         const textColor = luminance > 128 ? "#000000" : "#FFFFFF";
 
-        const _sizeDiff = state.currentFontSize -  24
-        const size = _sizeDiff > 12 ? _sizeDiff : 12
+        const size = state.currentFontSize
 
         pushUndo();
         // Offset start so the pin tip aligns with the click (pick) position
