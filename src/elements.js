@@ -332,6 +332,7 @@ export function cloneElement(el) {
     if (el.w) clone.w = el.w;
     if (el.h) clone.h = el.h;
     if (el.bgColor) clone.bgColor = el.bgColor;
+    if (el.bgBorder) clone.bgBorder = el.bgBorder;
     if (el.textAlign) clone.textAlign = el.textAlign;
     if (el.textWidth) clone.textWidth = el.textWidth;
     if (el.segments) clone.segments = el.segments.map((s) => ({ ...s }));
@@ -376,6 +377,7 @@ export function serializeElement(el) {
     if (el.w) clone.w = el.w;
     if (el.h) clone.h = el.h;
     if (el.bgColor) clone.bgColor = el.bgColor;
+    if (el.bgBorder) clone.bgBorder = el.bgBorder;
     if (el.textAlign) clone.textAlign = el.textAlign;
     if (el.textWidth) clone.textWidth = el.textWidth;
     if (el.segments) clone.segments = el.segments.map((s) => ({ ...s }));
