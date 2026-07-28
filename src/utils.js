@@ -94,7 +94,7 @@ export function showToast(message) {
  * Show a color-preview toast/snackbar with a swatch and hex code.
  * Copies the color to clipboard and displays a temporary notification.
  */
-export function showColorToast(hexColor) {
+export function showColorToast(hexColor, colorLabel) {
   const toast = document.getElementById("toast");
   toast.innerHTML = "";
   toast.classList.add("color-toast");
@@ -105,7 +105,7 @@ export function showColorToast(hexColor) {
 
   const label = document.createElement("span");
   label.className = "color-toast-label";
-  label.textContent = `${hexColor} copied`;
+  label.textContent = colorLabel ? `${hexColor} — ${colorLabel} copied` : `${hexColor} copied`;
 
   toast.appendChild(swatch);
   toast.appendChild(label);

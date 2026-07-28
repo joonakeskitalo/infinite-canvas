@@ -2292,7 +2292,8 @@ function setupMouseHandlers() {
         showToast(`Inserted ${insertText} as text`);
       } else {
         // Normal click: just pick color and copy to clipboard
-        showColorToast(hexUpper);
+        const customMatchPick = getCustomColors().find((c) => c.hex === hex.toLowerCase());
+        showColorToast(hexUpper, customMatchPick ? customMatchPick.label : null);
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(hexUpper).catch(() => {});
         }
