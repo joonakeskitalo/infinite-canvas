@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Infinite Canvas Workspace</title>
     <script src="lib/jszip.min.js"></script>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css" />
 
     <link
       rel="icon"
@@ -15,7 +15,21 @@
   <body style="background-color: #f0f0f0">
     <div id="toolbar">
       <button class="tool-btn" id="toolbar-menu-btn" title="Menu">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <line x1="4" y1="6" x2="20" y2="6" />
+          <line x1="4" y1="12" x2="20" y2="12" />
+          <line x1="4" y1="18" x2="20" y2="18" />
+        </svg>
       </button>
 
       <div class="separator"></div>
@@ -61,7 +75,30 @@
         data-tool="measure"
         title="Measure Tool [M]"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 7 8.7 2.7a2.41 2.41 0 0 0-3.4 0L2.7 5.3a2.41 2.41 0 0 0 0 3.4L7 13"/><path d="m8 6 2-2"/><path d="m18 16 2-2"/><path d="m17 11 4.3 4.3c.94.94.94 2.46 0 3.4l-2.6 2.6c-.94.94-2.46.94-3.4 0L11 17"/><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            d="M13 7 8.7 2.7a2.41 2.41 0 0 0-3.4 0L2.7 5.3a2.41 2.41 0 0 0 0 3.4L7 13"
+          />
+          <path d="m8 6 2-2" />
+          <path d="m18 16 2-2" />
+          <path
+            d="m17 11 4.3 4.3c.94.94.94 2.46 0 3.4l-2.6 2.6c-.94.94-2.46.94-3.4 0L11 17"
+          />
+          <path
+            d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"
+          />
+          <path d="m15 5 4 4" />
+        </svg>
       </button>
       <button
         class="tool-btn"
@@ -70,7 +107,26 @@
         title="Split Line Tool [S] (S again toggles orientation, Shift temporarily flips, ⌘/Ctrl places both)"
         style="width: 38px"
       >
-        <svg style="height:32px !important;width:32px !important;margin-top:2px;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 19H5c-1 0-2-1-2-2V7c0-1 1-2 2-2h3"/><path d="M16 5h3c1 0 2 1 2 2v10c0 1-1 2-2 2h-3"/><line x1="12" x2="12" y1="4" y2="20"/></svg>
+        <svg
+          style="
+            height: 32px !important;
+            width: 32px !important;
+            margin-top: 2px;
+          "
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M8 19H5c-1 0-2-1-2-2V7c0-1 1-2 2-2h3" />
+          <path d="M16 5h3c1 0 2 1 2 2v10c0 1-1 2-2 2h-3" />
+          <line x1="12" x2="12" y1="4" y2="20" />
+        </svg>
       </button>
 
       <div class="separator"></div>
@@ -81,7 +137,22 @@
         data-tool="pen"
         title="Pen Tool [B]"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"
+          />
+          <path d="m15 5 4 4" />
+        </svg>
       </button>
       <button
         class="tool-btn"
@@ -120,7 +191,24 @@
         data-tool="connector"
         title="Connector Arrow [C]"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M8.464 8.464l9.536 9.536" /><path d="M14 18h4v-4" /><path d="M8.414 8.414a2 2 0 1 0 -2.828 -2.828a2 2 0 0 0 2.828 2.828" /></svg>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+          <path d="M8.464 8.464l9.536 9.536" />
+          <path d="M14 18h4v-4" />
+          <path
+            d="M8.414 8.414a2 2 0 1 0 -2.828 -2.828a2 2 0 0 0 2.828 2.828"
+          />
+        </svg>
       </button>
       <button
         class="tool-btn"
@@ -166,8 +254,25 @@
         title="Sticky Note Text [N]"
       >
         <svg viewBox="0 0 24 24" fill="currentColor">
-          <rect x="3" y="3" width="18" height="18" rx="2" fill="#f5e642" opacity="0.85"/>
-          <text x="12" y="16" text-anchor="middle" font-size="12" font-weight="bold" fill="#333">T</text>
+          <rect
+            x="3"
+            y="3"
+            width="18"
+            height="18"
+            rx="2"
+            fill="#f5e642"
+            opacity="0.85"
+          />
+          <text
+            x="12"
+            y="16"
+            text-anchor="middle"
+            font-size="12"
+            font-weight="bold"
+            fill="#333"
+          >
+            T
+          </text>
         </svg>
       </button>
       <button
@@ -202,7 +307,20 @@
         data-tool="contrast"
         title="Contrast Checker [K] — Click two spots to compare"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 18a6 6 0 0 0 0-12v12z"/></svg>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 18a6 6 0 0 0 0-12v12z" />
+        </svg>
       </button>
       <button
         class="tool-btn"
@@ -210,35 +328,122 @@
         data-tool="eyedropper"
         title="Color Picker / Eyedropper [I]"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 9-8.414 8.414A2 2 0 0 0 3 18.828v1.344a2 2 0 0 1-.586 1.414A2 2 0 0 1 3.828 21h1.344a2 2 0 0 0 1.414-.586L15 12"/><path d="m18 9 .4.4a1 1 0 1 1-3 3l-3.8-3.8a1 1 0 1 1 3-3l.4.4 3.4-3.4a1 1 0 1 1 3 3z"/><path d="m2 22 .414-.414"/></svg>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            d="m12 9-8.414 8.414A2 2 0 0 0 3 18.828v1.344a2 2 0 0 1-.586 1.414A2 2 0 0 1 3.828 21h1.344a2 2 0 0 0 1.414-.586L15 12"
+          />
+          <path
+            d="m18 9 .4.4a1 1 0 1 1-3 3l-3.8-3.8a1 1 0 1 1 3-3l.4.4 3.4-3.4a1 1 0 1 1 3 3z"
+          />
+          <path d="m2 22 .414-.414" />
+        </svg>
       </button>
 
-      <div class="color-picker-inline" title="Draw Color (right-click for picker)">
+      <div
+        class="color-picker-inline"
+        title="Draw Color (right-click for picker)"
+      >
         <button class="color-swatch-btn" id="color-swatch-btn">
-          <div class="color-swatch-inner" id="color-swatch-inner" style="background: #ff4444;"></div>
+          <div
+            class="color-swatch-inner"
+            id="color-swatch-inner"
+            style="background: #ff4444"
+          ></div>
         </button>
-        <input type="color" id="color-picker" value="#ff4444" class="hidden-color-input" />
+        <input
+          type="color"
+          id="color-picker"
+          value="#ff4444"
+          class="hidden-color-input"
+        />
       </div>
 
       <div class="separator"></div>
 
-      <div class="control-group" id="line-width-group" title="Drawing Line Thickness">
+      <div
+        class="control-group"
+        id="line-width-group"
+        title="Drawing Line Thickness"
+      >
         <button class="line-width-btn" data-width="2" title="Narrow stroke">
-          <svg viewBox="0 0 24 24" width="18" height="18"><line x1="4" y1="12" x2="20" y2="12" stroke="currentColor" stroke-width="1" stroke-linecap="round"/></svg>
+          <svg viewBox="0 0 24 24" width="18" height="18">
+            <line
+              x1="4"
+              y1="12"
+              x2="20"
+              y2="12"
+              stroke="currentColor"
+              stroke-width="1"
+              stroke-linecap="round"
+            />
+          </svg>
         </button>
-        <button class="line-width-btn active" data-width="4" title="Normal stroke">
-          <svg viewBox="0 0 24 24" width="18" height="18"><line x1="4" y1="12" x2="20" y2="12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+        <button
+          class="line-width-btn active"
+          data-width="4"
+          title="Normal stroke"
+        >
+          <svg viewBox="0 0 24 24" width="18" height="18">
+            <line
+              x1="4"
+              y1="12"
+              x2="20"
+              y2="12"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+            />
+          </svg>
         </button>
         <button class="line-width-btn" data-width="10" title="Wide stroke">
-          <svg viewBox="0 0 24 24" width="18" height="18"><line x1="4" y1="12" x2="20" y2="12" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></svg>
+          <svg viewBox="0 0 24 24" width="18" height="18">
+            <line
+              x1="4"
+              y1="12"
+              x2="20"
+              y2="12"
+              stroke="currentColor"
+              stroke-width="5"
+              stroke-linecap="round"
+            />
+          </svg>
         </button>
       </div>
 
       <div class="separator"></div>
 
       <div class="control-group">
-        <button class="font-size-btn" id="font-size-minus" title="Decrease font size by 16px" style="width:24px;height:24px;padding:2px;background:transparent;border:1px solid transparent;color:#ccc;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;">
-          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><rect x="5" y="11" width="14" height="2" rx="1"/></svg>
+        <button
+          class="font-size-btn"
+          id="font-size-minus"
+          title="Decrease font size by 16px"
+          style="
+            width: 24px;
+            height: 24px;
+            padding: 2px;
+            background: transparent;
+            border: 1px solid transparent;
+            color: #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          "
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+            <rect x="5" y="11" width="14" height="2" rx="1" />
+          </svg>
         </button>
         <select id="font-size-select" title="Text Font Size Configuration">
           <option value="12">12px</option>
@@ -254,15 +459,38 @@
           <option value="112">112px</option>
           <option value="128">128px</option>
         </select>
-        <button class="font-size-btn" id="font-size-plus" title="Increase font size by 16px" style="width:24px;height:24px;padding:2px;background:transparent;border:1px solid transparent;color:#ccc;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;">
-          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6V5z"/></svg>
+        <button
+          class="font-size-btn"
+          id="font-size-plus"
+          title="Increase font size by 16px"
+          style="
+            width: 24px;
+            height: 24px;
+            padding: 2px;
+            background: transparent;
+            border: 1px solid transparent;
+            color: #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          "
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+            <path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6V5z" />
+          </svg>
         </button>
       </div>
 
       <div class="separator"></div>
 
       <div class="control-group" id="filter-group" title="Color Vision Filter">
-        <select id="filter-select" class="filter-select" title="Color Vision Filter">
+        <select
+          id="filter-select"
+          class="filter-select"
+          title="Color Vision Filter"
+        >
           <option value="none">No filter</option>
           <option value="grayscale">Grayscale</option>
           <option value="protanopia">Protanopia</option>
@@ -273,22 +501,86 @@
           <option value="high-contrast">High contrast</option>
           <option value="low-quality-display">Low quality</option>
         </select>
-        <button class="tool-btn" id="filter-preview-btn" title="Filter Preview Mode — view all filters on each image [Alt+P]">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.054 18.946a11 11 0 0 1-2.11 0"/><path d="M13.054 5.054a11 11 0 0 0-2.11-.001"/><path d="M17.072 6.274a11 11 0 0 1 1.753 1.173"/><path d="M18.825 16.552a11 11 0 0 1-1.753 1.174"/><path d="M2.514 13.303a11 11 0 0 1-.452-.954 1 1 0 0 1 0-.697 11 11 0 0 1 .45-.955"/><path d="M21.485 10.697a11 11 0 0 1 .453.955 1 1 0 0 1 0 .697 11 11 0 0 1-.453.954"/><path d="M5.173 7.448a11 11 0 0 1 1.753-1.174"/><path d="M6.926 17.726a11 11 0 0 1-1.753-1.174"/><circle cx="12" cy="12" r="3"/></svg>
+        <button
+          class="tool-btn"
+          id="filter-preview-btn"
+          title="Filter Preview Mode — view all filters on each image [Alt+P]"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M13.054 18.946a11 11 0 0 1-2.11 0" />
+            <path d="M13.054 5.054a11 11 0 0 0-2.11-.001" />
+            <path d="M17.072 6.274a11 11 0 0 1 1.753 1.173" />
+            <path d="M18.825 16.552a11 11 0 0 1-1.753 1.174" />
+            <path
+              d="M2.514 13.303a11 11 0 0 1-.452-.954 1 1 0 0 1 0-.697 11 11 0 0 1 .45-.955"
+            />
+            <path
+              d="M21.485 10.697a11 11 0 0 1 .453.955 1 1 0 0 1 0 .697 11 11 0 0 1-.453.954"
+            />
+            <path d="M5.173 7.448a11 11 0 0 1 1.753-1.174" />
+            <path d="M6.926 17.726a11 11 0 0 1-1.753-1.174" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
         </button>
       </div>
-
     </div>
 
     <div class="toolbar-menu" id="toolbar-menu">
       <div class="menu-item menu-item-color" title="Background Workspace Color">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 3v18"/></svg>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <path d="M3 9h18" />
+          <path d="M9 3v18" />
+        </svg>
         <span>Background</span>
-        <input type="color" id="bg-color-picker" value="#f0f0f0" class="menu-color-input" />
+        <input
+          type="color"
+          id="bg-color-picker"
+          value="#f0f0f0"
+          class="menu-color-input"
+        />
       </div>
       <div class="menu-separator"></div>
       <div class="menu-item menu-item-select">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-typography"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M4 20l3 0" /><path d="M14 20l7 0" /><path d="M6.9 15l6.9 0" /><path d="M10.2 6.3l5.8 13.7" /><path d="M5 20l6 -16l2 0l7 16" /></svg>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="icon icon-tabler icons-tabler-outline icon-tabler-typography"
+        >
+          <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+          <path d="M4 20l3 0" />
+          <path d="M14 20l7 0" />
+          <path d="M6.9 15l6.9 0" />
+          <path d="M10.2 6.3l5.8 13.7" />
+          <path d="M5 20l6 -16l2 0l7 16" />
+        </svg>
         <select id="font-family-select" class="menu-select" title="Font Family">
           <option value="sans-serif">Sans-serif</option>
           <option value="serif">Serif</option>
@@ -306,7 +598,9 @@
           <option value="Fira Code">Fira Code</option>
           <option value="Fira Mono">Fira Mono</option>
           <option value="Fira Sans">Fira Sans</option>
-          <option value="JetBrainsMono-Regular, 'JetBrains Mono Regular'">JetBrains Mono</option>
+          <option value="JetBrainsMono-Regular, 'JetBrains Mono Regular'">
+            JetBrains Mono
+          </option>
           <option value="Roboto Flex">Roboto Flex</option>
           <option value="Roboto Mono">Roboto Mono</option>
           <option value="Roboto Serif">Roboto Serif</option>
@@ -315,104 +609,415 @@
         </select>
       </div>
 
-      <button class="menu-item" id="toggle-rulers-btn" title="Toggle Rulers [Shift+R]">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/></svg>
+      <button
+        class="menu-item"
+        id="toggle-rulers-btn"
+        title="Toggle Rulers [Shift+R]"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"
+          />
+          <path d="m14.5 12.5 2-2" />
+          <path d="m11.5 9.5 2-2" />
+          <path d="m8.5 6.5 2-2" />
+          <path d="m17.5 15.5 2-2" />
+        </svg>
         <span>Toggle Rulers</span>
         <kbd>Shift+R</kbd>
       </button>
       <div class="menu-separator"></div>
       <button class="menu-item" id="undo-btn" title="Undo [Mod+Z]">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M9 14l-4 -4l4 -4" /><path d="M5 10h11a4 4 0 1 1 0 8h-1" /></svg>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+          <path d="M9 14l-4 -4l4 -4" />
+          <path d="M5 10h11a4 4 0 1 1 0 8h-1" />
+        </svg>
         <span>Undo</span>
         <kbd data-shortcut="mod+Z"></kbd>
       </button>
       <button class="menu-item" id="redo-btn" title="Redo [Mod+Shift+Z]">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M15 14l4 -4l-4 -4" /><path d="M19 10h-11a4 4 0 1 0 0 8h1" /></svg>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+          <path d="M15 14l4 -4l-4 -4" />
+          <path d="M19 10h-11a4 4 0 1 0 0 8h1" />
+        </svg>
         <span>Redo</span>
         <kbd data-shortcut="mod+shift+Z"></kbd>
       </button>
       <div class="menu-separator"></div>
       <button class="menu-item" id="group-btn" title="Group [Mod+G]">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5c0-1.1.9-2 2-2h2"/><path d="M17 3h2c1.1 0 2 .9 2 2v2"/><path d="M21 17v2c0 1.1-.9 2-2 2h-2"/><path d="M7 21H5c-1.1 0-2-.9-2-2v-2"/><rect width="7" height="5" x="7" y="7" rx="1"/><rect width="7" height="5" x="10" y="12" rx="1"/></svg>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M3 7V5c0-1.1.9-2 2-2h2" />
+          <path d="M17 3h2c1.1 0 2 .9 2 2v2" />
+          <path d="M21 17v2c0 1.1-.9 2-2 2h-2" />
+          <path d="M7 21H5c-1.1 0-2-.9-2-2v-2" />
+          <rect width="7" height="5" x="7" y="7" rx="1" />
+          <rect width="7" height="5" x="10" y="12" rx="1" />
+        </svg>
         <span>Group</span>
         <kbd data-shortcut="mod+G"></kbd>
       </button>
       <button class="menu-item" id="ungroup-btn" title="Ungroup [Mod+Shift+G]">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="6" x="5" y="4" rx="1"/><rect width="8" height="6" x="11" y="14" rx="1"/></svg>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <rect width="8" height="6" x="5" y="4" rx="1" />
+          <rect width="8" height="6" x="11" y="14" rx="1" />
+        </svg>
         <span>Ungroup</span>
         <kbd data-shortcut="mod+shift+G"></kbd>
       </button>
-      <button class="menu-item" id="lock-btn" title="Lock/Unlock Selection [Mod+L]">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      <button
+        class="menu-item"
+        id="lock-btn"
+        title="Lock/Unlock Selection [Mod+L]"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+        </svg>
         <span>Lock</span>
         <kbd data-shortcut="mod+L"></kbd>
       </button>
       <div class="menu-separator"></div>
-      <button class="menu-item" id="open-file-btn" title="Open canvas file [Mod+O]">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4l2 2h4a2 2 0 0 1 2 2v1"/><path d="M20 19a2 2 0 0 0 2-2l-1.5-5a2 2 0 0 0-2-2H6.5a2 2 0 0 0-2 2L3 17a2 2 0 0 0 2 2h15z"/></svg>
+      <button
+        class="menu-item"
+        id="open-file-btn"
+        title="Open canvas file [Mod+O]"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            d="M5 19a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4l2 2h4a2 2 0 0 1 2 2v1"
+          />
+          <path
+            d="M20 19a2 2 0 0 0 2-2l-1.5-5a2 2 0 0 0-2-2H6.5a2 2 0 0 0-2 2L3 17a2 2 0 0 0 2 2h15z"
+          />
+        </svg>
         <span>Open</span>
         <kbd data-shortcut="mod+O"></kbd>
       </button>
-      <button class="menu-item" id="save-file-btn" title="Save canvas file [Mod+S]">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>
+      <button
+        class="menu-item"
+        id="save-file-btn"
+        title="Save canvas file [Mod+S]"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"
+          />
+          <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7" />
+          <path d="M7 3v4a1 1 0 0 0 1 1h7" />
+        </svg>
         <span>Save</span>
         <kbd data-shortcut="mod+S"></kbd>
       </button>
       <div class="menu-separator"></div>
-      <button class="menu-item" id="export-btn" data-title-template="Copy canvas (or selection) as PNG [Shift-click: 50% scale, {alt}{mod}E: 50% scale]">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+      <button
+        class="menu-item"
+        id="export-btn"
+        data-title-template="Copy canvas (or selection) as PNG [Shift-click: 50% scale, {alt}{mod}E: 50% scale]"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+          <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+        </svg>
         <span>Export PNG</span>
         <kbd data-shortcut="mod+E"></kbd>
       </button>
-      <button class="menu-item" id="download-png-btn" title="Download canvas (or selection) as PNG file [Shift: 50% scale]">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17V3"/><path d="m6 11 6 6 6-6"/><path d="M19 21H5"/></svg>
+      <button
+        class="menu-item"
+        id="download-png-btn"
+        title="Download canvas (or selection) as PNG file [Shift: 50% scale]"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M12 17V3" />
+          <path d="m6 11 6 6 6-6" />
+          <path d="M19 21H5" />
+        </svg>
         <span>Download PNG</span>
         <kbd data-shortcut="mod+shift+E"></kbd>
       </button>
-      <button class="menu-item" id="download-jpeg-btn" title="Download canvas (or selection) as JPEG file [Shift: 50% scale]">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17V3"/><path d="m6 11 6 6 6-6"/><path d="M19 21H5"/></svg>
+      <button
+        class="menu-item"
+        id="download-jpeg-btn"
+        title="Download canvas (or selection) as JPEG file [Shift: 50% scale]"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M12 17V3" />
+          <path d="m6 11 6 6 6-6" />
+          <path d="M19 21H5" />
+        </svg>
         <span>Download JPEG</span>
         <kbd data-shortcut="mod+shift+J"></kbd>
       </button>
-      <button class="menu-item" id="download-images-btn" title="Download pasted images as files">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17V3"/><path d="m6 11 6 6 6-6"/><path d="M19 21H5"/></svg>
+      <button
+        class="menu-item"
+        id="download-images-btn"
+        title="Download pasted images as files"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M12 17V3" />
+          <path d="m6 11 6 6 6-6" />
+          <path d="M19 21H5" />
+        </svg>
         <span>Download Assets</span>
       </button>
       <div class="menu-separator"></div>
-      <button class="menu-item" id="import-images-btn" title="Import image files (PNG, JPEG, HEIF/HEIC, WebP, etc.)">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+      <button
+        class="menu-item"
+        id="import-images-btn"
+        title="Import image files (PNG, JPEG, HEIF/HEIC, WebP, etc.)"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+          <circle cx="9" cy="9" r="2" />
+          <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+        </svg>
         <span>Import Images</span>
       </button>
       <div class="menu-separator"></div>
-      <button class="menu-item" id="center-canvas-btn" title="Center view on selection or origin">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M2 12h4"/><path d="M18 12h4"/></svg>
+      <button
+        class="menu-item"
+        id="center-canvas-btn"
+        title="Center view on selection or origin"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="12" cy="12" r="3" />
+          <path d="M12 2v4" />
+          <path d="M12 18v4" />
+          <path d="M2 12h4" />
+          <path d="M18 12h4" />
+        </svg>
         <span>Center View</span>
       </button>
       <div class="menu-separator"></div>
-      <button class="menu-item" id="show-welcome-btn" title="Show help and keyboard shortcuts">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <button
+        class="menu-item"
+        id="show-welcome-btn"
+        title="Show help and keyboard shortcuts"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+          <line x1="12" y1="17" x2="12.01" y2="17" />
+        </svg>
         <span>Help &amp; Shortcuts</span>
       </button>
     </div>
 
     <div class="color-popup" id="color-popup">
       <div class="color-popup-presets">
-        <div class="preset-btn" style="background: #ff4444" data-color="#ff4444"></div>
-        <div class="preset-btn" style="background: #ff00ff" data-color="#ff00ff"></div>
-        <div class="preset-btn" style="background: #28a745" data-color="#28a745"></div>
-        <div class="preset-btn" style="background: #007acc" data-color="#007acc"></div>
-        <div class="preset-btn" style="background: #f5e542" data-color="#f5e542"></div>
-        <div class="preset-btn" style="background: #f0f0f0" data-color="#f0f0f0"></div>
-        <div class="preset-btn" style="background: #1e1e1e" data-color="#1e1e1e"></div>
+        <div
+          class="preset-btn"
+          style="background: #ff4444"
+          data-color="#ff4444"
+        ></div>
+        <div
+          class="preset-btn"
+          style="background: #ff00ff"
+          data-color="#ff00ff"
+        ></div>
+        <div
+          class="preset-btn"
+          style="background: #28a745"
+          data-color="#28a745"
+        ></div>
+        <div
+          class="preset-btn"
+          style="background: #007acc"
+          data-color="#007acc"
+        ></div>
+        <div
+          class="preset-btn"
+          style="background: #f5e542"
+          data-color="#f5e542"
+        ></div>
+        <div
+          class="preset-btn"
+          style="background: #f0f0f0"
+          data-color="#f0f0f0"
+        ></div>
+        <div
+          class="preset-btn"
+          style="background: #1e1e1e"
+          data-color="#1e1e1e"
+        ></div>
       </div>
       <div class="color-popup-separator"></div>
       <div class="custom-colors-section">
         <div class="custom-colors-header">
           <span class="custom-colors-title">Custom Colors</span>
           <div class="custom-colors-actions">
-            <button class="custom-colors-action-btn" id="custom-color-add-btn" title="Add custom color">+</button>
-            <button class="custom-colors-action-btn" id="custom-color-import-btn" title="Import from JSON">&#8615;</button>
-            <button class="custom-colors-action-btn" id="custom-color-export-btn" title="Export to JSON">&#8613;</button>
+            <button
+              class="custom-colors-action-btn"
+              id="custom-color-add-btn"
+              title="Add custom color"
+            >
+              +
+            </button>
+            <button
+              class="custom-colors-action-btn"
+              id="custom-color-import-btn"
+              title="Import from JSON"
+            >
+              &#8615;
+            </button>
+            <button
+              class="custom-colors-action-btn"
+              id="custom-color-export-btn"
+              title="Export to JSON"
+            >
+              &#8613;
+            </button>
           </div>
         </div>
         <div class="custom-colors-list" id="custom-colors-list"></div>
@@ -444,225 +1049,445 @@
     </div>
 
     <div id="alignment-panel">
-      <div id="alignment-group" style="display:flex;align-items:center;gap:4px;">
-      <button class="align-btn" data-align="left" title="Align Left (Alt+A / Alt+←)">
-        <svg viewBox="0 0 24 24">
-          <path d="M4 2h2v20H4V2zm4 3h12v3H8V5zm0 6h8v3H8v-3zm0 6h11v3H8v-3z" />
-        </svg>
-      </button>
-      <button class="align-btn" data-align="centerX" title="Align Center X (Alt+H)">
-        <svg viewBox="0 0 24 24">
-          <path d="M11 2h2v3h6v3h-6v8h4v3h-4v3h-2v-3H7v-3h4v-8H5V5h6V2z" />
-        </svg>
-      </button>
-      <button class="align-btn" data-align="right" title="Align Right (Alt+D / Alt+→)">
-        <svg viewBox="0 0 24 24">
-          <path
-            d="M18 2h2v20h-2V2zM4 5h12v3H4V5zm4 6h8v3H8v-3zm-3 6h11v3H5v-3z"
-          />
-        </svg>
-      </button>
       <div
-        style="width: 1px; height: 18px; background: #444; margin: 0 4px"
-      ></div>
-      <button class="align-btn" data-align="top" title="Align Top (Alt+W / Alt+↑)">
-        <svg viewBox="0 0 24 24">
-          <path d="M2 4h20v2H2V4zm3 4h3v12H5V8zm6 0h3v8h-3V8zm6 0h3v11h-3V8z" />
-        </svg>
-      </button>
-      <button class="align-btn" data-align="centerY" title="Align Center Y (Alt+V)">
-        <svg viewBox="0 0 24 24">
-          <path d="M2 11h3V5h3v6h8V7h3v4h3v2h-3v4h-3v-4H8v6H5v-6H2v-2z" />
-        </svg>
-      </button>
-      <button class="align-btn" data-align="bottom" title="Align Bottom (Alt+S / Alt+↓)">
-        <svg viewBox="0 0 24 24">
-          <path
-            d="M2 18h20v2H2v-2zm3-11h3v10H5V7zm6 4h3v6h-3v-6zm6-7h3v13h-3V4z"
-          />
-        </svg>
-      </button>
-      <div
-        style="width: 1px; height: 18px; background: #444; margin: 0 4px"
-      ></div>
-      <button
-        class="align-btn"
-        data-align="distributeX"
-        title="Distribute Horizontally (Alt+Shift+X)"
+        id="alignment-group"
+        style="display: flex; align-items: center; gap: 4px"
       >
-        <svg viewBox="0 0 24 24">
-          <path
-            d="M4 22H2V2h2v20zM22 2h-2v20h2V2zM7 5h10v3H7V5zm2 6h6v3H9v-3z"
-          />
-        </svg>
-      </button>
-      <button
-        class="align-btn"
-        data-align="distributeY"
-        title="Distribute Vertically (Alt+Shift+Y)"
-      >
-        <svg viewBox="0 0 24 24">
-          <path
-            d="M2 4V2h20v2H2zm0 18v-2h20v2H2zM5 7h3v10H5V7zm6 2h3v6h-3V9z"
-          />
-        </svg>
-      </button>
-      <div
-        style="width: 1px; height: 18px; background: #444; margin: 0 4px"
-      ></div>
-      <input
-        type="number"
-        id="spacing-input-x"
-        value="10"
-        min="0"
-        max="500"
-        step="10"
-        title="Horizontal spacing (px) — Enter to apply"
-        style="
-          width: 48px;
-          background: #2d2d2d;
-          color: #fff;
-          border: 1px solid #555;
-          border-radius: 4px;
-          padding: 2px 4px;
-          font-size: 11px;
-          text-align: center;
-          outline: none;
-        "
-      />
-      <input
-        type="number"
-        id="spacing-input-y"
-        value="10"
-        min="0"
-        max="500"
-        step="10"
-        title="Vertical spacing (px) — Enter to apply"
-        style="
-          width: 48px;
-          background: #2d2d2d;
-          color: #fff;
-          border: 1px solid #555;
-          border-radius: 4px;
-          padding: 2px 4px;
-          font-size: 11px;
-          text-align: center;
-          outline: none;
-        "
-      />
-      <div
-        style="width: 1px; height: 18px; background: #444; margin: 0 4px"
-      ></div>
-      <button
-        class="align-btn"
-        data-align="rowLayout"
-        title="Row Layout (Horizontal)"
-      >
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <rect x="2" y="7" width="5" height="10" rx="1"/>
-          <rect x="9" y="7" width="5" height="10" rx="1"/>
-          <rect x="16" y="7" width="5" height="10" rx="1"/>
-        </svg>
-      </button>
-      <button
-        class="align-btn"
-        data-align="columnLayout"
-        title="Column Layout (Vertical)"
-      >
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <rect x="7" y="2" width="10" height="5" rx="1"/>
-          <rect x="7" y="9" width="10" height="5" rx="1"/>
-          <rect x="7" y="16" width="10" height="5" rx="1"/>
-        </svg>
-      </button>
-      <button
-        class="align-btn"
-        data-align="gridLayout"
-        title="Mosaic Layout"
-      >
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <rect x="3" y="3" width="7" height="7" rx="1"/>
-          <rect x="14" y="3" width="7" height="7" rx="1"/>
-          <rect x="3" y="14" width="7" height="7" rx="1"/>
-          <rect x="14" y="14" width="7" height="7" rx="1"/>
-        </svg>
-      </button>
-      <button
-        class="align-btn"
-        data-align="arrangeBySizeRow"
-        title="Arrange by Size (Row)"
-      >
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <rect x="2" y="12" width="4" height="6" rx="0.5"/>
-          <rect x="8" y="9" width="5" height="9" rx="0.5"/>
-          <rect x="15" y="5" width="7" height="13" rx="0.5"/>
-        </svg>
-      </button>
-      <button
-        class="align-btn"
-        data-align="arrangeByNameRow"
-        title="Arrange by Name (Row)"
-      >
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <text x="3" y="16" font-size="7" font-family="sans-serif" font-weight="bold">A</text>
-          <text x="10" y="16" font-size="7" font-family="sans-serif" font-weight="bold">B</text>
-          <text x="17" y="16" font-size="7" font-family="sans-serif" font-weight="bold">C</text>
-        </svg>
-      </button>
+        <button
+          class="align-btn"
+          data-align="left"
+          title="Align Left (Alt+A / Alt+←)"
+        >
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M4 2h2v20H4V2zm4 3h12v3H8V5zm0 6h8v3H8v-3zm0 6h11v3H8v-3z"
+            />
+          </svg>
+        </button>
+        <button
+          class="align-btn"
+          data-align="centerX"
+          title="Align Center X (Alt+H)"
+        >
+          <svg viewBox="0 0 24 24">
+            <path d="M11 2h2v3h6v3h-6v8h4v3h-4v3h-2v-3H7v-3h4v-8H5V5h6V2z" />
+          </svg>
+        </button>
+        <button
+          class="align-btn"
+          data-align="right"
+          title="Align Right (Alt+D / Alt+→)"
+        >
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M18 2h2v20h-2V2zM4 5h12v3H4V5zm4 6h8v3H8v-3zm-3 6h11v3H5v-3z"
+            />
+          </svg>
+        </button>
+        <div
+          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
+        ></div>
+        <button
+          class="align-btn"
+          data-align="top"
+          title="Align Top (Alt+W / Alt+↑)"
+        >
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M2 4h20v2H2V4zm3 4h3v12H5V8zm6 0h3v8h-3V8zm6 0h3v11h-3V8z"
+            />
+          </svg>
+        </button>
+        <button
+          class="align-btn"
+          data-align="centerY"
+          title="Align Center Y (Alt+V)"
+        >
+          <svg viewBox="0 0 24 24">
+            <path d="M2 11h3V5h3v6h8V7h3v4h3v2h-3v4h-3v-4H8v6H5v-6H2v-2z" />
+          </svg>
+        </button>
+        <button
+          class="align-btn"
+          data-align="bottom"
+          title="Align Bottom (Alt+S / Alt+↓)"
+        >
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M2 18h20v2H2v-2zm3-11h3v10H5V7zm6 4h3v6h-3v-6zm6-7h3v13h-3V4z"
+            />
+          </svg>
+        </button>
+        <div
+          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
+        ></div>
+        <button
+          class="align-btn"
+          data-align="distributeX"
+          title="Distribute Horizontally (Alt+Shift+X)"
+        >
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M4 22H2V2h2v20zM22 2h-2v20h2V2zM7 5h10v3H7V5zm2 6h6v3H9v-3z"
+            />
+          </svg>
+        </button>
+        <button
+          class="align-btn"
+          data-align="distributeY"
+          title="Distribute Vertically (Alt+Shift+Y)"
+        >
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M2 4V2h20v2H2zm0 18v-2h20v2H2zM5 7h3v10H5V7zm6 2h3v6h-3V9z"
+            />
+          </svg>
+        </button>
+        <div
+          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
+        ></div>
+        <input
+          type="number"
+          id="spacing-input-x"
+          value="10"
+          min="0"
+          max="500"
+          step="10"
+          title="Horizontal spacing (px) — Enter to apply"
+          style="
+            width: 48px;
+            background: #2d2d2d;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 2px 4px;
+            font-size: 11px;
+            text-align: center;
+            outline: none;
+          "
+        />
+        <input
+          type="number"
+          id="spacing-input-y"
+          value="10"
+          min="0"
+          max="500"
+          step="10"
+          title="Vertical spacing (px) — Enter to apply"
+          style="
+            width: 48px;
+            background: #2d2d2d;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 2px 4px;
+            font-size: 11px;
+            text-align: center;
+            outline: none;
+          "
+        />
+        <div
+          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
+        ></div>
+        <button
+          class="align-btn"
+          data-align="rowLayout"
+          title="Row Layout (Horizontal)"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <rect x="2" y="7" width="5" height="10" rx="1" />
+            <rect x="9" y="7" width="5" height="10" rx="1" />
+            <rect x="16" y="7" width="5" height="10" rx="1" />
+          </svg>
+        </button>
+        <button
+          class="align-btn"
+          data-align="columnLayout"
+          title="Column Layout (Vertical)"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <rect x="7" y="2" width="10" height="5" rx="1" />
+            <rect x="7" y="9" width="10" height="5" rx="1" />
+            <rect x="7" y="16" width="10" height="5" rx="1" />
+          </svg>
+        </button>
+        <button class="align-btn" data-align="gridLayout" title="Mosaic Layout">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <rect x="3" y="3" width="7" height="7" rx="1" />
+            <rect x="14" y="3" width="7" height="7" rx="1" />
+            <rect x="3" y="14" width="7" height="7" rx="1" />
+            <rect x="14" y="14" width="7" height="7" rx="1" />
+          </svg>
+        </button>
+        <button
+          class="align-btn"
+          data-align="arrangeBySizeRow"
+          title="Arrange by Size (Row)"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <rect x="2" y="12" width="4" height="6" rx="0.5" />
+            <rect x="8" y="9" width="5" height="9" rx="0.5" />
+            <rect x="15" y="5" width="7" height="13" rx="0.5" />
+          </svg>
+        </button>
+        <button
+          class="align-btn"
+          data-align="arrangeByNameRow"
+          title="Arrange by Name (Row)"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <text
+              x="3"
+              y="16"
+              font-size="7"
+              font-family="sans-serif"
+              font-weight="bold"
+            >
+              A
+            </text>
+            <text
+              x="10"
+              y="16"
+              font-size="7"
+              font-family="sans-serif"
+              font-weight="bold"
+            >
+              B
+            </text>
+            <text
+              x="17"
+              y="16"
+              font-size="7"
+              font-family="sans-serif"
+              font-weight="bold"
+            >
+              C
+            </text>
+          </svg>
+        </button>
       </div>
-      <div id="scale-group" style="display:none;align-items:center;gap:4px;">
-        <div class="scale-separator" style="width: 1px; height: 18px; background: #444; margin: 0 4px"></div>
+      <div
+        id="scale-group"
+        style="display: none; align-items: center; gap: 4px"
+      >
+        <div
+          class="scale-separator"
+          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
+        ></div>
         <span class="align-title">Scale</span>
-        <button class="scale-btn" data-scale="0.5" title="Scale to 50% of original size">0.5x</button>
-        <button class="scale-btn" data-scale="1" title="Scale to original size">1x</button>
-        <button class="scale-btn" data-scale="2" title="Scale to 200% of original size">2x</button>
+        <button
+          class="scale-btn"
+          data-scale="0.5"
+          title="Scale to 50% of original size"
+        >
+          0.5x
+        </button>
+        <button class="scale-btn" data-scale="1" title="Scale to original size">
+          1x
+        </button>
+        <button
+          class="scale-btn"
+          data-scale="2"
+          title="Scale to 200% of original size"
+        >
+          2x
+        </button>
       </div>
-      <div id="dimensions-group" style="display:none;align-items:center;gap:4px;">
-        <div style="width: 1px; height: 18px; background: #444; margin: 0 4px"></div>
+      <div
+        id="dimensions-group"
+        style="display: none; align-items: center; gap: 4px"
+      >
+        <div
+          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
+        ></div>
         <span class="align-title">W</span>
-        <input type="number" id="dim-w" min="1" step="1" title="Width (px) — Hold Shift for 10px steps" style="width:52px;background:#2d2d2d;color:#fff;border:1px solid #555;border-radius:4px;padding:2px 4px;font-size:11px;text-align:center;outline:none;" />
+        <input
+          type="number"
+          id="dim-w"
+          min="1"
+          step="1"
+          title="Width (px) — Hold Shift for 10px steps"
+          style="
+            width: 52px;
+            background: #2d2d2d;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 2px 4px;
+            font-size: 11px;
+            text-align: center;
+            outline: none;
+          "
+        />
         <span class="align-title">H</span>
-        <input type="number" id="dim-h" min="1" step="1" title="Height (px) — Hold Shift for 10px steps" style="width:52px;background:#2d2d2d;color:#fff;border:1px solid #555;border-radius:4px;padding:2px 4px;font-size:11px;text-align:center;outline:none;" />
+        <input
+          type="number"
+          id="dim-h"
+          min="1"
+          step="1"
+          title="Height (px) — Hold Shift for 10px steps"
+          style="
+            width: 52px;
+            background: #2d2d2d;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 2px 4px;
+            font-size: 11px;
+            text-align: center;
+            outline: none;
+          "
+        />
       </div>
-      <div id="length-group" style="display:none;align-items:center;gap:4px;">
-        <div style="width: 1px; height: 18px; background: #444; margin: 0 4px"></div>
+      <div
+        id="length-group"
+        style="display: none; align-items: center; gap: 4px"
+      >
+        <div
+          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
+        ></div>
         <span class="align-title">L</span>
-        <input type="number" id="dim-length" min="1" step="1" title="Length (px) — Hold Shift for 10px steps" style="width:60px;background:#2d2d2d;color:#fff;border:1px solid #555;border-radius:4px;padding:2px 4px;font-size:11px;text-align:center;outline:none;" />
+        <input
+          type="number"
+          id="dim-length"
+          min="1"
+          step="1"
+          title="Length (px) — Hold Shift for 10px steps"
+          style="
+            width: 60px;
+            background: #2d2d2d;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 2px 4px;
+            font-size: 11px;
+            text-align: center;
+            outline: none;
+          "
+        />
       </div>
-      <div id="opacity-group" style="display:none;align-items:center;gap:4px;">
-        <div style="width: 1px; height: 18px; background: #444; margin: 0 4px"></div>
+      <div
+        id="opacity-group"
+        style="display: none; align-items: center; gap: 4px"
+      >
+        <div
+          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
+        ></div>
         <span class="align-title">Opacity</span>
-        <input type="range" id="opacity-slider" min="0" max="100" value="100" step="1" title="Element Opacity" style="width:80px;accent-color:#007acc;cursor:pointer;" />
-        <span id="opacity-val" style="font-size:11px;color:#aaa;min-width:32px;text-align:right;">100%</span>
+        <input
+          type="range"
+          id="opacity-slider"
+          min="0"
+          max="100"
+          value="100"
+          step="1"
+          title="Element Opacity"
+          style="width: 80px; accent-color: #007acc; cursor: pointer"
+        />
+        <span
+          id="opacity-val"
+          style="
+            font-size: 11px;
+            color: #aaa;
+            min-width: 32px;
+            text-align: right;
+          "
+          >100%</span
+        >
       </div>
-      <div id="text-align-group" style="display:none;align-items:center;gap:4px;">
-        <div style="width: 1px; height: 18px; background: #444; margin: 0 4px"></div>
+      <div
+        id="text-align-group"
+        style="display: none; align-items: center; gap: 4px"
+      >
+        <div
+          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
+        ></div>
         <span class="align-title">Text</span>
-        <button class="align-btn text-align-btn" data-text-align="left" title="Align Text Left">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h18v2H3V3zm0 4h12v2H3V7zm0 4h18v2H3v-2zm0 4h12v2H3v-2zm0 4h18v2H3v-2z"/></svg>
+        <button
+          class="align-btn text-align-btn"
+          data-text-align="left"
+          title="Align Text Left"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M3 3h18v2H3V3zm0 4h12v2H3V7zm0 4h18v2H3v-2zm0 4h12v2H3v-2zm0 4h18v2H3v-2z"
+            />
+          </svg>
         </button>
-        <button class="align-btn text-align-btn" data-text-align="center" title="Align Text Center">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h18v2H3V3zm3 4h12v2H6V7zm-3 4h18v2H3v-2zm3 4h12v2H6v-2zm-3 4h18v2H3v-2z"/></svg>
+        <button
+          class="align-btn text-align-btn"
+          data-text-align="center"
+          title="Align Text Center"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M3 3h18v2H3V3zm3 4h12v2H6V7zm-3 4h18v2H3v-2zm3 4h12v2H6v-2zm-3 4h18v2H3v-2z"
+            />
+          </svg>
         </button>
-        <button class="align-btn text-align-btn" data-text-align="right" title="Align Text Right">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h18v2H3V3zm6 4h12v2H9V7zm-6 4h18v2H3v-2zm6 4h12v2H9v-2zm-6 4h18v2H3v-2z"/></svg>
+        <button
+          class="align-btn text-align-btn"
+          data-text-align="right"
+          title="Align Text Right"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M3 3h18v2H3V3zm6 4h12v2H9V7zm-6 4h18v2H3v-2zm6 4h12v2H9v-2zm-6 4h18v2H3v-2z"
+            />
+          </svg>
         </button>
       </div>
     </div>
 
-    <div id="contrast-checker-panel" style="display:none;"></div>
+    <div id="contrast-checker-panel" style="display: none"></div>
 
     <div id="toast">Canvas copied to clipboard as PNG!</div>
     <div id="text-editor-overlay" contenteditable="true"></div>
     <div id="text-format-bar">
-      <button class="text-format-btn" id="fmt-bold" title="Bold (Cmd+B)"><b>B</b></button>
-      <button class="text-format-btn" id="fmt-italic" title="Italic (Cmd+I)"><i>I</i></button>
-      <button class="text-format-btn" id="fmt-underline" title="Underline (Cmd+U)"><u>U</u></button>
-      <button class="text-format-btn" id="fmt-strikethrough" title="Strikethrough"><s>S</s></button>
+      <button class="text-format-btn" id="fmt-bold" title="Bold (Cmd+B)">
+        <b>B</b>
+      </button>
+      <button class="text-format-btn" id="fmt-italic" title="Italic (Cmd+I)">
+        <i>I</i>
+      </button>
+      <button
+        class="text-format-btn"
+        id="fmt-underline"
+        title="Underline (Cmd+U)"
+      >
+        <u>U</u>
+      </button>
+      <button
+        class="text-format-btn"
+        id="fmt-strikethrough"
+        title="Strikethrough"
+      >
+        <s>S</s>
+      </button>
       <span class="fmt-separator"></span>
-      <button class="text-format-btn fmt-size-btn" id="fmt-size-down" title="Decrease font size">−</button>
-      <input type="number" id="fmt-font-size" class="fmt-font-size-input" value="28" min="8" max="999" title="Font size">
-      <button class="text-format-btn fmt-size-btn" id="fmt-size-up" title="Increase font size">+</button>
+      <button
+        class="text-format-btn fmt-size-btn"
+        id="fmt-size-down"
+        title="Decrease font size"
+      >
+        −
+      </button>
+      <input
+        type="number"
+        id="fmt-font-size"
+        class="fmt-font-size-input"
+        value="28"
+        min="8"
+        max="999"
+        title="Font size"
+      />
+      <button
+        class="text-format-btn fmt-size-btn"
+        id="fmt-size-up"
+        title="Increase font size"
+      >
+        +
+      </button>
     </div>
 
     <div id="ruler-corner"></div>
@@ -674,33 +1499,73 @@
     </div>
 
     <!-- Full-screen filter preview overlay -->
-    <div id="filter-preview-overlay" class="filter-preview-overlay" style="display:none;">
+    <div
+      id="filter-preview-overlay"
+      class="filter-preview-overlay"
+      style="display: none"
+    >
       <div class="filter-preview-header">
-        <span class="filter-preview-title" id="filter-preview-title">Filter Preview</span>
-        <span class="filter-preview-counter" id="filter-preview-counter">1 / 1</span>
-        <span class="filter-preview-flag-count" id="filter-preview-flag-count"></span>
-        <button class="filter-preview-close" id="filter-preview-close" title="Close (Escape)">&times;</button>
+        <span class="filter-preview-title" id="filter-preview-title"
+          >Filter Preview</span
+        >
+        <span class="filter-preview-counter" id="filter-preview-counter"
+          >1 / 1</span
+        >
+        <span
+          class="filter-preview-flag-count"
+          id="filter-preview-flag-count"
+        ></span>
+        <button
+          class="filter-preview-close"
+          id="filter-preview-close"
+          title="Close (Escape)"
+        >
+          &times;
+        </button>
       </div>
       <div class="filter-preview-toolbar" id="filter-preview-toolbar"></div>
       <div class="filter-preview-grid" id="filter-preview-grid"></div>
       <div class="filter-preview-nav">
-        <button class="filter-preview-nav-btn" id="filter-preview-prev" title="Previous image (Left arrow)">&larr;</button>
-        <button class="filter-preview-nav-btn" id="filter-preview-next" title="Next image (Right arrow)">&rarr;</button>
+        <button
+          class="filter-preview-nav-btn"
+          id="filter-preview-prev"
+          title="Previous image (Left arrow)"
+        >
+          &larr;
+        </button>
+        <button
+          class="filter-preview-nav-btn"
+          id="filter-preview-next"
+          title="Next image (Right arrow)"
+        >
+          &rarr;
+        </button>
       </div>
     </div>
 
     <!-- Welcome / Introduction Modal -->
-    <div id="welcome-overlay" class="welcome-overlay" style="display:none;">
+    <div id="welcome-overlay" class="welcome-overlay" style="display: none">
       <div class="welcome-modal">
-        <button class="welcome-close-btn" title="Close" aria-label="Close">&times;</button>
+        <button class="welcome-close-btn" title="Close" aria-label="Close">
+          &times;
+        </button>
         <div class="welcome-header">
           <h1 class="welcome-title">Welcome to Infinite Canvas</h1>
-          <p class="welcome-subtitle">A freeform workspace for images, drawings, and ideas. Here's a quick overview to get you started.</p>
+          <p class="welcome-subtitle">
+            A freeform workspace for images, drawings, and ideas. Here's a quick
+            overview to get you started.
+          </p>
         </div>
         <div class="welcome-tabs">
-          <button class="welcome-tab-btn active" data-tab="welcome-tab-tools">Tools</button>
-          <button class="welcome-tab-btn" data-tab="welcome-tab-shortcuts">Shortcuts</button>
-          <button class="welcome-tab-btn" data-tab="welcome-tab-tips">Tips</button>
+          <button class="welcome-tab-btn active" data-tab="welcome-tab-tools">
+            Tools
+          </button>
+          <button class="welcome-tab-btn" data-tab="welcome-tab-shortcuts">
+            Shortcuts
+          </button>
+          <button class="welcome-tab-btn" data-tab="welcome-tab-tips">
+            Tips
+          </button>
         </div>
         <div class="welcome-tab-content">
           <div id="welcome-tab-tools" class="welcome-tab-panel active"></div>
