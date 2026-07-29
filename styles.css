@@ -1816,9 +1816,8 @@ input[type="color"]::-webkit-color-swatch {
 /* --- Contrast Checker Panel --- */
 #contrast-checker-panel {
   position: fixed;
-  bottom: 60px;
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: 20px;
+  left: 20px;
   background: rgba(30, 30, 30, 0.97);
   backdrop-filter: blur(10px);
   border: 1px solid #444;
