@@ -15,6 +15,11 @@ export function updateToolbarUI() {
     if (b.dataset.tool === state.currentTool) b.classList.add("active");
     else b.classList.remove("active");
   });
+  // Hide contrast checker panel when not in contrast tool
+  if (state.currentTool !== "contrast") {
+    const contrastPanel = document.getElementById("contrast-checker-panel");
+    if (contrastPanel) contrastPanel.style.display = "none";
+  }
   toggleAlignmentPanelVisibility();
 }
 
