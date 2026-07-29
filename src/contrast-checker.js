@@ -47,7 +47,7 @@ export function contrastRatio(color1, color2) {
 /**
  * Evaluate WCAG 2.1 conformance levels for a given contrast ratio.
  * @param {number} ratio
- * @returns {{normalAA: boolean, normalAAA: boolean, largeAA: boolean, largeAAA: boolean}}
+ * @returns {{normalAA: boolean, normalAAA: boolean, largeAA: boolean, largeAAA: boolean, uiComponentAA: boolean}}
  */
 export function evaluateWCAG(ratio) {
   return {
@@ -55,6 +55,7 @@ export function evaluateWCAG(ratio) {
     normalAAA: ratio >= 7,
     largeAA: ratio >= 3,
     largeAAA: ratio >= 4.5,
+    uiComponentAA: ratio >= 3,
   };
 }
 
@@ -116,6 +117,10 @@ export function showContrastResult() {
       <div class="wcag-row">
         <span class="wcag-label">Large text AAA (4.5:1)</span>
         <span class="wcag-badge ${wcag.largeAAA ? "pass" : "fail"}">${wcag.largeAAA ? "PASS" : "FAIL"}</span>
+      </div>
+      <div class="wcag-row">
+        <span class="wcag-label">UI components (3:1)</span>
+        <span class="wcag-badge ${wcag.uiComponentAA ? "pass" : "fail"}">${wcag.uiComponentAA ? "PASS" : "FAIL"}</span>
       </div>
     </div>
     <div class="contrast-hint">Click two spots on the canvas to compare again</div>
