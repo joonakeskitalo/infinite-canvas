@@ -123,6 +123,25 @@ export function showContrastResult() {
         <span class="wcag-badge ${wcag.uiComponentAA ? "pass" : "fail"}">${wcag.uiComponentAA ? "PASS" : "FAIL"}</span>
       </div>
     </div>
+    <div class="contrast-preview-section">
+      <div class="contrast-preview-label">Preview</div>
+      <div class="contrast-preview-box" style="background: ${hex2}; color: ${hex1};">
+        <span class="contrast-preview-text">Sample text</span>
+        <svg class="contrast-preview-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+          <circle cx="8" cy="5" r="3"/>
+          <path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6H2z"/>
+        </svg>
+        <button class="contrast-preview-btn" style="background: ${hex1}; color: ${hex2}; border: 1px solid ${hex1};">Button</button>
+      </div>
+      <div class="contrast-preview-box" style="background: ${hex1}; color: ${hex2};">
+        <span class="contrast-preview-text">Sample text</span>
+        <svg class="contrast-preview-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+          <circle cx="8" cy="5" r="3"/>
+          <path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6H2z"/>
+        </svg>
+        <button class="contrast-preview-btn" style="background: ${hex2}; color: ${hex1}; border: 1px solid ${hex2};">Button</button>
+      </div>
+    </div>
     <div class="contrast-hint">Click two spots on the canvas to compare again</div>
   `;
 
