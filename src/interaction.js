@@ -103,7 +103,7 @@ export function initEventHandlers() {
         return;
       }
       state.currentTool = targetBtn.dataset.tool;
-      if (state.currentTool !== "select") state.selectedElements = [];
+      if (state.currentTool !== "select" && state.currentTool !== "eyedropper") state.selectedElements = [];
       if (state.currentTool !== "select") { state.swapHoveredElement = null; state.isSwapDragging = false; state.swapSourceElement = null; state.swapDragWorldPos = null; state.swapTargetElement = null; }
       if (state.currentTool !== "measure") { state.measureHoverGuides = []; state.activeMeasureLine = null; }
       if (state.currentTool !== "split-line") { state.splitLineHoveredImage = null; state.splitLineWorldPos = null; }
@@ -1942,7 +1942,6 @@ function setupKeyboardHandlers() {
     }
     if (key === "i" || (key === "a" && e.shiftKey)) {
       state.currentTool = "eyedropper";
-      state.selectedElements = [];
       updateToolbarUI();
       updateCursor();
       render();
@@ -2495,11 +2494,25 @@ function setupMouseHandlers() {
         render();
         showToast(`Inserted ${insertText} as text`);
       } else {
-        // Normal click: just pick color and copy to clipboard
+        // Normal click: pick color and apply to selected elements if any have changeable colors
         const customMatchPick = getCustomColors().find((c) => c.hex === hex.toLowerCase());
         showColorToast(hexUpper, customMatchPick ? customMatchPick.label : null);
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(hexUpper).catch(() => {});
+        }
+        // Apply picked color to selected elements that support color changes
+        if (state.selectedElements.length > 0) {
+          let changed = false;
+          state.selectedElements.forEach((el) => {
+            if (el.elementType === "text" || el.elementType === "drawing") {
+              el.color = hex;
+              changed = true;
+            }
+          });
+          if (changed) {
+            render();
+            scheduleSave();
+          }
         }
       }
       return;
