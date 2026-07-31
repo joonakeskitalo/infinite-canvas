@@ -694,7 +694,19 @@ function _doRender(targetCtx, isExporting) {
     const endY = Math.ceil(vp.maxY / gridSize) * gridSize;
 
     targetCtx.save();
-    targetCtx.strokeStyle = "rgba(0, 0, 0, 0.08)";
+    // Adapt grid color to background luminance
+    const bg = state.bgColor;
+    let lum = 0.5;
+    if (bg && bg[0] === "#") {
+      const hex = bg.length === 4
+        ? bg[1]+bg[1]+bg[2]+bg[2]+bg[3]+bg[3]
+        : bg.slice(1);
+      const r = parseInt(hex.slice(0,2),16)/255;
+      const g = parseInt(hex.slice(2,4),16)/255;
+      const b = parseInt(hex.slice(4,6),16)/255;
+      lum = 0.299*r + 0.587*g + 0.114*b;
+    }
+    targetCtx.strokeStyle = lum > 0.5 ? "rgba(0, 0, 0, 0.06)" : "rgba(255, 255, 255, 0.07)";
     targetCtx.lineWidth = 1 / transform.zoom;
     targetCtx.beginPath();
     for (let x = startX; x <= endX; x += gridSize) {
