@@ -1641,6 +1641,7 @@ function setupKeyboardHandlers() {
     }
 
     let targetTool = null;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (key === "r" && e.shiftKey) { setRulersVisible(!state.rulersVisible); return; }
     if (key === "h") targetTool = "pan";
     if (key === "v") targetTool = "select";
@@ -1874,7 +1875,7 @@ function setupKeyboardHandlers() {
     }
 
     // P / Shift+P to cycle color filters
-    if (key === "p") {
+    if (key === "p" && !e.metaKey && !e.ctrlKey) {
       const idx = FILTER_OPTIONS.indexOf(state.currentFilter);
       let newIdx;
       if (e.shiftKey) { newIdx = (idx - 1 + FILTER_OPTIONS.length) % FILTER_OPTIONS.length; }
@@ -1889,7 +1890,7 @@ function setupKeyboardHandlers() {
     }
 
     // D / Shift+D to cycle tool colors through presets
-    if (key === "d") {
+    if (key === "d" && !e.metaKey && !e.ctrlKey) {
       const presetColors = Array.from(document.querySelectorAll(".preset-btn")).map((btn) => btn.dataset.color).filter(x => x !== "#1e1e1e" && x !== "#f0f0f0")
       if (presetColors.length === 0) return;
       const currentColor = state.currentTool === "text" ? state.textDrawColor : state.drawColor;
@@ -1913,7 +1914,7 @@ function setupKeyboardHandlers() {
     }
 
     // X key — toggle tool color between dark and light
-    if (key === "x" && !e.shiftKey) {
+    if (key === "x" && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
       const currentColor = state.currentTool === "text" ? state.textDrawColor : state.drawColor;
       const newColor = currentColor === "#1e1e1e" ? "#f0f0f0" : "#1e1e1e";
       if (state.currentTool === "text") { state.textDrawColor = newColor; }
