@@ -107,6 +107,7 @@ export function initEventHandlers() {
       if (state.currentTool !== "select") { state.swapHoveredElement = null; state.isSwapDragging = false; state.swapSourceElement = null; state.swapDragWorldPos = null; state.swapTargetElement = null; }
       if (state.currentTool !== "measure") { state.measureHoverGuides = []; state.activeMeasureLine = null; }
       if (state.currentTool !== "split-line") { state.splitLineHoveredImage = null; state.splitLineWorldPos = null; }
+      if (state.currentTool !== "grid") { state.gridToolHoveredImage = null; state.gridToolWorldPos = null; }
       if (state.currentTool === "contrast") { state.contrastClickCount = 0; state.contrastColor1 = null; state.contrastColor2 = null; state.contrastWorldPos1 = null; state.activeContrastLine = null; showContrastWaiting(1); }
       else { hideContrastPanel(); }
       if (state.currentTool === "text") { colorPicker.value = state.textDrawColor; }
@@ -398,6 +399,22 @@ export function initEventHandlers() {
   });
   opacitySlider.addEventListener("mousedown", (e) => { e.stopPropagation(); opacityUndoPushed = false; });
   opacitySlider.addEventListener("change", () => { opacityUndoPushed = false; });
+
+  // --- Grid spacing input ---
+  const gridSpacingInput = document.getElementById("grid-spacing-input");
+  gridSpacingInput.addEventListener("input", (e) => {
+    const val = Math.max(10, Math.min(500, parseInt(e.target.value) || 50));
+    state.gridToolSpacing = val;
+    render();
+  });
+  gridSpacingInput.addEventListener("change", (e) => {
+    const val = Math.max(10, Math.min(500, parseInt(e.target.value) || 50));
+    e.target.value = val;
+    state.gridToolSpacing = val;
+    render();
+  });
+  gridSpacingInput.addEventListener("mousedown", (e) => { e.stopPropagation(); });
+  gridSpacingInput.addEventListener("keydown", (e) => { e.stopPropagation(); });
 
   // --- Dimension inputs ---
   const dimW = document.getElementById("dim-w");
@@ -1638,6 +1655,16 @@ function setupKeyboardHandlers() {
     if (key === "e") targetTool = "eraser";
     if (key === "m") targetTool = "measure";
     if (key === "k") targetTool = "contrast";
+    if (key === "q") targetTool = "grid";
+    // Bracket keys: adjust grid tool spacing
+    if (state.currentTool === "grid" && (key === "[" || key === "]")) {
+      e.preventDefault();
+      const delta = key === "]" ? 10 : -10;
+      state.gridToolSpacing = Math.max(10, Math.min(500, state.gridToolSpacing + delta));
+      document.getElementById("grid-spacing-input").value = state.gridToolSpacing;
+      render();
+      return;
+    }
     if (key === "s") {
       if (state.currentTool === "split-line") {
         state.splitLineOrientation = state.splitLineOrientation === "vertical" ? "horizontal" : "vertical";
@@ -2087,6 +2114,26 @@ function setupMouseHandlers() {
       if (changed) render();
     }
 
+    // Grid tool hover — detect image under cursor and track position
+    if (state.currentTool === "grid" && !state.isInteracting) {
+      const mouseWorld = screenToWorld(e.clientX, e.clientY);
+      let hoveredImage = null;
+      for (let i = state.images.length - 1; i >= 0; i--) {
+        const img = state.images[i];
+        if (mouseWorld.x >= img.x && mouseWorld.x <= img.x + img.w &&
+            mouseWorld.y >= img.y && mouseWorld.y <= img.y + img.h) {
+          hoveredImage = img;
+          break;
+        }
+      }
+      const changed = hoveredImage !== state.gridToolHoveredImage ||
+        (hoveredImage && (state.gridToolWorldPos === null ||
+          state.gridToolWorldPos.x !== mouseWorld.x || state.gridToolWorldPos.y !== mouseWorld.y));
+      state.gridToolHoveredImage = hoveredImage;
+      state.gridToolWorldPos = hoveredImage ? { x: mouseWorld.x, y: mouseWorld.y } : null;
+      if (changed) render();
+    }
+
     // Resize handle cursor
     if (state.currentTool === "select" && !state.isInteracting && !state.cropMode && state.selectedElements.length === 1) {
       const el = state.selectedElements[0];
@@ -2278,6 +2325,122 @@ function setupMouseHandlers() {
           state.drawings.push(lineEl);
           spatialInsert(lineEl);
         }
+
+        scheduleSave();
+        render();
+      }
+      state.isInteracting = false;
+      return;
+    }
+
+    if (state.currentTool === "grid") {
+      if (state.gridToolHoveredImage && state.gridToolWorldPos) {
+        const img = state.gridToolHoveredImage;
+        const pos = state.gridToolWorldPos;
+        const spacing = state.gridToolSpacing;
+        const color = state.drawColor;
+        const lineWidth = 0.3;
+        const opacity = 0.4;
+
+        pushUndo();
+
+        const gridGroupId = "group_" + state.groupIdCounter++;
+        const lines = [];
+
+        // Vertical lines originating from cursor position, extending outward
+        // Lines go left from cursor
+        for (let x = pos.x - spacing; x > img.x; x -= spacing) {
+          lines.push({
+            id: "draw_" + state.elementIdCounter++,
+            elementType: "drawing",
+            type: "line",
+            isSplitLine: true,
+            color,
+            width: lineWidth,
+            opacity,
+            groupId: gridGroupId,
+            start: { x, y: img.y },
+            end: { x, y: img.y + img.h },
+          });
+        }
+        // Lines go right from cursor
+        for (let x = pos.x + spacing; x < img.x + img.w; x += spacing) {
+          lines.push({
+            id: "draw_" + state.elementIdCounter++,
+            elementType: "drawing",
+            type: "line",
+            isSplitLine: true,
+            color,
+            width: lineWidth,
+            opacity,
+            groupId: gridGroupId,
+            start: { x, y: img.y },
+            end: { x, y: img.y + img.h },
+          });
+        }
+        // Vertical line at cursor position
+        lines.push({
+          id: "draw_" + state.elementIdCounter++,
+          elementType: "drawing",
+          type: "line",
+          isSplitLine: true,
+          color,
+          width: lineWidth,
+          opacity,
+          groupId: gridGroupId,
+          start: { x: pos.x, y: img.y },
+          end: { x: pos.x, y: img.y + img.h },
+        });
+
+        // Horizontal lines originating from cursor position, extending outward
+        // Lines go up from cursor
+        for (let y = pos.y - spacing; y > img.y; y -= spacing) {
+          lines.push({
+            id: "draw_" + state.elementIdCounter++,
+            elementType: "drawing",
+            type: "line",
+            isSplitLine: true,
+            color,
+            width: lineWidth,
+            opacity,
+            groupId: gridGroupId,
+            start: { x: img.x, y },
+            end: { x: img.x + img.w, y },
+          });
+        }
+        // Lines go down from cursor
+        for (let y = pos.y + spacing; y < img.y + img.h; y += spacing) {
+          lines.push({
+            id: "draw_" + state.elementIdCounter++,
+            elementType: "drawing",
+            type: "line",
+            isSplitLine: true,
+            color,
+            width: lineWidth,
+            opacity,
+            groupId: gridGroupId,
+            start: { x: img.x, y },
+            end: { x: img.x + img.w, y },
+          });
+        }
+        // Horizontal line at cursor position
+        lines.push({
+          id: "draw_" + state.elementIdCounter++,
+          elementType: "drawing",
+          type: "line",
+          isSplitLine: true,
+          color,
+          width: lineWidth,
+          opacity,
+          groupId: gridGroupId,
+          start: { x: img.x, y: pos.y },
+          end: { x: img.x + img.w, y: pos.y },
+        });
+
+        lines.forEach((line) => {
+          state.drawings.push(line);
+          spatialInsert(line);
+        });
 
         scheduleSave();
         render();

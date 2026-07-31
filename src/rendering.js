@@ -1348,6 +1348,89 @@ function _doRender(targetCtx, isExporting) {
     targetCtx.restore();
   }
 
+  // 6. Draw grid tool overlay
+  if (!isExporting && state.currentTool === "grid" && state.gridToolHoveredImage && state.gridToolWorldPos) {
+    targetCtx.save();
+    targetCtx.translate(transform.x, transform.y);
+    targetCtx.scale(transform.zoom, transform.zoom);
+
+    const img = state.gridToolHoveredImage;
+    const pos = state.gridToolWorldPos;
+    const spacing = state.gridToolSpacing;
+    const lineWidth = 0.5 / transform.zoom;
+
+    // Draw a highlight border around the hovered image
+    targetCtx.strokeStyle = "rgba(100, 200, 255, 0.6)";
+    targetCtx.lineWidth = 1.5 / transform.zoom;
+    targetCtx.setLineDash([6 / transform.zoom, 4 / transform.zoom]);
+    targetCtx.strokeRect(img.x, img.y, img.w, img.h);
+    targetCtx.setLineDash([]);
+
+    // Draw the grid preview lines
+    targetCtx.globalAlpha = 0.4;
+    targetCtx.strokeStyle = state.drawColor;
+    targetCtx.lineWidth = lineWidth;
+
+    // Vertical lines extending outward from cursor
+    for (let x = pos.x; x > img.x; x -= spacing) {
+      targetCtx.beginPath();
+      targetCtx.moveTo(x, img.y);
+      targetCtx.lineTo(x, img.y + img.h);
+      targetCtx.stroke();
+    }
+    for (let x = pos.x + spacing; x < img.x + img.w; x += spacing) {
+      targetCtx.beginPath();
+      targetCtx.moveTo(x, img.y);
+      targetCtx.lineTo(x, img.y + img.h);
+      targetCtx.stroke();
+    }
+
+    // Horizontal lines extending outward from cursor
+    for (let y = pos.y; y > img.y; y -= spacing) {
+      targetCtx.beginPath();
+      targetCtx.moveTo(img.x, y);
+      targetCtx.lineTo(img.x + img.w, y);
+      targetCtx.stroke();
+    }
+    for (let y = pos.y + spacing; y < img.y + img.h; y += spacing) {
+      targetCtx.beginPath();
+      targetCtx.moveTo(img.x, y);
+      targetCtx.lineTo(img.x + img.w, y);
+      targetCtx.stroke();
+    }
+
+    // Draw crosshair at cursor origin
+    targetCtx.globalAlpha = 0.8;
+    targetCtx.strokeStyle = state.drawColor;
+    targetCtx.lineWidth = 1.5 / transform.zoom;
+    const crossSize = 8 / transform.zoom;
+    targetCtx.beginPath();
+    targetCtx.moveTo(pos.x - crossSize, pos.y);
+    targetCtx.lineTo(pos.x + crossSize, pos.y);
+    targetCtx.moveTo(pos.x, pos.y - crossSize);
+    targetCtx.lineTo(pos.x, pos.y + crossSize);
+    targetCtx.stroke();
+
+    // Draw spacing label
+    const fontSize = Math.max(10, 11 / transform.zoom);
+    const label = `${spacing}px`;
+    targetCtx.font = `bold ${fontSize}px sans-serif`;
+    targetCtx.textAlign = "left";
+    targetCtx.textBaseline = "top";
+    targetCtx.globalAlpha = 1;
+    const labelX = img.x + 4 / transform.zoom;
+    const labelY = img.y + 4 / transform.zoom;
+    const metrics = targetCtx.measureText(label);
+    const padX = 3 / transform.zoom;
+    const padY = 2 / transform.zoom;
+    targetCtx.fillStyle = "rgba(0, 0, 0, 0.7)";
+    targetCtx.fillRect(labelX - padX, labelY - padY, metrics.width + padX * 2, fontSize + padY * 2);
+    targetCtx.fillStyle = "#fff";
+    targetCtx.fillText(label, labelX, labelY);
+
+    targetCtx.restore();
+  }
+
   if (!isExporting && textEditor.style.display === "block" && state.activeTextCoord) {
     const screenPos = worldToScreen(state.activeTextCoord.x, state.activeTextCoord.y);
     textEditor.style.left = `${screenPos.x}px`;
