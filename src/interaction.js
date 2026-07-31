@@ -2993,11 +2993,24 @@ function setupMouseHandlers() {
           // Grid snapping takes priority when grid is visible
           if (state.gridVisible && state.gridSize > 0) {
             const gridSize = state.gridSize;
-            // Snap top-left corner of group bounds to nearest grid point
-            const snappedX = Math.round(groupBounds.x / gridSize) * gridSize;
-            const snappedY = Math.round(groupBounds.y / gridSize) * gridSize;
-            const gridDx = snappedX - groupBounds.x;
-            const gridDy = snappedY - groupBounds.y;
+            // Find the corner of groupBounds closest to the cursor
+            const corners = [
+              { x: groupBounds.x, y: groupBounds.y },
+              { x: groupBounds.x + groupBounds.w, y: groupBounds.y },
+              { x: groupBounds.x, y: groupBounds.y + groupBounds.h },
+              { x: groupBounds.x + groupBounds.w, y: groupBounds.y + groupBounds.h },
+            ];
+            let closest = corners[0];
+            let closestDist = Infinity;
+            for (const c of corners) {
+              const d = (c.x - worldPos.x) ** 2 + (c.y - worldPos.y) ** 2;
+              if (d < closestDist) { closestDist = d; closest = c; }
+            }
+            // Snap that corner to the nearest grid point
+            const snappedX = Math.round(closest.x / gridSize) * gridSize;
+            const snappedY = Math.round(closest.y / gridSize) * gridSize;
+            const gridDx = snappedX - closest.x;
+            const gridDy = snappedY - closest.y;
             if (gridDx !== 0 || gridDy !== 0) {
               state.selectedElements.forEach((el) => {
                 if (el.elementType === "image") { el.x += gridDx; el.y += gridDy; }
