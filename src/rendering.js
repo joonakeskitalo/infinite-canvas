@@ -683,6 +683,32 @@ function _doRender(targetCtx, isExporting) {
 
   const _vp = !isExporting ? getViewportBounds() : null;
 
+  // 0. Render background grid
+  if (!isExporting && state.gridVisible && state.gridSize > 0) {
+    const gridSize = state.gridSize;
+    const vp = _vp;
+    // Compute visible world-space range
+    const startX = Math.floor(vp.minX / gridSize) * gridSize;
+    const endX = Math.ceil(vp.maxX / gridSize) * gridSize;
+    const startY = Math.floor(vp.minY / gridSize) * gridSize;
+    const endY = Math.ceil(vp.maxY / gridSize) * gridSize;
+
+    targetCtx.save();
+    targetCtx.strokeStyle = "rgba(0, 0, 0, 0.08)";
+    targetCtx.lineWidth = 1 / transform.zoom;
+    targetCtx.beginPath();
+    for (let x = startX; x <= endX; x += gridSize) {
+      targetCtx.moveTo(x, startY);
+      targetCtx.lineTo(x, endY);
+    }
+    for (let y = startY; y <= endY; y += gridSize) {
+      targetCtx.moveTo(startX, y);
+      targetCtx.lineTo(endX, y);
+    }
+    targetCtx.stroke();
+    targetCtx.restore();
+  }
+
   // 1. Render Background Assets (images)
   state.images.forEach((imgData) => {
     if (_vp && !(state.cropMode && state.cropTarget && state.cropTarget.id === imgData.id) &&

@@ -476,6 +476,27 @@ export function initEventHandlers() {
   document.getElementById("open-file-btn").addEventListener("click", openFile);
   document.getElementById("save-file-btn").addEventListener("click", saveFile);
 
+  // --- Grid toggle & size ---
+  const gridItem = document.getElementById("toggle-grid-item");
+  const gridSizeInput = document.getElementById("grid-size-input");
+
+  gridItem.addEventListener("click", (e) => {
+    // Don't toggle when clicking the input itself
+    if (e.target === gridSizeInput) return;
+    state.gridVisible = !state.gridVisible;
+    gridItem.classList.toggle("active", state.gridVisible);
+    render();
+  });
+
+  gridSizeInput.addEventListener("click", (e) => e.stopPropagation());
+  gridSizeInput.addEventListener("change", (e) => {
+    const val = Math.max(10, Math.min(500, parseInt(e.target.value) || 50));
+    e.target.value = val;
+    state.gridSize = val;
+    if (state.gridVisible) render();
+  });
+  gridSizeInput.addEventListener("mousedown", (e) => e.stopPropagation());
+
   // --- Text alignment buttons ---
   document.querySelectorAll(".text-align-btn").forEach((btn) => {
     btn.addEventListener("click", (e) => {
@@ -1603,7 +1624,6 @@ function setupKeyboardHandlers() {
     }
 
     let targetTool = null;
-    if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (key === "r" && e.shiftKey) { setRulersVisible(!state.rulersVisible); return; }
     if (key === "h") targetTool = "pan";
     if (key === "v") targetTool = "select";
@@ -2970,31 +2990,59 @@ function setupMouseHandlers() {
         let groupBounds = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 
         if (e.shiftKey) {
-          const targets = getSnapTargets(excludeIds, groupBounds);
-          const threshold = CONSTANTS.SNAP_THRESHOLD / state.transform.zoom;
-          const snap = snapToElements(groupBounds, targets, threshold);
-          const spacingSnap = snapToSpacing(groupBounds, excludeIds, threshold);
-          let finalDx = snap.dx, finalDy = snap.dy;
-          if (Math.abs(spacingSnap.dx) > 0 && (Math.abs(snap.dx) === 0 || Math.abs(spacingSnap.dx) < Math.abs(snap.dx))) finalDx = spacingSnap.dx;
-          if (Math.abs(spacingSnap.dy) > 0 && (Math.abs(snap.dy) === 0 || Math.abs(spacingSnap.dy) < Math.abs(snap.dy))) finalDy = spacingSnap.dy;
-          if (finalDx !== 0 || finalDy !== 0) {
+          // Grid snapping takes priority when grid is visible
+          if (state.gridVisible && state.gridSize > 0) {
+            const gridSize = state.gridSize;
+            // Snap top-left corner of group bounds to nearest grid point
+            const snappedX = Math.round(groupBounds.x / gridSize) * gridSize;
+            const snappedY = Math.round(groupBounds.y / gridSize) * gridSize;
+            const gridDx = snappedX - groupBounds.x;
+            const gridDy = snappedY - groupBounds.y;
+            if (gridDx !== 0 || gridDy !== 0) {
+              state.selectedElements.forEach((el) => {
+                if (el.elementType === "image") { el.x += gridDx; el.y += gridDy; }
+                else if (el.type === "pen") { el.points = el.points.map((p) => ({ x: p.x + gridDx, y: p.y + gridDy })); }
+                else { el.start.x += gridDx; el.start.y += gridDy; if (el.end) { el.end.x += gridDx; el.end.y += gridDy; } }
+              });
+            }
+            // Recompute
+            minX = Infinity; minY = Infinity; maxX = -Infinity; maxY = -Infinity;
             state.selectedElements.forEach((el) => {
-              if (el.elementType === "image") { el.x += finalDx; el.y += finalDy; }
-              else if (el.type === "pen") { el.points = el.points.map((p) => ({ x: p.x + finalDx, y: p.y + finalDy })); }
-              else { el.start.x += finalDx; el.start.y += finalDy; if (el.end) { el.end.x += finalDx; el.end.y += finalDy; } }
+              let b = el.elementType === "image" ? { x: el.x, y: el.y, w: el.w, h: el.h } : getShapeBounds(el);
+              if (b.x < minX) minX = b.x; if (b.y < minY) minY = b.y;
+              if (b.x + b.w > maxX) maxX = b.x + b.w; if (b.y + b.h > maxY) maxY = b.y + b.h;
             });
+            groupBounds = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+            state.activeSnapGuides = [];
+            state.activeProximityGuides = [];
+            state.activeSpacingGuides = [];
+          } else {
+            const targets = getSnapTargets(excludeIds, groupBounds);
+            const threshold = CONSTANTS.SNAP_THRESHOLD / state.transform.zoom;
+            const snap = snapToElements(groupBounds, targets, threshold);
+            const spacingSnap = snapToSpacing(groupBounds, excludeIds, threshold);
+            let finalDx = snap.dx, finalDy = snap.dy;
+            if (Math.abs(spacingSnap.dx) > 0 && (Math.abs(snap.dx) === 0 || Math.abs(spacingSnap.dx) < Math.abs(snap.dx))) finalDx = spacingSnap.dx;
+            if (Math.abs(spacingSnap.dy) > 0 && (Math.abs(snap.dy) === 0 || Math.abs(spacingSnap.dy) < Math.abs(snap.dy))) finalDy = spacingSnap.dy;
+            if (finalDx !== 0 || finalDy !== 0) {
+              state.selectedElements.forEach((el) => {
+                if (el.elementType === "image") { el.x += finalDx; el.y += finalDy; }
+                else if (el.type === "pen") { el.points = el.points.map((p) => ({ x: p.x + finalDx, y: p.y + finalDy })); }
+                else { el.start.x += finalDx; el.start.y += finalDy; if (el.end) { el.end.x += finalDx; el.end.y += finalDy; } }
+              });
+            }
+            // Recompute
+            minX = Infinity; minY = Infinity; maxX = -Infinity; maxY = -Infinity;
+            state.selectedElements.forEach((el) => {
+              let b = el.elementType === "image" ? { x: el.x, y: el.y, w: el.w, h: el.h } : getShapeBounds(el);
+              if (b.x < minX) minX = b.x; if (b.y < minY) minY = b.y;
+              if (b.x + b.w > maxX) maxX = b.x + b.w; if (b.y + b.h > maxY) maxY = b.y + b.h;
+            });
+            groupBounds = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+            state.activeSnapGuides = snap.guides;
+            state.activeProximityGuides = [];
+            state.activeSpacingGuides = getSpacingGuides(groupBounds, excludeIds);
           }
-          // Recompute
-          minX = Infinity; minY = Infinity; maxX = -Infinity; maxY = -Infinity;
-          state.selectedElements.forEach((el) => {
-            let b = el.elementType === "image" ? { x: el.x, y: el.y, w: el.w, h: el.h } : getShapeBounds(el);
-            if (b.x < minX) minX = b.x; if (b.y < minY) minY = b.y;
-            if (b.x + b.w > maxX) maxX = b.x + b.w; if (b.y + b.h > maxY) maxY = b.y + b.h;
-          });
-          groupBounds = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
-          state.activeSnapGuides = snap.guides;
-          state.activeProximityGuides = [];
-          state.activeSpacingGuides = getSpacingGuides(groupBounds, excludeIds);
         } else {
           state.activeSnapGuides = [];
           state.activeProximityGuides = getProximityGuides(groupBounds, excludeIds);

@@ -134,6 +134,10 @@ export const state = {
   isSaving: false,
   pendingSave: false,
 
+  // Grid
+  gridVisible: false,
+  gridSize: 100,
+
   // Undo/Redo
   undoStack: [],
   redoStack: [],

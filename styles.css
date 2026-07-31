@@ -741,6 +741,31 @@ input[type="color"]::-webkit-color-swatch {
   cursor: default;
 }
 
+.menu-item-grid {
+  cursor: pointer;
+}
+
+.menu-item-grid .grid-size-input {
+  width: 48px;
+  background: #2d2d2d;
+  color: #fff;
+  border: 1px solid #555;
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 11px;
+  text-align: center;
+  outline: none;
+  cursor: text;
+}
+
+.menu-item-grid.active svg {
+  color: #4fc3f7;
+}
+
+.menu-item-grid.active span {
+  color: #4fc3f7;
+}
+
 .menu-color-input {
   border: none;
   width: 28px;
