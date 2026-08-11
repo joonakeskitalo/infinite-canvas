@@ -12,6 +12,7 @@ import {
   getElementBounds, getSwapHandleRadius, isPointOnSwapHandle,
 } from "./elements.js";
 import { getFullImageBounds } from "./crop.js";
+import { renderMarquee, renderMarqueeSelecting } from "./marquee-select.js";
 
 // --- PERFORMANCE: requestAnimationFrame batching ---
 let _renderScheduled = false;
@@ -1010,6 +1011,13 @@ function _doRender(targetCtx, isExporting) {
       const rh = Math.abs(state.regionEnd.y - state.regionStart.y);
       targetCtx.fillRect(rx, ry, rw, rh);
       targetCtx.strokeRect(rx, ry, rw, rh);
+    }
+
+    // Marquee selection overlays
+    if (state.marqueeMode) {
+      renderMarquee(targetCtx, transform);
+    } else if (state.marqueeIsSelecting) {
+      renderMarqueeSelecting(targetCtx, transform);
     }
 
     // Snap guides

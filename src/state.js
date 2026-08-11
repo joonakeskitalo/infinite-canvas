@@ -139,6 +139,18 @@ export const state = {
   isSaving: false,
   pendingSave: false,
 
+  // Marquee (rectangle pixel select) tool
+  marqueeMode: false,         // true when a marquee selection is active
+  marqueeTarget: null,        // the image element being marqueed
+  marqueeRect: null,          // {x, y, w, h} world-coords of the selection rectangle
+  marqueePixelCanvas: null,   // OffscreenCanvas with the extracted pixel region
+  marqueeOffset: { x: 0, y: 0 }, // offset from original position while dragging
+  marqueeIsDragging: false,   // true while moving the selected pixels
+  marqueeDragStart: null,     // {x, y} world-coords where drag started
+  marqueeIsSelecting: false,  // true while drawing the marquee rectangle
+  marqueeStart: null,         // {x, y} world-coords where rectangle drawing started
+  marqueeCut: false,          // true if pixels have been "lifted" (cut) from the source
+
   // Grid
   gridVisible: false,
   gridSize: 100,

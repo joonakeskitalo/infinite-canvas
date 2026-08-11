@@ -43,6 +43,10 @@ import { openFilterPreview, isFilterPreviewActive } from "./filter-preview-mode.
 import { applyFilterToImageData } from "./filter-kernels.js";
 import { setCustomColorsDeps, getCustomColors } from "./custom-colors.js";
 import { showContrastResult, showContrastWaiting, hideContrastPanel, contrastRatio, rgbToHex } from "./contrast-checker.js";
+import {
+  marqueeStartSelection, marqueeUpdateSelection, marqueeEndSelection,
+  marqueeCut, marqueeCopy, marqueeCommit, exitMarqueeMode, isPointInMarquee,
+} from "./marquee-select.js";
 
 /**
  * Snap a split-line position to the nearest fraction (halves, thirds, quarters)
@@ -106,6 +110,7 @@ export function initEventHandlers() {
       if (state.currentTool !== "select" && state.currentTool !== "eyedropper") state.selectedElements = [];
       if (state.currentTool !== "select") { state.swapHoveredElement = null; state.isSwapDragging = false; state.swapSourceElement = null; state.swapDragWorldPos = null; state.swapTargetElement = null; }
       if (state.currentTool !== "measure") { state.measureHoverGuides = []; state.activeMeasureLine = null; }
+      if (state.currentTool !== "marquee" && state.marqueeMode) { marqueeCommit(); }
       if (state.currentTool !== "split-line") { state.splitLineHoveredImage = null; state.splitLineWorldPos = null; }
       if (state.currentTool !== "grid") { state.gridToolHoveredImage = null; state.gridToolWorldPos = null; }
       if (state.currentTool === "contrast") { state.contrastClickCount = 0; state.contrastColor1 = null; state.contrastColor2 = null; state.contrastWorldPos1 = null; state.activeContrastLine = null; showContrastWaiting(1); }
@@ -1465,6 +1470,14 @@ function setupKeyboardHandlers() {
       return;
     }
 
+    // Marquee mode keyboard shortcuts
+    if (state.marqueeMode) {
+      if (e.key === "Enter") { e.preventDefault(); marqueeCommit(); return; }
+      if (e.key === "Escape") { e.preventDefault(); exitMarqueeMode(); return; }
+      if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); marqueeCut(); return; }
+      // Don't intercept other keys in marquee mode so Cmd+C/X still work from the meta handler
+    }
+
     // Escape
     if (e.key === "Escape") {
       e.preventDefault();
@@ -1654,7 +1667,7 @@ function setupKeyboardHandlers() {
     if (key === "t") targetTool = "text";
     if (key === "n") targetTool = "text-element";
     if (key === "e") targetTool = "eraser";
-    if (key === "m") targetTool = "measure";
+    if (key === "m") targetTool = "marquee";
     if (key === "k") targetTool = "contrast";
     if (key === "q") targetTool = "grid";
     // Bracket keys: adjust grid tool spacing
@@ -2006,10 +2019,12 @@ function setupKeyboardHandlers() {
     if (e.key.toLowerCase() === "g" && e.shiftKey) { e.preventDefault(); ungroupSelection(); return; }
     if (e.key.toLowerCase() === "l" && !e.shiftKey) { e.preventDefault(); toggleLockSelection(); return; }
     if (e.key.toLowerCase() === "c") {
+      if (state.marqueeMode) { e.preventDefault(); marqueeCopy(); return; }
       if (state.selectedElements.length > 0) { e.preventDefault(); copySelectionToClipboard(); }
       return;
     }
     if (e.key.toLowerCase() === "x") {
+      if (state.marqueeMode) { e.preventDefault(); marqueeCut(); return; }
       if (state.selectedElements.length > 0) {
         e.preventDefault();
         pushUndo();
@@ -2238,6 +2253,11 @@ function setupMouseHandlers() {
     }
 
     if (state.currentTool === "eraser") { checkAndEraseAtPosition(worldPos); return; }
+
+    if (state.currentTool === "marquee") {
+      marqueeStartSelection(worldPos);
+      return;
+    }
 
     if (state.currentTool === "measure") {
       state.activeMeasureLine = { start: { ...worldPos }, end: { ...worldPos } };
@@ -3248,6 +3268,8 @@ function setupMouseHandlers() {
         }
         render();
       }
+    } else if (state.marqueeIsSelecting || state.marqueeIsDragging) {
+      marqueeUpdateSelection(worldPos);
     } else if (state.activeMeasureLine) {
       // Don't update measure line until user has dragged beyond minimum distance
       const screenDx = e.clientX - state.startX;
@@ -3316,6 +3338,12 @@ function setupMouseHandlers() {
       state.cropDragEdge = null;
       state.cropDragStart = null;
       render(); return;
+    }
+
+    if (state.currentTool === "marquee" && (state.marqueeIsSelecting || state.marqueeIsDragging)) {
+      marqueeEndSelection();
+      render();
+      return;
     }
 
     if (state.currentTool === "measure" && state.activeMeasureLine) {
