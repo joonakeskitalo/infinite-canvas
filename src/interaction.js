@@ -2008,6 +2008,31 @@ function setupKeyboardHandlers() {
       return;
     }
 
+    // Number keys 1-3 set stroke width on selected drawing elements or when a drawing tool is active
+    const isDrawingTool = state.currentTool === "pen" || state.currentTool === "line" || state.currentTool === "arrow" || state.currentTool === "rect-border" || state.currentTool === "rect-fill" || state.currentTool === "measure";
+    if ((key === "1" || key === "2" || key === "3") && (isDrawingTool || (state.currentTool === "select" && state.selectedElements.length > 0 && state.selectedElements.some((el) => el.elementType === "drawing" && el.type !== "text")))) {
+      e.preventDefault();
+      const widthMap = { "1": 2, "2": 4, "3": 10 };
+      const newWidth = widthMap[key];
+      pushUndo();
+      state.currentLineWidth = newWidth;
+      const lineWidthBtns = document.querySelectorAll(".line-width-btn");
+      lineWidthBtns.forEach((b) => {
+        if (parseInt(b.dataset.width, 10) === newWidth) b.classList.add("active");
+        else b.classList.remove("active");
+      });
+      if (state.selectedElements.length > 0) {
+        state.selectedElements.forEach((el) => {
+          if (el.elementType === "drawing" && el.type !== "text") {
+            el.width = newWidth;
+          }
+        });
+        render();
+      }
+      showToast(`Stroke width: ${newWidth}px`);
+      return;
+    }
+
     // Number keys 0-9 set opacity
     if (key >= "0" && key <= "9" && state.currentTool === "select" && state.selectedElements.length > 0) {
       const opacity = key === "0" ? 1 : parseInt(key) / 10;
