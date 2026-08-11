@@ -5,8 +5,8 @@
  * then moving, cutting, or copying the selected pixels.
  */
 
-import { state, getDom } from "./state.js";
-import { screenToWorld, showToast } from "./utils.js";
+import { state, spatialInsert } from "./state.js";
+import { showToast } from "./utils.js";
 import { pushUndo } from "./history.js";
 import { scheduleSave } from "./persistence.js";
 import { render } from "./rendering.js";
@@ -323,6 +323,56 @@ export function marqueeCopy() {
         showToast("Failed to copy to clipboard");
       });
     }, "image/png");
+  }
+}
+
+/**
+ * Duplicate the selected pixels as a new image element placed with a small offset.
+ */
+export function marqueeDuplicate() {
+  if (!state.marqueeMode || !state.marqueePixelCanvas) return;
+
+  const rect = state.marqueeRect;
+  const ox = state.marqueeOffset.x;
+  const oy = state.marqueeOffset.y;
+  const pixelCanvas = state.marqueePixelCanvas;
+  const offset = 30;
+
+  pushUndo();
+
+  function placeElement(imgEl) {
+    const newElement = {
+      id: "img_" + state.elementIdCounter++,
+      elementType: "image",
+      img: imgEl,
+      x: rect.x + ox + offset,
+      y: rect.y + oy + offset,
+      w: rect.w,
+      h: rect.h,
+      opacity: 1,
+    };
+    state.images.push(newElement);
+    spatialInsert(newElement);
+    exitMarqueeMode();
+    state.selectedElements = [newElement];
+    state.currentTool = "select";
+    render();
+    scheduleSave();
+    showToast("Duplicated selection");
+  }
+
+  if (pixelCanvas instanceof OffscreenCanvas) {
+    pixelCanvas.convertToBlob({ type: "image/png" }).then((blob) => {
+      const url = URL.createObjectURL(blob);
+      const newImg = new Image();
+      newImg.onload = () => placeElement(newImg);
+      newImg.src = url;
+    });
+  } else {
+    const dataURL = pixelCanvas.toDataURL("image/png");
+    const newImg = new Image();
+    newImg.onload = () => placeElement(newImg);
+    newImg.src = dataURL;
   }
 }
 

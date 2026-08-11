@@ -46,7 +46,7 @@ import { setCustomColorsDeps, getCustomColors } from "./custom-colors.js";
 import { showContrastResult, showContrastWaiting, hideContrastPanel, contrastRatio, rgbToHex } from "./contrast-checker.js";
 import {
   marqueeStartSelection, marqueeUpdateSelection, marqueeEndSelection,
-  marqueeCut, marqueeCopy, marqueeCommit, exitMarqueeMode, isPointInMarquee,
+  marqueeCut, marqueeCopy, marqueeDuplicate, marqueeCommit, exitMarqueeMode,
 } from "./marquee-select.js";
 
 /**
@@ -2054,6 +2054,7 @@ function setupKeyboardHandlers() {
       return;
     }
     if (e.key.toLowerCase() === "d") {
+      if (state.marqueeMode) { e.preventDefault(); marqueeDuplicate(); return; }
       if (state.selectedElements.length > 0) { e.preventDefault(); duplicateSelection(); }
       return;
     }
