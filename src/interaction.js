@@ -2634,24 +2634,14 @@ function setupMouseHandlers() {
       let clickedElement = null;
       const isModifierActive = e.metaKey || e.shiftKey || e.ctrlKey;
 
-      for (let i = state.drawings.length - 1; i >= 0; i--) {
-        if (state.drawings[i].locked) continue;
-        if (isPointHittingShape(worldPos, state.drawings[i]) || isPointOnMeasureLabel(worldPos, state.drawings[i])) {
-          clickedElement = state.drawings[i];
-          if (clickedElement.type !== "text") clickedElement.elementType = "drawing";
-          break;
-        }
-      }
-
-      if (!clickedElement) {
-        for (let i = state.images.length - 1; i >= 0; i--) {
-          const img = state.images[i];
-          if (img.locked) continue;
-          if (worldPos.x >= img.x && worldPos.x <= img.x + img.w && worldPos.y >= img.y && worldPos.y <= img.y + img.h) {
-            clickedElement = img;
-            clickedElement.elementType = "image";
-            break;
-          }
+      // Use unified z-order hit testing
+      const hitEl = getElementAtWorldPos(worldPos, null);
+      if (hitEl && !hitEl.locked) {
+        clickedElement = hitEl;
+        if (clickedElement.elementType === "image") {
+          // already has elementType
+        } else if (clickedElement.type !== "text") {
+          clickedElement.elementType = "drawing";
         }
       }
 
