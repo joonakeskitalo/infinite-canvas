@@ -1664,10 +1664,13 @@ function setupKeyboardHandlers() {
     if (key === "r" && e.shiftKey) { setRulersVisible(!state.rulersVisible); return; }
     if (key === "§" && !e.shiftKey) {
       state.overlaysHidden = !state.overlaysHidden;
+      const toolbar = document.getElementById("toolbar");
       if (state.overlaysHidden) {
         if (state.rulersVisible) { state._rulersWereVisible = true; setRulersVisible(false); }
+        toolbar.style.display = "none";
       } else {
         if (state._rulersWereVisible) { state._rulersWereVisible = false; setRulersVisible(true); }
+        toolbar.style.display = "";
       }
       showToast(state.overlaysHidden ? "Overlays & drawings hidden" : "Overlays & drawings visible");
       render();
