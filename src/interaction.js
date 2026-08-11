@@ -2012,7 +2012,7 @@ function setupKeyboardHandlers() {
     }
 
     // Number keys 1-3 set stroke width on selected drawing elements or when a drawing tool is active
-    const isDrawingTool = state.currentTool === "pen" || state.currentTool === "line" || state.currentTool === "arrow" || state.currentTool === "rect-border" || state.currentTool === "rect-fill" || state.currentTool === "measure";
+    const isDrawingTool = state.currentTool === "pen" || state.currentTool === "line" || state.currentTool === "arrow" || state.currentTool === "rect-border" || state.currentTool === "rect-fill" || state.currentTool === "measure" || state.currentTool === "split-line";
     if ((key === "1" || key === "2" || key === "3") && (isDrawingTool || (state.currentTool === "select" && state.selectedElements.length > 0 && state.selectedElements.some((el) => el.elementType === "drawing" && el.type !== "text")))) {
       e.preventDefault();
       const widthMap = { "1": 2, "2": 4, "3": 10 };
