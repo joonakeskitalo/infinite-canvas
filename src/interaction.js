@@ -1668,6 +1668,7 @@ function setupKeyboardHandlers() {
     if (key === "n") targetTool = "text-element";
     if (key === "e") targetTool = "eraser";
     if (key === "m") targetTool = "marquee";
+    if (key === "y") targetTool = "measure";
     if (key === "k") targetTool = "contrast";
     if (key === "q") targetTool = "grid";
     // Bracket keys: adjust grid tool spacing
