@@ -1661,6 +1661,17 @@ function setupKeyboardHandlers() {
     let targetTool = null;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (key === "r" && e.shiftKey) { setRulersVisible(!state.rulersVisible); return; }
+    if (key === "§" && !e.shiftKey) {
+      state.overlaysHidden = !state.overlaysHidden;
+      if (state.overlaysHidden) {
+        if (state.rulersVisible) { state._rulersWereVisible = true; setRulersVisible(false); }
+      } else {
+        if (state._rulersWereVisible) { state._rulersWereVisible = false; setRulersVisible(true); }
+      }
+      showToast(state.overlaysHidden ? "Overlays hidden" : "Overlays visible");
+      render();
+      return;
+    }
     if (key === "h") targetTool = "pan";
     if (key === "v") targetTool = "select";
     if (key === "b") targetTool = "pen";

@@ -133,6 +133,9 @@ export const state = {
   draggingGuide: null,
   draggingNewGuide: null,
 
+  // Overlay visibility toggle (split lines, drawings/connectors, rulers)
+  overlaysHidden: false,
+
   // File persistence
   fileHandle: null,
   saveTimeout: null,

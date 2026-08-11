@@ -782,6 +782,10 @@ function _doRender(targetCtx, isExporting) {
     } else {
       // Drawing / vector / text element
       const shape = el;
+
+      // Skip split lines and connectors when overlays are hidden
+      if (!isExporting && state.overlaysHidden && (shape.isSplitLine || shape.type === "connector")) return;
+
       let shapeBounds;
       if (_vp) {
         shapeBounds = getShapeBounds(shape);
