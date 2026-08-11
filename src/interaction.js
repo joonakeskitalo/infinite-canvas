@@ -1669,7 +1669,7 @@ function setupKeyboardHandlers() {
       } else {
         if (state._rulersWereVisible) { state._rulersWereVisible = false; setRulersVisible(true); }
       }
-      showToast(state.overlaysHidden ? "Overlays hidden" : "Overlays visible");
+      showToast(state.overlaysHidden ? "Overlays & drawings hidden" : "Overlays & drawings visible");
       render();
       return;
     }
