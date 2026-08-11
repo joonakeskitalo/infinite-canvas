@@ -51,6 +51,7 @@ export const state = {
   // Element collections
   images: [],
   drawings: [],
+  elementOrder: [],  // Array of element IDs in z-order (bottom to top)
   activeShape: null,
   activeTextCoord: null,
 
@@ -231,17 +232,58 @@ export function rebuildSpatialIndex() {
 }
 
 /**
- * Insert an element into the spatial index.
+ * Rebuild elementOrder from current images and drawings arrays.
+ * Preserves existing order for elements already in elementOrder,
+ * appends any new elements at the end.
  */
-export function spatialInsert(el) {
-  spatialIndex.insert(el, getElementSpatialBounds(el));
+export function rebuildElementOrder() {
+  const allIds = new Set([...state.images.map(e => e.id), ...state.drawings.map(e => e.id)]);
+  // Keep existing order entries that still exist
+  const kept = state.elementOrder.filter(id => allIds.has(id));
+  const keptSet = new Set(kept);
+  // Append any new elements not yet in the order (images first, then drawings — legacy default)
+  for (const el of state.images) {
+    if (!keptSet.has(el.id)) kept.push(el.id);
+  }
+  for (const el of state.drawings) {
+    if (!keptSet.has(el.id)) kept.push(el.id);
+  }
+  state.elementOrder = kept;
 }
 
 /**
- * Remove an element from the spatial index.
+ * Get all elements in z-order (bottom to top).
+ * Returns an array of element references ordered by state.elementOrder.
+ */
+export function getElementsInZOrder() {
+  const map = new Map();
+  for (const el of state.images) map.set(el.id, el);
+  for (const el of state.drawings) map.set(el.id, el);
+  const result = [];
+  for (const id of state.elementOrder) {
+    const el = map.get(id);
+    if (el) result.push(el);
+  }
+  return result;
+}
+
+/**
+ * Insert an element into the spatial index and add to element order (on top).
+ */
+export function spatialInsert(el) {
+  spatialIndex.insert(el, getElementSpatialBounds(el));
+  if (!state.elementOrder.includes(el.id)) {
+    state.elementOrder.push(el.id);
+  }
+}
+
+/**
+ * Remove an element from the spatial index and element order.
  */
 export function spatialRemove(el) {
   spatialIndex.remove(el);
+  const idx = state.elementOrder.indexOf(el.id);
+  if (idx !== -1) state.elementOrder.splice(idx, 1);
 }
 
 /**

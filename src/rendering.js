@@ -4,7 +4,7 @@
  * Main render loop, shape drawing, measurement lines, and PNG export.
  */
 
-import { state, CONSTANTS, getDom } from "./state.js";
+import { state, CONSTANTS, getDom, getElementsInZOrder } from "./state.js";
 import { getViewportBounds, isRectInViewport, worldToScreen, screenToWorld } from "./utils.js";
 import { applyFilterToImageData } from "./filter-kernels.js";
 import {
@@ -722,63 +722,123 @@ function _doRender(targetCtx, isExporting) {
     targetCtx.restore();
   }
 
-  // 1. Render Background Assets (images)
-  state.images.forEach((imgData) => {
-    if (_vp && !(state.cropMode && state.cropTarget && state.cropTarget.id === imgData.id) &&
-        !isRectInViewport(imgData.x, imgData.y, imgData.w, imgData.h, _vp)) return;
+  // 1. Render all elements in z-order (images and drawings intermixed)
+  const zOrderedElements = getElementsInZOrder();
+  zOrderedElements.forEach((el) => {
+    if (el.elementType === "image") {
+      const imgData = el;
+      if (_vp && !(state.cropMode && state.cropTarget && state.cropTarget.id === imgData.id) &&
+          !isRectInViewport(imgData.x, imgData.y, imgData.w, imgData.h, _vp)) return;
 
-    targetCtx.save();
-    targetCtx.globalAlpha = imgData.opacity != null ? imgData.opacity : 1;
-    const drawSrc = !isExporting && state.currentFilter !== "none" ? getFilteredImage(imgData) : imgData.img;
-
-    if (!isExporting && state.cropMode && state.cropTarget && state.cropTarget.id === imgData.id) {
-      targetCtx.restore();
-      return;
-    }
-
-    if (imgData.crop) {
-      const c = imgData.crop;
-      const natW = imgData.img.naturalWidth || imgData.img.width;
-      const natH = imgData.img.naturalHeight || imgData.img.height;
-      const sx = c.x * natW;
-      const sy = c.y * natH;
-      const sw = c.w * natW;
-      const sh = c.h * natH;
-      targetCtx.drawImage(drawSrc, sx, sy, sw, sh, imgData.x, imgData.y, imgData.w, imgData.h);
-    } else {
-      targetCtx.drawImage(drawSrc, imgData.x, imgData.y, imgData.w, imgData.h);
-    }
-    targetCtx.restore();
-
-    if (!isExporting && state.currentTool === "select" && !(state.cropMode && state.cropTarget && state.cropTarget.id === imgData.id)) {
-      const isSelected = state.selectedElements.some((el) => el.id === imgData.id);
-      const isGrouped = !!imgData.groupId;
       targetCtx.save();
-      targetCtx.strokeStyle = isSelected ? (isGrouped ? "#28a745" : "#ff4444") : "#007acc";
-      targetCtx.lineWidth = (isSelected ? 3 : 1.5) / transform.zoom;
-      if (isGrouped && isSelected) {
-        targetCtx.setLineDash([6 / transform.zoom, 3 / transform.zoom]);
-      }
-      targetCtx.strokeRect(imgData.x, imgData.y, imgData.w, imgData.h);
+      targetCtx.globalAlpha = imgData.opacity != null ? imgData.opacity : 1;
+      const drawSrc = !isExporting && state.currentFilter !== "none" ? getFilteredImage(imgData) : imgData.img;
 
-      if (isSelected && state.selectedElements.length === 1) {
-        targetCtx.fillStyle = "#ff4444";
-        const hSize = CONSTANTS.RESIZE_HANDLE_SIZE / transform.zoom;
-        const handles = getElementResizeHandles(imgData);
-        handles.forEach((h) => {
-          targetCtx.fillRect(h.x - hSize / 2, h.y - hSize / 2, hSize, hSize);
-        });
+      if (!isExporting && state.cropMode && state.cropTarget && state.cropTarget.id === imgData.id) {
+        targetCtx.restore();
+        return;
+      }
+
+      if (imgData.crop) {
+        const c = imgData.crop;
+        const natW = imgData.img.naturalWidth || imgData.img.width;
+        const natH = imgData.img.naturalHeight || imgData.img.height;
+        const sx = c.x * natW;
+        const sy = c.y * natH;
+        const sw = c.w * natW;
+        const sh = c.h * natH;
+        targetCtx.drawImage(drawSrc, sx, sy, sw, sh, imgData.x, imgData.y, imgData.w, imgData.h);
+      } else {
+        targetCtx.drawImage(drawSrc, imgData.x, imgData.y, imgData.w, imgData.h);
       }
       targetCtx.restore();
-    }
 
-    // Draw lock indicator for locked images
-    if (!isExporting && imgData.locked && state.currentTool === "select") {
-      drawLockIcon(targetCtx, imgData.x, imgData.y, transform.zoom);
+      if (!isExporting && state.currentTool === "select" && !(state.cropMode && state.cropTarget && state.cropTarget.id === imgData.id)) {
+        const isSelected = state.selectedElements.some((s) => s.id === imgData.id);
+        const isGrouped = !!imgData.groupId;
+        targetCtx.save();
+        targetCtx.strokeStyle = isSelected ? (isGrouped ? "#28a745" : "#ff4444") : "#007acc";
+        targetCtx.lineWidth = (isSelected ? 3 : 1.5) / transform.zoom;
+        if (isGrouped && isSelected) {
+          targetCtx.setLineDash([6 / transform.zoom, 3 / transform.zoom]);
+        }
+        targetCtx.strokeRect(imgData.x, imgData.y, imgData.w, imgData.h);
+
+        if (isSelected && state.selectedElements.length === 1) {
+          targetCtx.fillStyle = "#ff4444";
+          const hSize = CONSTANTS.RESIZE_HANDLE_SIZE / transform.zoom;
+          const handles = getElementResizeHandles(imgData);
+          handles.forEach((h) => {
+            targetCtx.fillRect(h.x - hSize / 2, h.y - hSize / 2, hSize, hSize);
+          });
+        }
+        targetCtx.restore();
+      }
+
+      // Draw lock indicator for locked images
+      if (!isExporting && imgData.locked && state.currentTool === "select") {
+        drawLockIcon(targetCtx, imgData.x, imgData.y, transform.zoom);
+      }
+    } else {
+      // Drawing / vector / text element
+      const shape = el;
+      let shapeBounds;
+      if (_vp) {
+        shapeBounds = getShapeBounds(shape);
+        if (!isRectInViewport(shapeBounds.x, shapeBounds.y, shapeBounds.w, shapeBounds.h, _vp)) return;
+      }
+      drawShape(targetCtx, shape, isExporting);
+      if (!isExporting && state.currentTool === "select") {
+        const isSelected = state.selectedElements.some((s) => s.id === shape.id);
+        if (isSelected) {
+          const b = shapeBounds || getShapeBounds(shape);
+          const isGrouped = !!shape.groupId;
+          targetCtx.save();
+          targetCtx.strokeStyle = isGrouped ? "#28a745" : "#ff4444";
+          targetCtx.lineWidth = 1.5 / transform.zoom;
+          targetCtx.setLineDash([4 / transform.zoom, 4 / transform.zoom]);
+
+          if (shape.type === "connector" || shape.type === "line" || shape.type === "arrow" || shape.type === "measure") {
+            // No bounding rect for line-like elements
+          } else {
+            targetCtx.strokeRect(b.x - 4, b.y - 4, b.w + 8, b.h + 8);
+          }
+
+          if (state.selectedElements.length === 1) {
+            const handles = getElementResizeHandles(shape);
+            if (shape.type === "connector" || shape.type === "line" || shape.type === "arrow" || shape.type === "measure") {
+              const radius = 5 / transform.zoom;
+              targetCtx.setLineDash([]);
+              targetCtx.fillStyle = "#ffffff";
+              targetCtx.strokeStyle = "#ff4444";
+              targetCtx.lineWidth = 2 / transform.zoom;
+              handles.forEach((h) => {
+                targetCtx.beginPath();
+                targetCtx.arc(h.x, h.y, radius, 0, Math.PI * 2);
+                targetCtx.fill();
+                targetCtx.stroke();
+              });
+            } else {
+              targetCtx.fillStyle = "#ff4444";
+              const hSize = CONSTANTS.RESIZE_HANDLE_SIZE / transform.zoom;
+              handles.forEach((h) => {
+                targetCtx.fillRect(h.x - hSize / 2, h.y - hSize / 2, hSize, hSize);
+              });
+            }
+          }
+          targetCtx.restore();
+        }
+      }
+
+      // Draw lock indicator for locked drawings
+      if (!isExporting && shape.locked && state.currentTool === "select") {
+        const lb = shapeBounds || getShapeBounds(shape);
+        drawLockIcon(targetCtx, lb.x, lb.y, transform.zoom);
+      }
     }
   });
 
-  // 1.5 Render crop mode overlay
+  // 1.5 Render crop mode overlay (always on top of all elements)
   if (!isExporting && state.cropMode && state.cropTarget && state.cropRect) {
     targetCtx.save();
     const el = state.cropTarget;
@@ -874,63 +934,6 @@ function _doRender(targetCtx, isExporting) {
 
     targetCtx.restore();
   }
-
-  // 2. Render Vector Graphics & Text elements
-  state.drawings.forEach((shape) => {
-    let shapeBounds;
-    if (_vp) {
-      shapeBounds = getShapeBounds(shape);
-      if (!isRectInViewport(shapeBounds.x, shapeBounds.y, shapeBounds.w, shapeBounds.h, _vp)) return;
-    }
-    drawShape(targetCtx, shape, isExporting);
-    if (!isExporting && state.currentTool === "select") {
-      const isSelected = state.selectedElements.some((el) => el.id === shape.id);
-      if (isSelected) {
-        const b = shapeBounds || getShapeBounds(shape);
-        const isGrouped = !!shape.groupId;
-        targetCtx.save();
-        targetCtx.strokeStyle = isGrouped ? "#28a745" : "#ff4444";
-        targetCtx.lineWidth = 1.5 / transform.zoom;
-        targetCtx.setLineDash([4 / transform.zoom, 4 / transform.zoom]);
-
-        if (shape.type === "connector" || shape.type === "line" || shape.type === "arrow" || shape.type === "measure") {
-          // No bounding rect for line-like elements
-        } else {
-          targetCtx.strokeRect(b.x - 4, b.y - 4, b.w + 8, b.h + 8);
-        }
-
-        if (state.selectedElements.length === 1) {
-          const handles = getElementResizeHandles(shape);
-          if (shape.type === "connector" || shape.type === "line" || shape.type === "arrow" || shape.type === "measure") {
-            const radius = 5 / transform.zoom;
-            targetCtx.setLineDash([]);
-            targetCtx.fillStyle = "#ffffff";
-            targetCtx.strokeStyle = "#ff4444";
-            targetCtx.lineWidth = 2 / transform.zoom;
-            handles.forEach((h) => {
-              targetCtx.beginPath();
-              targetCtx.arc(h.x, h.y, radius, 0, Math.PI * 2);
-              targetCtx.fill();
-              targetCtx.stroke();
-            });
-          } else {
-            targetCtx.fillStyle = "#ff4444";
-            const hSize = CONSTANTS.RESIZE_HANDLE_SIZE / transform.zoom;
-            handles.forEach((h) => {
-              targetCtx.fillRect(h.x - hSize / 2, h.y - hSize / 2, hSize, hSize);
-            });
-          }
-        }
-        targetCtx.restore();
-      }
-    }
-
-    // Draw lock indicator for locked drawings
-    if (!isExporting && shape.locked && state.currentTool === "select") {
-      const lb = shapeBounds || getShapeBounds(shape);
-      drawLockIcon(targetCtx, lb.x, lb.y, transform.zoom);
-    }
-  });
 
   // Live preview layer
   if (!isExporting && state.activeShape) {
@@ -1469,34 +1472,32 @@ async function executeImageExport(scaleFactor = 1.0, { download = false, format 
   }
 
   let bounds;
-  let exportImages, exportDrawings;
+  let exportElements;
 
   if (exportingSelection) {
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    exportImages = [];
-    exportDrawings = [];
     state.selectedElements.forEach((el) => {
       if (el.elementType === "image") {
         if (el.x < minX) minX = el.x;
         if (el.y < minY) minY = el.y;
         if (el.x + el.w > maxX) maxX = el.x + el.w;
         if (el.y + el.h > maxY) maxY = el.y + el.h;
-        exportImages.push(el);
       } else {
         const b = getShapeBounds(el);
         if (b.x < minX) minX = b.x;
         if (b.y < minY) minY = b.y;
         if (b.x + b.w > maxX) maxX = b.x + b.w;
         if (b.y + b.h > maxY) maxY = b.y + b.h;
-        exportDrawings.push(el);
       }
     });
     const padding = 50;
     bounds = { minX: minX - padding, minY: minY - padding, maxX: maxX + padding, maxY: maxY + padding };
+    // Filter z-ordered elements to only those selected
+    const selectedIds = new Set(state.selectedElements.map(e => e.id));
+    exportElements = getElementsInZOrder().filter(e => selectedIds.has(e.id));
   } else {
     bounds = getCanvasContentBounds();
-    exportImages = state.images;
-    exportDrawings = state.drawings;
+    exportElements = getElementsInZOrder();
   }
 
   const MAX_CANVAS_DIM = 16384;
@@ -1517,52 +1518,34 @@ async function executeImageExport(scaleFactor = 1.0, { download = false, format 
     showToast(`Canvas too large — exporting at ${Math.round(effectiveScale * 100)}% scale`);
   }
 
-  const imgLayer = document.createElement("canvas");
-  imgLayer.width = exportW;
-  imgLayer.height = exportH;
-  const imgLayerCtx = imgLayer.getContext("2d");
-  imgLayerCtx.save();
-  imgLayerCtx.scale(effectiveScale, effectiveScale);
-  imgLayerCtx.translate(-bounds.minX, -bounds.minY);
-  exportImages.forEach((imgData) => {
-    imgLayerCtx.save();
-    imgLayerCtx.globalAlpha = imgData.opacity != null ? imgData.opacity : 1;
-    if (imgData.crop) {
-      const c = imgData.crop;
-      const natW = imgData.img.naturalWidth || imgData.img.width;
-      const natH = imgData.img.naturalHeight || imgData.img.height;
-      imgLayerCtx.drawImage(imgData.img, c.x * natW, c.y * natH, c.w * natW, c.h * natH, imgData.x, imgData.y, imgData.w, imgData.h);
-    } else {
-      imgLayerCtx.drawImage(imgData.img, imgData.x, imgData.y, imgData.w, imgData.h);
-    }
-    imgLayerCtx.restore();
-  });
-  imgLayerCtx.restore();
-
-  if (state.currentFilter !== "none") {
-    const id = imgLayerCtx.getImageData(0, 0, exportW, exportH);
-    applyFilterToImageData(id, state.currentFilter);
-    imgLayerCtx.putImageData(id, 0, 0);
-  }
-
-  const drawLayer = document.createElement("canvas");
-  drawLayer.width = exportW;
-  drawLayer.height = exportH;
-  const drawLayerCtx = drawLayer.getContext("2d");
-  drawLayerCtx.save();
-  drawLayerCtx.scale(effectiveScale, effectiveScale);
-  drawLayerCtx.translate(-bounds.minX, -bounds.minY);
-  exportDrawings.forEach((shape) => drawShape(drawLayerCtx, shape, true));
-  drawLayerCtx.restore();
-
   const finalCanvas = document.createElement("canvas");
   finalCanvas.width = exportW;
   finalCanvas.height = exportH;
   const finalCtx = finalCanvas.getContext("2d");
   finalCtx.fillStyle = state.bgColor;
   finalCtx.fillRect(0, 0, exportW, exportH);
-  finalCtx.drawImage(imgLayer, 0, 0);
-  finalCtx.drawImage(drawLayer, 0, 0);
+  finalCtx.save();
+  finalCtx.scale(effectiveScale, effectiveScale);
+  finalCtx.translate(-bounds.minX, -bounds.minY);
+  exportElements.forEach((el) => {
+    if (el.elementType === "image") {
+      finalCtx.save();
+      finalCtx.globalAlpha = el.opacity != null ? el.opacity : 1;
+      const drawSrc = state.currentFilter !== "none" ? getFilteredImage(el) : el.img;
+      if (el.crop) {
+        const c = el.crop;
+        const natW = el.img.naturalWidth || el.img.width;
+        const natH = el.img.naturalHeight || el.img.height;
+        finalCtx.drawImage(drawSrc, c.x * natW, c.y * natH, c.w * natW, c.h * natH, el.x, el.y, el.w, el.h);
+      } else {
+        finalCtx.drawImage(drawSrc, el.x, el.y, el.w, el.h);
+      }
+      finalCtx.restore();
+    } else {
+      drawShape(finalCtx, el, true);
+    }
+  });
+  finalCtx.restore();
 
   const blobArgs = format === "jpeg" ? [mimeType, quality] : [mimeType];
   finalCanvas.toBlob(async (blob) => {

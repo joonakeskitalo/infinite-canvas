@@ -223,46 +223,42 @@ export function getElementAtWorldPos(worldPos, excludeElement) {
     const excludeIds = excludeElement ? new Set([excludeElement.id]) : undefined;
     const candidates = spatialIndex.queryPoint(worldPos.x, worldPos.y, hitRadius, excludeIds);
 
-    // We need to respect draw order (later = on top). Since drawings render on top of images,
-    // check drawings first (any hit wins over images). Within each group, last in array = on top.
-    let hitDrawing = null;
-    let hitDrawingIdx = -1;
-    let hitImage = null;
-    let hitImageIdx = -1;
+    // Respect unified z-order: highest in elementOrder wins.
+    let hitElement = null;
+    let hitOrderIdx = -1;
 
     for (const el of candidates) {
+      let isHit = false;
       if (el.elementType === "image") {
-        if (worldPos.x >= el.x && worldPos.x <= el.x + el.w &&
-            worldPos.y >= el.y && worldPos.y <= el.y + el.h) {
-          const idx = state.images.indexOf(el);
-          if (idx > hitImageIdx) { hitImage = el; hitImageIdx = idx; }
-        }
+        isHit = worldPos.x >= el.x && worldPos.x <= el.x + el.w &&
+                worldPos.y >= el.y && worldPos.y <= el.y + el.h;
       } else {
-        if (isPointHittingShape(worldPos, el) || isPointOnMeasureLabel(worldPos, el)) {
-          const idx = state.drawings.indexOf(el);
-          if (idx > hitDrawingIdx) { hitDrawing = el; hitDrawingIdx = idx; }
-        }
+        isHit = isPointHittingShape(worldPos, el) || isPointOnMeasureLabel(worldPos, el);
+      }
+      if (isHit) {
+        const idx = state.elementOrder.indexOf(el.id);
+        if (idx > hitOrderIdx) { hitElement = el; hitOrderIdx = idx; }
       }
     }
 
-    if (hitDrawing) return hitDrawing;
-    if (hitImage) return hitImage;
-    return null;
+    return hitElement;
   }
 
-  // Direct iteration for small element counts (original fast path)
-  for (let i = state.drawings.length - 1; i >= 0; i--) {
-    if (excludeElement && state.drawings[i].id === excludeElement.id) continue;
-    if (isPointHittingShape(worldPos, state.drawings[i]) || isPointOnMeasureLabel(worldPos, state.drawings[i])) {
-      return state.drawings[i];
-    }
-  }
-  for (let i = state.images.length - 1; i >= 0; i--) {
-    if (excludeElement && state.images[i].id === excludeElement.id) continue;
-    const img = state.images[i];
-    if (worldPos.x >= img.x && worldPos.x <= img.x + img.w &&
-        worldPos.y >= img.y && worldPos.y <= img.y + img.h) {
-      return img;
+  // Direct iteration for small element counts — iterate elementOrder in reverse (top to bottom)
+  for (let i = state.elementOrder.length - 1; i >= 0; i--) {
+    const id = state.elementOrder[i];
+    const el = findElementById(id);
+    if (!el) continue;
+    if (excludeElement && el.id === excludeElement.id) continue;
+    if (el.elementType === "image") {
+      if (worldPos.x >= el.x && worldPos.x <= el.x + el.w &&
+          worldPos.y >= el.y && worldPos.y <= el.y + el.h) {
+        return el;
+      }
+    } else {
+      if (isPointHittingShape(worldPos, el) || isPointOnMeasureLabel(worldPos, el)) {
+        return el;
+      }
     }
   }
   return null;

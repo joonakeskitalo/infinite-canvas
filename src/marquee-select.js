@@ -36,8 +36,11 @@ function stopMarchingAnts() {
  * Returns the topmost image hit, or null.
  */
 export function getImageAtWorldPos(worldPos) {
-  for (let i = state.images.length - 1; i >= 0; i--) {
-    const img = state.images[i];
+  // Use elementOrder to find topmost image at this position
+  for (let i = state.elementOrder.length - 1; i >= 0; i--) {
+    const id = state.elementOrder[i];
+    const img = state.images.find(im => im.id === id);
+    if (!img) continue;
     if (
       worldPos.x >= img.x && worldPos.x <= img.x + img.w &&
       worldPos.y >= img.y && worldPos.y <= img.y + img.h

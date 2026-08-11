@@ -81,6 +81,71 @@ export function toggleLockSelection() {
   scheduleSave();
 }
 
+// --- Z-Order (layer ordering) functions ---
+// These operate on state.elementOrder which is the unified z-order array.
+
+export function bringToFront() {
+  if (state.selectedElements.length === 0) return;
+  pushUndo();
+  const selectedIds = new Set(state.selectedElements.map(el => el.id));
+  const remaining = state.elementOrder.filter(id => !selectedIds.has(id));
+  const moved = state.elementOrder.filter(id => selectedIds.has(id));
+  state.elementOrder = [...remaining, ...moved];
+  render();
+  scheduleSave();
+  showToast("Brought to front");
+}
+
+export function sendToBack() {
+  if (state.selectedElements.length === 0) return;
+  pushUndo();
+  const selectedIds = new Set(state.selectedElements.map(el => el.id));
+  const remaining = state.elementOrder.filter(id => !selectedIds.has(id));
+  const moved = state.elementOrder.filter(id => selectedIds.has(id));
+  state.elementOrder = [...moved, ...remaining];
+  render();
+  scheduleSave();
+  showToast("Sent to back");
+}
+
+export function bringForward() {
+  if (state.selectedElements.length === 0) return;
+  pushUndo();
+  const selectedIds = new Set(state.selectedElements.map(el => el.id));
+  const order = [...state.elementOrder];
+  // Process from end so swaps don't interfere
+  for (let i = order.length - 2; i >= 0; i--) {
+    if (selectedIds.has(order[i]) && !selectedIds.has(order[i + 1])) {
+      const tmp = order[i];
+      order[i] = order[i + 1];
+      order[i + 1] = tmp;
+    }
+  }
+  state.elementOrder = order;
+  render();
+  scheduleSave();
+  showToast("Moved forward");
+}
+
+export function sendBackward() {
+  if (state.selectedElements.length === 0) return;
+  pushUndo();
+  const selectedIds = new Set(state.selectedElements.map(el => el.id));
+  const order = [...state.elementOrder];
+  // Process from beginning so swaps don't interfere
+  for (let i = 1; i < order.length; i++) {
+    if (selectedIds.has(order[i]) && !selectedIds.has(order[i - 1])) {
+      const tmp = order[i];
+      order[i] = order[i - 1];
+      order[i - 1] = tmp;
+    }
+  }
+  state.elementOrder = order;
+  render();
+  scheduleSave();
+  showToast("Moved backward");
+}
+
 export function copySelectionToClipboard() {
   if (state.selectedElements.length === 0) return;
   state.clipboardElements = state.selectedElements.map((el) => cloneElement(el));

@@ -5,7 +5,7 @@
  * populates shortcut labels, and initializes the application.
  */
 
-import { state, rebuildSpatialIndex } from "./state.js";
+import { state, rebuildSpatialIndex, rebuildElementOrder } from "./state.js";
 import { formatShortcut, isMacPlatform, showToast } from "./utils.js";
 import { render, setPostRenderHook } from "./rendering.js";
 import { setHistoryDeps } from "./history.js";
@@ -69,6 +69,7 @@ initFilterPreviewMode();
 
 // --- Build spatial index from any pre-existing elements ---
 rebuildSpatialIndex();
+rebuildElementOrder();
 
 // --- Show welcome modal on first visit ---
 initWelcomeModal();

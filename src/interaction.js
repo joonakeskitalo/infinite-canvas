@@ -25,6 +25,7 @@ import {
 import { enterCropMode, exitCropMode, getCropEdgeAtPoint, getCropCursor, getFullImageBounds } from "./crop.js";
 import {
   expandSelectionToGroups, groupSelection, ungroupSelection, toggleLockSelection,
+  bringToFront, sendToBack, bringForward, sendBackward,
   copySelectionToClipboard, pasteFromClipboard, pasteFromSerializedClipboard,
   pasteTextToCanvas,
   duplicateSelection, selectAllElements, swapElementPositions,
@@ -495,6 +496,10 @@ export function initEventHandlers() {
   document.getElementById("group-btn").addEventListener("click", groupSelection);
   document.getElementById("ungroup-btn").addEventListener("click", ungroupSelection);
   document.getElementById("lock-btn").addEventListener("click", toggleLockSelection);
+  document.getElementById("bring-to-front-btn").addEventListener("click", bringToFront);
+  document.getElementById("bring-forward-btn").addEventListener("click", bringForward);
+  document.getElementById("send-backward-btn").addEventListener("click", sendBackward);
+  document.getElementById("send-to-back-btn").addEventListener("click", sendToBack);
   document.getElementById("open-file-btn").addEventListener("click", openFile);
   document.getElementById("save-file-btn").addEventListener("click", saveFile);
 
@@ -2019,6 +2024,10 @@ function setupKeyboardHandlers() {
     if (e.key.toLowerCase() === "g" && !e.shiftKey) { e.preventDefault(); groupSelection(); return; }
     if (e.key.toLowerCase() === "g" && e.shiftKey) { e.preventDefault(); ungroupSelection(); return; }
     if (e.key.toLowerCase() === "l" && !e.shiftKey) { e.preventDefault(); toggleLockSelection(); return; }
+    if (e.key === "]" && !e.shiftKey) { e.preventDefault(); bringForward(); return; }
+    if (e.key === "]" && e.shiftKey) { e.preventDefault(); bringToFront(); return; }
+    if (e.key === "[" && !e.shiftKey) { e.preventDefault(); sendBackward(); return; }
+    if (e.key === "[" && e.shiftKey) { e.preventDefault(); sendToBack(); return; }
     if (e.key.toLowerCase() === "c") {
       if (state.marqueeMode) { e.preventDefault(); marqueeCopy(); return; }
       if (state.selectedElements.length > 0) { e.preventDefault(); copySelectionToClipboard(); }
@@ -2641,7 +2650,6 @@ function setupMouseHandlers() {
           if (worldPos.x >= img.x && worldPos.x <= img.x + img.w && worldPos.y >= img.y && worldPos.y <= img.y + img.h) {
             clickedElement = img;
             clickedElement.elementType = "image";
-            if (!isModifierActive) state.images.push(state.images.splice(i, 1)[0]);
             break;
           }
         }

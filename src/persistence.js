@@ -4,7 +4,7 @@
  * Save/load canvas state to .icv files.
  */
 
-import { state, CONSTANTS, getDom, rebuildSpatialIndex } from "./state.js";
+import { state, CONSTANTS, getDom, rebuildSpatialIndex, rebuildElementOrder } from "./state.js";
 import { serializeElement } from "./elements.js";
 import { updateUndoRedoButtons } from "./history.js";
 import { showToast } from "./utils.js";
@@ -69,6 +69,7 @@ async function buildZipBlob() {
     version: 2,
     images: imageEntries,
     drawings: state.drawings.map((el) => serializeElement(el)),
+    elementOrder: state.elementOrder,
     transform: state.transform,
     bgColor: state.bgColor,
     drawColor: state.drawColor,
@@ -197,6 +198,11 @@ async function restoreFromZip(arrayBuf) {
 
   restoreViewState(manifest, imageData);
   rebuildSpatialIndex();
+  if (manifest.elementOrder) {
+    state.elementOrder = manifest.elementOrder;
+  } else {
+    rebuildElementOrder();
+  }
   if (_render) _render();
 }
 

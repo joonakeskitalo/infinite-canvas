@@ -66,6 +66,14 @@ export function toggleAlignmentPanelVisibility() {
     dom.textAlignGroup.style.display = "none";
   }
 
+  // Show z-order controls when any element is selected
+  const zOrderGroup = document.getElementById("z-order-group");
+  if (state.currentTool === "select" && state.selectedElements.length >= 1) {
+    zOrderGroup.style.display = "flex";
+  } else {
+    zOrderGroup.style.display = "none";
+  }
+
   syncFontSizeFromSelection();
   syncFontFamilyFromSelection();
   syncOpacityFromSelection();

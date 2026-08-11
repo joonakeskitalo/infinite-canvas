@@ -2,7 +2,7 @@
  * Undo / Redo System
  */
 
-import { state, CONSTANTS, getDom, rebuildSpatialIndex } from "./state.js";
+import { state, CONSTANTS, getDom, rebuildSpatialIndex, rebuildElementOrder } from "./state.js";
 import { serializeElement } from "./elements.js";
 import { showToast } from "./utils.js";
 
@@ -21,6 +21,7 @@ function captureState() {
   return {
     images: state.images.map((el) => serializeElement(el)),
     drawings: state.drawings.map((el) => serializeElement(el)),
+    elementOrder: [...state.elementOrder],
   };
 }
 
@@ -37,6 +38,11 @@ function restoreState(snapshot) {
     }
     return d;
   });
+  if (snapshot.elementOrder) {
+    state.elementOrder = [...snapshot.elementOrder];
+  } else {
+    rebuildElementOrder();
+  }
   state.selectedElements = [];
   rebuildSpatialIndex();
   if (_toggleAlignmentPanelVisibility) _toggleAlignmentPanelVisibility();
