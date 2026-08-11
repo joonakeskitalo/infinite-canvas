@@ -1507,17 +1507,18 @@ function setupKeyboardHandlers() {
     // Shift+Plus / Shift+Minus adjust font size; plain +/- adjust zoom
     // When shift is held, match the physical key codes for +/- across layouts
     // US: Equal(+/=), Minus(-/_)  Nordic: Minus(+), Slash(-)  Also support numpad
+    // Note: BracketRight is NOT included here to avoid conflicting with Cmd+]/[ z-index shortcuts
     const isPlusMinusCode = e.code === "Equal" || e.code === "Minus" || e.code === "Slash" ||
-      e.code === "NumpadAdd" || e.code === "NumpadSubtract" || e.code === "BracketRight";
+      e.code === "NumpadAdd" || e.code === "NumpadSubtract";
     const isPlusMinusKey = e.key === "+" || e.key === "-" || e.key === "=" || e.key === "_";
-    if (e.shiftKey && (isPlusMinusKey || isPlusMinusCode)) {
+    if (e.shiftKey && !e.metaKey && !e.ctrlKey && (isPlusMinusKey || isPlusMinusCode)) {
       // Determine direction: check unshifted key identity via code
-      // NumpadAdd / Equal (US +) / BracketRight → increase
-      // NumpadSubtract / Minus (but on Nordic this is +!) / Slash (Nordic -) → context-dependent
+      // NumpadAdd / Equal (US +) → increase
+      // NumpadSubtract / Slash (Nordic -) → decrease
       // Safest: if the key WITHOUT shift would produce + or =, increase; if - or _, decrease
       // Since shift is held and may change e.key, we rely on code:
-      // Codes that are "plus" keys: Equal (US), Minus (Nordic +), BracketRight (alt Nordic +), NumpadAdd
-      // Codes that are "minus" keys: Minus (US), Slash (Nordic -), NumpadSubtract
+      // Codes that are "plus" keys: Equal (US), Minus (Nordic +), NumpadAdd
+      // Codes that are "minus" keys: Slash (Nordic -), NumpadSubtract
       // Problem: "Minus" code is + on Nordic but - on US. We need to disambiguate.
       // Solution: check e.key first (if it's recognizable), fall back to code-based heuristic
       let isIncrease;
@@ -1529,7 +1530,7 @@ function setupKeyboardHandlers() {
         // Shift changed e.key to something unrecognizable; use code heuristic
         // On Nordic: the + physical key has code "Minus", shifted produces "?"
         // On Nordic: the - physical key has code "Slash", shifted produces "_"
-        isIncrease = e.code === "Equal" || e.code === "NumpadAdd" || e.code === "Minus" || e.code === "BracketRight";
+        isIncrease = e.code === "Equal" || e.code === "NumpadAdd" || e.code === "Minus";
       }
       e.preventDefault();
       const fontSizeSelect = dom.fontSizeSelect || document.getElementById("font-size-select");
