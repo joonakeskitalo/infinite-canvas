@@ -213,11 +213,15 @@ function extractMarqueePixels() {
 }
 
 /**
- * Cut the selected pixels from the source image (replace with transparency/white).
+ * Cut the selected pixels from the source image (replace with transparency)
+ * and copy them to the clipboard.
  */
 export function marqueeCut() {
   if (!state.marqueeMode || !state.marqueeTarget || !state.marqueeRect) return;
   if (state.marqueeCut) return; // Already cut
+
+  // Copy to clipboard first
+  marqueeCopy();
 
   pushUndo();
 
@@ -296,31 +300,68 @@ export function marqueeCut() {
 
 /**
  * Copy the selected pixels to the clipboard as a PNG image.
+ * Also stores internally so the app's own paste handler can use it.
  */
 export function marqueeCopy() {
   if (!state.marqueeMode || !state.marqueePixelCanvas) return;
 
-  const canvas = state.marqueePixelCanvas;
+  const rect = state.marqueeRect;
+  const ox = state.marqueeOffset.x;
+  const oy = state.marqueeOffset.y;
+  const pixelCanvas = state.marqueePixelCanvas;
 
-  if (canvas instanceof OffscreenCanvas) {
-    canvas.convertToBlob({ type: "image/png" }).then((blob) => {
+  // Store as internal clipboard element so paste always works within the app
+  function storeInternal(imgEl) {
+    const el = {
+      id: "img_" + state.elementIdCounter++,
+      elementType: "image",
+      img: imgEl,
+      x: rect.x + ox,
+      y: rect.y + oy,
+      w: rect.w,
+      h: rect.h,
+      opacity: 1,
+    };
+    state.clipboardElements = [el];
+    state.pasteOffset = 0;
+    state.internalCopyPerformed = true;
+  }
+
+  // Write to system clipboard (best-effort) AND store internally
+  if (pixelCanvas instanceof OffscreenCanvas) {
+    pixelCanvas.convertToBlob({ type: "image/png" }).then((blob) => {
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => {
+        storeInternal(img);
+      };
+      img.src = url;
       navigator.clipboard.write([
         new ClipboardItem({ "image/png": blob }),
       ]).then(() => {
         showToast("Copied selection to clipboard");
       }).catch(() => {
-        showToast("Failed to copy to clipboard");
+        // System clipboard failed but internal copy still works
+        showToast("Copied selection (internal)");
       });
     });
   } else {
-    canvas.toBlob((blob) => {
-      if (!blob) return;
+    // Regular canvas — use toBlob for system clipboard, toDataURL for internal
+    const dataURL = pixelCanvas.toDataURL("image/png");
+    const img = new Image();
+    img.onload = () => {
+      storeInternal(img);
+    };
+    img.src = dataURL;
+
+    pixelCanvas.toBlob((blob) => {
+      if (!blob) { showToast("Copied selection (internal)"); return; }
       navigator.clipboard.write([
         new ClipboardItem({ "image/png": blob }),
       ]).then(() => {
         showToast("Copied selection to clipboard");
       }).catch(() => {
-        showToast("Failed to copy to clipboard");
+        showToast("Copied selection (internal)");
       });
     }, "image/png");
   }
