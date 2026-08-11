@@ -1688,14 +1688,13 @@ function setupKeyboardHandlers() {
     if (key === "y") targetTool = "measure";
     if (key === "k") targetTool = "contrast";
     if (key === "q") targetTool = "grid";
-    // Bracket keys: adjust grid tool spacing
-    if (state.currentTool === "grid" && (key === "[" || key === "]")) {
+    // Bracket keys: adjust z-index (no modifier required)
+    if ((key === "[" || key === "]") && state.currentTool === "select" && state.selectedElements.length > 0) {
       e.preventDefault();
-      const delta = key === "]" ? 10 : -10;
-      state.gridToolSpacing = Math.max(10, Math.min(500, state.gridToolSpacing + delta));
-      document.getElementById("grid-spacing-input").value = state.gridToolSpacing;
-      render();
-      return;
+      if (key === "]" && !e.shiftKey) { bringForward(); return; }
+      if (key === "]" && e.shiftKey) { bringToFront(); return; }
+      if (key === "[" && !e.shiftKey) { sendBackward(); return; }
+      if (key === "[" && e.shiftKey) { sendToBack(); return; }
     }
     if (key === "s") {
       if (state.currentTool === "split-line") {
@@ -2036,10 +2035,8 @@ function setupKeyboardHandlers() {
     if (e.key.toLowerCase() === "g" && !e.shiftKey) { e.preventDefault(); groupSelection(); return; }
     if (e.key.toLowerCase() === "g" && e.shiftKey) { e.preventDefault(); ungroupSelection(); return; }
     if (e.key.toLowerCase() === "l" && !e.shiftKey) { e.preventDefault(); toggleLockSelection(); return; }
-    if (e.key === "]" && !e.shiftKey) { e.preventDefault(); bringForward(); return; }
-    if (e.key === "]" && e.shiftKey) { e.preventDefault(); bringToFront(); return; }
-    if (e.key === "[" && !e.shiftKey) { e.preventDefault(); sendBackward(); return; }
-    if (e.key === "[" && e.shiftKey) { e.preventDefault(); sendToBack(); return; }
+    if (e.key === "]" && state.currentTool === "grid") { e.preventDefault(); state.gridToolSpacing = Math.max(10, Math.min(500, state.gridToolSpacing + 10)); document.getElementById("grid-spacing-input").value = state.gridToolSpacing; render(); return; }
+    if (e.key === "[" && state.currentTool === "grid") { e.preventDefault(); state.gridToolSpacing = Math.max(10, Math.min(500, state.gridToolSpacing - 10)); document.getElementById("grid-spacing-input").value = state.gridToolSpacing; render(); return; }
     if (e.key.toLowerCase() === "c") {
       if (state.marqueeMode) { e.preventDefault(); marqueeCopy(); return; }
       if (state.selectedElements.length > 0) { e.preventDefault(); copySelectionToClipboard(); }
