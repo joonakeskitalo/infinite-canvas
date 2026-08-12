@@ -2174,6 +2174,32 @@ function setupKeyboardHandlers() {
     if (e.key.toLowerCase() === "g" && e.shiftKey) { e.preventDefault(); ungroupSelection(); return; }
     if (e.key.toLowerCase() === "l" && !e.shiftKey) { e.preventDefault(); toggleLockSelection(); return; }
 
+    // Text style shortcuts (Cmd/Ctrl+B, I, U) — apply to selected text elements
+    if (e.key.toLowerCase() === "b" && !e.shiftKey) {
+      const textEls = state.selectedElements.filter((el) => el.elementType === "text");
+      if (textEls.length > 0) {
+        e.preventDefault();
+        document.getElementById("fmt-bold").dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+        return;
+      }
+    }
+    if (e.key.toLowerCase() === "i" && !e.shiftKey) {
+      const textEls = state.selectedElements.filter((el) => el.elementType === "text");
+      if (textEls.length > 0) {
+        e.preventDefault();
+        document.getElementById("fmt-italic").dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+        return;
+      }
+    }
+    if (e.key.toLowerCase() === "u" && !e.shiftKey) {
+      const textEls = state.selectedElements.filter((el) => el.elementType === "text");
+      if (textEls.length > 0) {
+        e.preventDefault();
+        document.getElementById("fmt-underline").dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+        return;
+      }
+    }
+
     if (e.key.toLowerCase() === "c") {
       if (state.marqueeMode) { e.preventDefault(); marqueeCopy(); return; }
       if (state.selectedElements.length > 0) { e.preventDefault(); copySelectionToClipboard(); }
