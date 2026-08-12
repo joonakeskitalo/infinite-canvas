@@ -653,7 +653,7 @@ export function drawShape(targetCtx, shape, isExporting) {
       });
     }
 
-    if (!isExporting && state.currentTool === "select") {
+    if (!isExporting && state.currentTool === "select" && !state.overlaysHidden) {
       const isSelected = state.selectedElements.some((el) => el.id === shape.id);
       targetCtx.strokeStyle = isSelected ? "#ff4444" : "rgba(0, 122, 204, 0.4)";
       targetCtx.lineWidth = 1 / (isExporting ? 1 : state.transform.zoom);
@@ -753,7 +753,7 @@ function _doRender(targetCtx, isExporting) {
       }
       targetCtx.restore();
 
-      if (!isExporting && state.currentTool === "select" && !(state.cropMode && state.cropTarget && state.cropTarget.id === imgData.id)) {
+      if (!isExporting && state.currentTool === "select" && !state.overlaysHidden && !(state.cropMode && state.cropTarget && state.cropTarget.id === imgData.id)) {
         const isSelected = state.selectedElements.some((s) => s.id === imgData.id);
         const isGrouped = !!imgData.groupId;
         targetCtx.save();
@@ -792,7 +792,7 @@ function _doRender(targetCtx, isExporting) {
         if (!isRectInViewport(shapeBounds.x, shapeBounds.y, shapeBounds.w, shapeBounds.h, _vp)) return;
       }
       drawShape(targetCtx, shape, isExporting);
-      if (!isExporting && state.currentTool === "select") {
+      if (!isExporting && state.currentTool === "select" && !state.overlaysHidden) {
         const isSelected = state.selectedElements.some((s) => s.id === shape.id);
         if (isSelected) {
           const b = shapeBounds || getShapeBounds(shape);

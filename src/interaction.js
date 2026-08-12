@@ -1686,12 +1686,15 @@ function setupKeyboardHandlers() {
     if (key === "§" && !e.shiftKey) {
       state.overlaysHidden = !state.overlaysHidden;
       const toolbar = document.getElementById("toolbar");
+      const alignmentPanel = document.getElementById("alignment-panel");
       if (state.overlaysHidden) {
         if (state.rulersVisible) { state._rulersWereVisible = true; setRulersVisible(false); }
         toolbar.style.display = "none";
+        alignmentPanel.style.display = "none";
       } else {
         if (state._rulersWereVisible) { state._rulersWereVisible = false; setRulersVisible(true); }
         toolbar.style.display = "";
+        toggleAlignmentPanelVisibility();
       }
       showToast(state.overlaysHidden ? "Overlays & drawings hidden" : "Overlays & drawings visible");
       render();
