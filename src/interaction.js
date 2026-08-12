@@ -706,7 +706,11 @@ export function initEventHandlers() {
   container.addEventListener("wheel", (e) => {
     e.preventDefault();
     if (e.ctrlKey || e.metaKey) {
-      const zoomFactor = 1 - e.deltaY * 0.01;
+      // Normalize deltaY: trackpad pinch (Mac) sends small values (~1-5),
+      // but Ctrl+scroll wheel (Windows) sends large values (~100-120 per notch).
+      // Clamp the zoom factor to avoid extreme jumps or negative values.
+      const delta = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+      const zoomFactor = Math.max(0.5, Math.min(2.0, 1 - delta * 0.01));
       applyZoom(state.transform.zoom * zoomFactor, e.clientX, e.clientY);
     } else {
       state.transform.x -= e.deltaX; state.transform.y -= e.deltaY;
