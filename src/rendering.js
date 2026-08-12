@@ -1370,7 +1370,6 @@ function _doRender(targetCtx, isExporting) {
     textEditor.style.left = `${screenPos.x}px`;
     textEditor.style.top = `${screenPos.y - state.currentFontSize * transform.zoom * 0.2}px`;
     textEditor.style.fontSize = `${state.currentFontSize * transform.zoom}px`;
-    if (window._textFormatBar) window._textFormatBar.position();
   }
 }
 

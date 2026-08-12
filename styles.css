@@ -510,20 +510,7 @@ input[type="color"]::-webkit-color-swatch {
 }
 
 /* Text formatting toolbar */
-#text-format-bar {
-  display: none;
-  position: absolute;
-  z-index: 101;
-  background: rgba(30, 30, 30, 0.95);
-  backdrop-filter: blur(8px);
-  border: 1px solid #555;
-  border-radius: 4px;
-  padding: 2px 4px;
-  gap: 2px;
-  align-items: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
-}
-
+/* Text formatting button styles (used in secondary toolbar) */
 .text-format-btn {
   background: transparent;
   border: 1px solid transparent;

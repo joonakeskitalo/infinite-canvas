@@ -40,6 +40,9 @@ export function toggleAlignmentPanelVisibility() {
   } else if (state.currentTool === "select" && state.selectedElements.length === 1) {
     dom.alignmentPanel.style.display = "flex";
     alignmentGroup.style.display = "none";
+  } else if (state.currentTool === "text") {
+    dom.alignmentPanel.style.display = "flex";
+    alignmentGroup.style.display = "none";
   } else {
     dom.alignmentPanel.style.display = "none";
     alignmentGroup.style.display = "none";
@@ -75,6 +78,13 @@ export function toggleAlignmentPanelVisibility() {
   syncLineWidthFromSelection();
   syncDimensionsFromSelection();
   updateGroupButtons();
+
+  // Show text format and font size controls when text tool is active or a text element is selected
+  const fontSizeGroup = document.getElementById("font-size-group");
+  const textFormatGroup = document.getElementById("text-format-group");
+  const showTextControls = state.currentTool === "text" || state.selectedElements.some((el) => el.elementType === "text" || el.type === "text");
+  if (fontSizeGroup) fontSizeGroup.style.display = showTextControls ? "flex" : "none";
+  if (textFormatGroup) textFormatGroup.style.display = showTextControls ? "flex" : "none";
 }
 
 export function syncFontSizeFromSelection() {

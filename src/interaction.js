@@ -767,8 +767,7 @@ export function initEventHandlers() {
     }
   });
 
-  // --- Text formatting bar ---
-  const formatBar = document.getElementById("text-format-bar");
+  // --- Text formatting controls (in secondary toolbar) ---
   const fmtBoldBtn = document.getElementById("fmt-bold");
   const fmtItalicBtn = document.getElementById("fmt-italic");
   const fmtUnderlineBtn = document.getElementById("fmt-underline");
@@ -891,26 +890,8 @@ export function initEventHandlers() {
   textEditor.addEventListener("keyup", () => updateFormatBarState());
   textEditor.addEventListener("mouseup", () => setTimeout(updateFormatBarState, 10));
 
-  // Show/position format bar when text editor is visible
-  function showFormatBar() {
-    formatBar.style.display = "flex";
-    fmtFontSizeInput.value = state.currentFontSize;
-    positionFormatBar();
-  }
-
-  function hideFormatBar() {
-    formatBar.style.display = "none";
-  }
-
-  function positionFormatBar() {
-    if (textEditor.style.display !== "block") return;
-    const editorRect = textEditor.getBoundingClientRect();
-    formatBar.style.left = `${editorRect.left}px`;
-    formatBar.style.top = `${editorRect.top - 34}px`;
-  }
-
-  // Expose showFormatBar/hideFormatBar for use in text tool activation
-  window._textFormatBar = { show: showFormatBar, hide: hideFormatBar, position: positionFormatBar };
+  // No-op: format bar is now always visible in the secondary toolbar when text tool is active
+  window._textFormatBar = { show() { fmtFontSizeInput.value = state.currentFontSize; }, hide() {}, position() {} };
 
   // --- Initial setup ---
   updateCursor();
