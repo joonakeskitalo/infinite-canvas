@@ -62,7 +62,7 @@ html = html.replace(
 );
 
 // 4. Write output
-const outPath = resolve(root, "dist", "jiiris.html");
+const outPath = resolve(root, "dist", "index.html");
 await Bun.write(outPath, html);
 
 console.log(`✓ Bundled to ${outPath}`);
