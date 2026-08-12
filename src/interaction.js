@@ -1708,6 +1708,96 @@ function setupKeyboardHandlers() {
       targetTool = "split-line";
     }
 
+    // Shift+W: copy all non-image elements overlapping the hovered image (stamp copy)
+    // W: paste previously stamp-copied elements onto the hovered image
+    if (key === "w" && !e.altKey && !e.metaKey && !e.ctrlKey) {
+      const cursorWorld = screenToWorld(state.lastMousePos.x, state.lastMousePos.y);
+      let hoveredImg = null;
+      for (let i = state.images.length - 1; i >= 0; i--) {
+        const img = state.images[i];
+        if (cursorWorld.x >= img.x && cursorWorld.x <= img.x + img.w &&
+            cursorWorld.y >= img.y && cursorWorld.y <= img.y + img.h) {
+          hoveredImg = img;
+          break;
+        }
+      }
+      if (hoveredImg) {
+        e.preventDefault();
+        if (e.shiftKey) {
+          // Shift+W: copy overlapping non-image elements
+          const imgBounds = { minX: hoveredImg.x, minY: hoveredImg.y, maxX: hoveredImg.x + hoveredImg.w, maxY: hoveredImg.y + hoveredImg.h };
+          const candidates = spatialIndex.queryRect(imgBounds);
+          const overlapping = candidates.filter(el => el.elementType !== "image");
+          if (overlapping.length === 0) {
+            showToast("No overlapping elements found");
+            return;
+          }
+          // Deep-clone elements preserving all properties, store positions relative to source image origin
+          state.stampClipboard = overlapping.map(el => {
+            const clone = JSON.parse(JSON.stringify(el, (key, value) => {
+              // Skip non-serializable HTMLImageElement references
+              if (key === "img" && value instanceof HTMLImageElement) return undefined;
+              return value;
+            }));
+            // Translate to relative coordinates (origin = image top-left)
+            if (clone.type === "pen" && clone.points) {
+              clone.points = clone.points.map(p => ({ x: p.x - hoveredImg.x, y: p.y - hoveredImg.y }));
+            } else if (clone.start) {
+              clone.start = { x: clone.start.x - hoveredImg.x, y: clone.start.y - hoveredImg.y };
+              if (clone.end) clone.end = { x: clone.end.x - hoveredImg.x, y: clone.end.y - hoveredImg.y };
+            }
+            return clone;
+          });
+          state.stampSourceBounds = { x: hoveredImg.x, y: hoveredImg.y, w: hoveredImg.w, h: hoveredImg.h };
+          showToast(`Stamp-copied ${overlapping.length} element(s)`);
+        } else {
+          // W: paste stamp clipboard onto hovered image
+          if (!state.stampClipboard || state.stampClipboard.length === 0) {
+            showToast("No stamp clipboard — use Shift+W first");
+            return;
+          }
+          pushUndo();
+          const srcW = state.stampSourceBounds.w;
+          const srcH = state.stampSourceBounds.h;
+          const scaleX = hoveredImg.w / srcW;
+          const scaleY = hoveredImg.h / srcH;
+          const newElements = [];
+          const groupIdMap = new Map();
+          state.stampClipboard.forEach(srcEl => {
+            const clone = JSON.parse(JSON.stringify(srcEl));
+            clone.id = "draw_" + state.elementIdCounter++;
+            if (clone.groupId) {
+              if (!groupIdMap.has(clone.groupId)) {
+                groupIdMap.set(clone.groupId, "group_" + state.groupIdCounter++);
+              }
+              clone.groupId = groupIdMap.get(clone.groupId);
+            }
+            // Scale relative positions to target image size and translate to target origin
+            if (clone.type === "pen" && clone.points) {
+              clone.points = clone.points.map(p => ({
+                x: p.x * scaleX + hoveredImg.x,
+                y: p.y * scaleY + hoveredImg.y,
+              }));
+            } else if (clone.start) {
+              clone.start = { x: clone.start.x * scaleX + hoveredImg.x, y: clone.start.y * scaleY + hoveredImg.y };
+              if (clone.end) clone.end = { x: clone.end.x * scaleX + hoveredImg.x, y: clone.end.y * scaleY + hoveredImg.y };
+            }
+            state.drawings.push(clone);
+            spatialInsert(clone);
+            newElements.push(clone);
+          });
+          state.selectedElements = newElements;
+          state.currentTool = "select";
+          updateToolbarUI();
+          toggleAlignmentPanelVisibility();
+          render();
+          scheduleSave();
+          showToast(`Stamped ${newElements.length} element(s) onto image`);
+        }
+        return;
+      }
+    }
+
     // Z key: insert 4x4 grid + diagonal lines + edge inset lines on hovered image
     // Shift+Z: insert 8x8 grid lines on hovered image
     if (key === "z") {

@@ -165,6 +165,10 @@ export const state = {
 
   // Internal clipboard copy marker
   pendingInternalCopy: false,
+
+  // Stamp clipboard (Shift+W / W): copy non-image elements overlapping a hovered image
+  stampClipboard: [],           // cloned non-image elements (positions relative to source image origin)
+  stampSourceBounds: null,      // {x, y, w, h} of the source image at copy time
 };
 
 // Spatial index lives outside state object to avoid polluting its hidden class
