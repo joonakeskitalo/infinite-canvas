@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Bundle script — produces a single self-contained HTML file (dist/infinite-canvas.html)
+ * Bundle script — produces a single self-contained HTML file (dist/jiiris.html)
  * that can be opened directly in a browser with no server required.
  *
  * Usage:  bun scripts/bundle.mjs
@@ -9,7 +9,7 @@
  *  1. Uses Bun's bundler to bundle all ES modules under src/ into one chunk.
  *  2. Reads styles.css and lib/jszip.min.js.
  *  3. Inlines everything into index.html, replacing external references.
- *  4. Writes the result to dist/infinite-canvas.html.
+ *  4. Writes the result to dist/jiiris.html.
  */
 
 import { resolve } from "node:path";
@@ -62,7 +62,7 @@ html = html.replace(
 );
 
 // 4. Write output
-const outPath = resolve(root, "dist", "infinite-canvas.html");
+const outPath = resolve(root, "dist", "jiiris.html");
 await Bun.write(outPath, html);
 
 console.log(`✓ Bundled to ${outPath}`);

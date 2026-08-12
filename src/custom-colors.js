@@ -5,7 +5,7 @@
  * JSON import/export, and persists to localStorage.
  */
 
-const STORAGE_KEY = "infinite-canvas-custom-colors";
+const STORAGE_KEY = "jiiris-custom-colors";
 
 /** @type {Array<{hex: string, label: string}>} */
 let customColors = [];

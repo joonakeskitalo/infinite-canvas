@@ -115,7 +115,7 @@ export async function saveAs() {
   try {
     state.fileHandle = await window.showSaveFilePicker({
       suggestedName: "canvas.icv",
-      types: [{ description: "Infinite Canvas File", accept: { "application/zip": [".icv"] } }],
+      types: [{ description: "Jiiris Canvas File", accept: { "application/zip": [".icv"] } }],
     });
     await autoSave();
     showToast("Saved to " + state.fileHandle.name);
@@ -136,7 +136,7 @@ export async function saveFile() {
 export async function openFile() {
   try {
     const [handle] = await window.showOpenFilePicker({
-      types: [{ description: "Infinite Canvas File", accept: { "application/zip": [".icv"] } }],
+      types: [{ description: "Jiiris Canvas File", accept: { "application/zip": [".icv"] } }],
     });
     const file = await handle.getFile();
     const arrayBuf = await file.arrayBuffer();

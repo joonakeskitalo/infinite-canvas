@@ -8,7 +8,7 @@
 
 import { isMacPlatform } from "./utils.js";
 
-const STORAGE_KEY = "infinite-canvas-welcomed";
+const STORAGE_KEY = "jiiris-welcomed";
 
 function mod() {
   return isMacPlatform ? "⌘" : "Ctrl";

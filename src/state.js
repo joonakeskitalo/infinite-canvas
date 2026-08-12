@@ -14,7 +14,7 @@ export const CONSTANTS = {
   MAX_HISTORY: 50,
   SNAP_THRESHOLD: 8,
   MAX_GUIDE_NEIGHBORS: 6,
-  INTERNAL_COPY_MIME: "text/x-infinite-canvas",
+  INTERNAL_COPY_MIME: "text/x-jiiris-canvas",
   RULER_SIZE: 12,
   MIN_DRAW_DISTANCE: 5, // Minimum screen-pixel drag distance before drawing tools activate
   MIN_MOVE_DISTANCE: 4, // Minimum screen-pixel drag distance before moving selected elements
