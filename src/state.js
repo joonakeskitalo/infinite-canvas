@@ -109,10 +109,6 @@ export const state = {
   splitLineHoveredImage: null,
   splitLineWorldPos: null,
 
-  // Grid overlay tool
-  gridToolHoveredImage: null,
-  gridToolWorldPos: null,
-  gridToolSpacing: 50, // px spacing between grid lines
 
   // Contrast checker tool
   contrastColor1: null, // {r, g, b} of first click

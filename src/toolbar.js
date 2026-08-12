@@ -20,11 +20,6 @@ export function updateToolbarUI() {
     const contrastPanel = document.getElementById("contrast-checker-panel");
     if (contrastPanel) contrastPanel.style.display = "none";
   }
-  // Show/hide grid spacing input
-  const gridSpacingGroup = document.getElementById("grid-spacing-group");
-  if (gridSpacingGroup) {
-    gridSpacingGroup.style.display = state.currentTool === "grid" ? "flex" : "none";
-  }
   toggleAlignmentPanelVisibility();
 }
 
@@ -249,7 +244,6 @@ export function updateCursor() {
   else if (state.currentTool === "contrast") container.style.cursor = "crosshair";
   else if (state.currentTool === "measure") container.style.cursor = "crosshair";
   else if (state.currentTool === "split-line") container.style.cursor = "crosshair";
-  else if (state.currentTool === "grid") container.style.cursor = "crosshair";
   else container.style.cursor = "crosshair";
 }
 
