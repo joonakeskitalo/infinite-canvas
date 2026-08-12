@@ -776,28 +776,70 @@ export function initEventHandlers() {
   const fmtSizeDownBtn = document.getElementById("fmt-size-down");
   const fmtSizeUpBtn = document.getElementById("fmt-size-up");
 
+  // Helper: ensure a text element has segments (creates one segment per line from plain text)
+  function ensureSegments(el) {
+    if (!el.segments || el.segments.length === 0) {
+      const lines = el.text.split("\n");
+      el.segments = lines.map((text, line) => ({ text, line, bold: false, italic: false, underline: false, strikethrough: false, fontSize: el.fontSize }));
+    }
+  }
+
+  // Helper: toggle a style property on all segments of selected text elements (when not editing inline)
+  function toggleStyleOnSelectedElements(prop) {
+    const textEls = state.selectedElements.filter((el) => el.elementType === "text");
+    if (textEls.length === 0) return false;
+    pushUndo();
+    textEls.forEach((el) => {
+      ensureSegments(el);
+      // Determine current state: if ALL segments have the property, toggle it off; otherwise on
+      const allHave = el.segments.every((s) => s[prop]);
+      el.segments.forEach((s) => { s[prop] = !allHave; });
+      el.w = null;
+      el.h = null;
+    });
+    render();
+    updateFormatBarState();
+    return true;
+  }
+
   fmtBoldBtn.addEventListener("mousedown", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    document.execCommand("bold");
+    if (textEditor.style.display === "block") {
+      document.execCommand("bold");
+    } else {
+      toggleStyleOnSelectedElements("bold");
+    }
     updateFormatBarState();
   });
   fmtItalicBtn.addEventListener("mousedown", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    document.execCommand("italic");
+    if (textEditor.style.display === "block") {
+      document.execCommand("italic");
+    } else {
+      toggleStyleOnSelectedElements("italic");
+    }
     updateFormatBarState();
   });
   fmtUnderlineBtn.addEventListener("mousedown", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    document.execCommand("underline");
+    if (textEditor.style.display === "block") {
+      document.execCommand("underline");
+    } else {
+      toggleStyleOnSelectedElements("underline");
+    }
     updateFormatBarState();
   });
   fmtStrikethroughBtn.addEventListener("mousedown", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    document.execCommand("strikeThrough");
+    if (textEditor.style.display === "block") {
+      document.execCommand("strikeThrough");
+    } else {
+      toggleStyleOnSelectedElements("strikethrough");
+    }
     updateFormatBarState();
   });
 
@@ -829,12 +871,37 @@ export function initEventHandlers() {
     autoResizeTextEditor();
   }
 
+  // Helper: apply font size to selected text elements (when not editing inline)
+  function applyFontSizeToSelectedElements(size) {
+    const textEls = state.selectedElements.filter((el) => el.elementType === "text");
+    if (textEls.length === 0) return;
+    pushUndo();
+    textEls.forEach((el) => {
+      if (el.segments && el.segments.length > 0) {
+        el.segments.forEach((s) => { s.fontSize = size; });
+      }
+      if (el.textWidth) {
+        const scale = size / el.fontSize;
+        el.textWidth = el.textWidth * scale;
+      }
+      el.fontSize = size;
+      el.w = null;
+      el.h = null;
+    });
+    fmtFontSizeInput.value = size;
+    render();
+  }
+
   fmtSizeDownBtn.addEventListener("mousedown", (e) => {
     e.preventDefault();
     e.stopPropagation();
     const currentSize = parseInt(fmtFontSizeInput.value) || state.currentFontSize;
     const newSize = Math.max(8, currentSize - 4);
-    applyFontSizeToSelection(newSize);
+    if (textEditor.style.display === "block") {
+      applyFontSizeToSelection(newSize);
+    } else {
+      applyFontSizeToSelectedElements(newSize);
+    }
   });
 
   fmtSizeUpBtn.addEventListener("mousedown", (e) => {
@@ -842,14 +909,22 @@ export function initEventHandlers() {
     e.stopPropagation();
     const currentSize = parseInt(fmtFontSizeInput.value) || state.currentFontSize;
     const newSize = Math.min(999, currentSize + 4);
-    applyFontSizeToSelection(newSize);
+    if (textEditor.style.display === "block") {
+      applyFontSizeToSelection(newSize);
+    } else {
+      applyFontSizeToSelectedElements(newSize);
+    }
   });
 
   fmtFontSizeInput.addEventListener("change", (e) => {
     const size = Math.max(8, Math.min(999, parseInt(e.target.value) || state.currentFontSize));
     e.target.value = size;
-    applyFontSizeToSelection(size);
-    textEditor.focus();
+    if (textEditor.style.display === "block") {
+      applyFontSizeToSelection(size);
+      textEditor.focus();
+    } else {
+      applyFontSizeToSelectedElements(size);
+    }
   });
 
   fmtFontSizeInput.addEventListener("mousedown", (e) => {
@@ -858,30 +933,57 @@ export function initEventHandlers() {
 
   // Update format bar button active states based on current selection
   function updateFormatBarState() {
-    fmtBoldBtn.classList.toggle("active", document.queryCommandState("bold"));
-    fmtItalicBtn.classList.toggle("active", document.queryCommandState("italic"));
-    fmtUnderlineBtn.classList.toggle("active", document.queryCommandState("underline"));
-    fmtStrikethroughBtn.classList.toggle("active", document.queryCommandState("strikeThrough"));
-    // Update font size input from selection
-    const sel = window.getSelection();
-    if (sel.rangeCount > 0 && textEditor.contains(sel.anchorNode)) {
-      let node = sel.anchorNode;
-      if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
-      let fontSize = null;
-      let el = node;
-      while (el && el !== textEditor) {
-        if (el.dataset && el.dataset.worldFontSize) {
-          fontSize = parseInt(el.dataset.worldFontSize);
-          break;
-        } else if (el.style && el.style.fontSize) {
-          fontSize = Math.round(parseInt(el.style.fontSize) / state.transform.zoom);
-          break;
+    if (textEditor.style.display === "block") {
+      // Inline editing mode: use execCommand state
+      fmtBoldBtn.classList.toggle("active", document.queryCommandState("bold"));
+      fmtItalicBtn.classList.toggle("active", document.queryCommandState("italic"));
+      fmtUnderlineBtn.classList.toggle("active", document.queryCommandState("underline"));
+      fmtStrikethroughBtn.classList.toggle("active", document.queryCommandState("strikeThrough"));
+      // Update font size input from selection
+      const sel = window.getSelection();
+      if (sel.rangeCount > 0 && textEditor.contains(sel.anchorNode)) {
+        let node = sel.anchorNode;
+        if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+        let fontSize = null;
+        let el = node;
+        while (el && el !== textEditor) {
+          if (el.dataset && el.dataset.worldFontSize) {
+            fontSize = parseInt(el.dataset.worldFontSize);
+            break;
+          } else if (el.style && el.style.fontSize) {
+            fontSize = Math.round(parseInt(el.style.fontSize) / state.transform.zoom);
+            break;
+          }
+          el = el.parentElement;
         }
-        el = el.parentElement;
+        if (fontSize) {
+          fmtFontSizeInput.value = fontSize;
+        } else {
+          fmtFontSizeInput.value = state.currentFontSize;
+        }
       }
-      if (fontSize) {
-        fmtFontSizeInput.value = fontSize;
+    } else {
+      // Selection mode: reflect state of selected text elements
+      const textEls = state.selectedElements.filter((el) => el.elementType === "text");
+      if (textEls.length > 0) {
+        const allSegs = textEls.flatMap((el) => el.segments || []);
+        if (allSegs.length > 0) {
+          fmtBoldBtn.classList.toggle("active", allSegs.every((s) => s.bold));
+          fmtItalicBtn.classList.toggle("active", allSegs.every((s) => s.italic));
+          fmtUnderlineBtn.classList.toggle("active", allSegs.every((s) => s.underline));
+          fmtStrikethroughBtn.classList.toggle("active", allSegs.every((s) => s.strikethrough));
+        } else {
+          fmtBoldBtn.classList.remove("active");
+          fmtItalicBtn.classList.remove("active");
+          fmtUnderlineBtn.classList.remove("active");
+          fmtStrikethroughBtn.classList.remove("active");
+        }
+        fmtFontSizeInput.value = textEls[0].fontSize;
       } else {
+        fmtBoldBtn.classList.remove("active");
+        fmtItalicBtn.classList.remove("active");
+        fmtUnderlineBtn.classList.remove("active");
+        fmtStrikethroughBtn.classList.remove("active");
         fmtFontSizeInput.value = state.currentFontSize;
       }
     }
@@ -891,7 +993,7 @@ export function initEventHandlers() {
   textEditor.addEventListener("mouseup", () => setTimeout(updateFormatBarState, 10));
 
   // No-op: format bar is now always visible in the secondary toolbar when text tool is active
-  window._textFormatBar = { show() { fmtFontSizeInput.value = state.currentFontSize; }, hide() {}, position() {} };
+  window._textFormatBar = { show() { updateFormatBarState(); }, hide() {}, position() {}, updateState: updateFormatBarState };
 
   // --- Initial setup ---
   updateCursor();

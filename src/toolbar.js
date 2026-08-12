@@ -85,6 +85,8 @@ export function toggleAlignmentPanelVisibility() {
   const showTextControls = state.currentTool === "text" || state.selectedElements.some((el) => el.elementType === "text" || el.type === "text");
   if (fontSizeGroup) fontSizeGroup.style.display = showTextControls ? "flex" : "none";
   if (textFormatGroup) textFormatGroup.style.display = showTextControls ? "flex" : "none";
+  // Sync format button active states with selected text elements
+  if (showTextControls && window._textFormatBar) window._textFormatBar.updateState();
 }
 
 export function syncFontSizeFromSelection() {
