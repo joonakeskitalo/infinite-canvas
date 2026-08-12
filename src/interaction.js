@@ -687,7 +687,19 @@ export function initEventHandlers() {
   zoomSlider.addEventListener("change", () => zoomSlider.blur());
 
   // --- Wheel ---
+  // Prevent browser zoom (pinch/ctrl+scroll) over UI elements while allowing normal scroll
+  const uiPanels = document.querySelectorAll("#toolbar, #toolbar-menu, #color-popup, #alignment-panel, #filter-preview-overlay");
+  uiPanels.forEach((panel) => {
+    panel.addEventListener("wheel", (e) => {
+      if (e.ctrlKey || e.metaKey) e.preventDefault();
+    }, { passive: false });
+  });
+
   container.addEventListener("wheel", (e) => {
+    // Don't zoom/pan when cursor is over app UI elements (toolbar, menus, panels)
+    const uiRoot = e.target.closest("#toolbar, #toolbar-menu, #color-popup, #alignment-panel, #filter-preview-overlay, .toast");
+    if (uiRoot) return;
+
     e.preventDefault();
     if (e.ctrlKey || e.metaKey) {
       // Normalize deltaY: trackpad pinch (Mac) sends small values (~1-5),
