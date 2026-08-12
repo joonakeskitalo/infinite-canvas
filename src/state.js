@@ -306,7 +306,6 @@ export function getDom() {
       canvas: document.getElementById("canvas"),
       ctx: document.getElementById("canvas").getContext("2d"),
       textEditor: document.getElementById("text-editor-overlay"),
-      fontSizeSelect: document.getElementById("font-size-select"),
       fontFamilySelect: document.getElementById("font-family-select"),
       zoomSlider: document.getElementById("zoom-slider"),
       zoomValDisplay: document.getElementById("zoom-val"),

@@ -117,11 +117,6 @@ input[type="color"]::-webkit-color-swatch {
   color: #fff;
 }
 
-.font-size-btn:hover {
-  background: #333;
-  color: #fff;
-}
-
 .tool-btn.active {
   background: #007acc;
   color: #fff;

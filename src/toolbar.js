@@ -56,10 +56,10 @@ export function toggleAlignmentPanelVisibility() {
     scaleGroup.style.display = "none";
   }
 
-  // Show text alignment controls when a text element is selected
-  if (state.currentTool === "select" && state.selectedElements.length >= 1 && hasText) {
+  // Show text alignment controls when text tool is active or a text element is selected
+  if (state.currentTool === "text" || (state.currentTool === "select" && state.selectedElements.length >= 1 && hasText)) {
     dom.textAlignGroup.style.display = "flex";
-    syncTextAlignFromSelection();
+    if (hasText) syncTextAlignFromSelection();
   } else {
     dom.textAlignGroup.style.display = "none";
   }
@@ -79,38 +79,17 @@ export function toggleAlignmentPanelVisibility() {
   syncDimensionsFromSelection();
   updateGroupButtons();
 
-  // Show text format and font size controls when text tool is active or a text element is selected
-  const fontSizeGroup = document.getElementById("font-size-group");
+  // Show text format controls when text tool is active or a text element is selected
   const textFormatGroup = document.getElementById("text-format-group");
   const showTextControls = state.currentTool === "text" || state.selectedElements.some((el) => el.elementType === "text" || el.type === "text");
-  if (fontSizeGroup) fontSizeGroup.style.display = showTextControls ? "flex" : "none";
   if (textFormatGroup) textFormatGroup.style.display = showTextControls ? "flex" : "none";
   // Sync format button active states with selected text elements
   if (showTextControls && window._textFormatBar) window._textFormatBar.updateState();
 }
 
 export function syncFontSizeFromSelection() {
-  const dom = getDom();
   if (state.selectedElements.length === 1 && state.selectedElements[0].elementType === "text") {
-    const size = state.selectedElements[0].fontSize;
-    state.currentFontSize = size;
-    let option = dom.fontSizeSelect.querySelector(`option[value="${size}"]`);
-    if (!option) {
-      option = document.createElement("option");
-      option.value = size;
-      option.textContent = size + "px";
-      const options = Array.from(dom.fontSizeSelect.options);
-      let inserted = false;
-      for (let i = 0; i < options.length; i++) {
-        if (parseInt(options[i].value) > size) {
-          dom.fontSizeSelect.insertBefore(option, options[i]);
-          inserted = true;
-          break;
-        }
-      }
-      if (!inserted) dom.fontSizeSelect.appendChild(option);
-    }
-    dom.fontSizeSelect.value = size;
+    state.currentFontSize = state.selectedElements[0].fontSize;
   }
 }
 

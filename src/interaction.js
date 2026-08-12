@@ -68,7 +68,7 @@ function snapSplitLinePos(pos, origin, size) {
 
 export function initEventHandlers() {
   const dom = getDom();
-  const { container, canvas, ctx, textEditor, fontSizeSelect, zoomSlider,
+  const { container, canvas, ctx, textEditor, zoomSlider,
     exportBtn, downloadImagesBtn, centerCanvasBtn, bgColorPicker, colorPicker,
     toolbarMenuBtn, toolbarMenu, filterSelect, opacitySlider, opacityValDisplay } = dom;
 
@@ -247,55 +247,6 @@ export function initEventHandlers() {
     }
     filterSelect.blur();
   });
-
-  // --- Font size ---
-  fontSizeSelect.addEventListener("change", (e) => {
-    state.currentFontSize = parseInt(e.target.value);
-    if (textEditor.style.display === "block") {
-      textEditor.style.fontSize = `${state.currentFontSize * state.transform.zoom}px`;
-    }
-    applyFontSizeToSelectedText(state.currentFontSize);
-  });
-
-  function applyFontSizeToSelectedText(size) {
-    if (state.selectedElements.length === 0) return;
-    let changed = false;
-    state.selectedElements.forEach((el) => {
-      if (el.elementType === "text") {
-        if (el.textWidth) {
-          const scale = size / el.fontSize;
-          el.textWidth = el.textWidth * scale;
-        }
-        el.fontSize = size;
-        el.w = null;
-        el.h = null;
-        changed = true;
-      }
-    });
-    if (changed) render();
-  }
-
-  function setFontSizeAndSync(size) {
-    size = Math.max(4, size);
-    state.currentFontSize = size;
-    let option = fontSizeSelect.querySelector(`option[value="${size}"]`);
-    if (!option) {
-      option = document.createElement("option");
-      option.value = size; option.textContent = size + "px";
-      const options = Array.from(fontSizeSelect.options);
-      let inserted = false;
-      for (let i = 0; i < options.length; i++) {
-        if (parseInt(options[i].value) > size) { fontSizeSelect.insertBefore(option, options[i]); inserted = true; break; }
-      }
-      if (!inserted) fontSizeSelect.appendChild(option);
-    }
-    fontSizeSelect.value = size;
-    if (textEditor.style.display === "block") { textEditor.style.fontSize = `${state.currentFontSize * state.transform.zoom}px`; }
-    applyFontSizeToSelectedText(size);
-  }
-
-  document.getElementById("font-size-minus").addEventListener("click", (e) => { e.stopPropagation(); setFontSizeAndSync(state.currentFontSize - 16); });
-  document.getElementById("font-size-plus").addEventListener("click", (e) => { e.stopPropagation(); setFontSizeAndSync(state.currentFontSize + 16); });
 
   // --- Font family ---
   dom.fontFamilySelect.addEventListener("change", (e) => {
@@ -1616,22 +1567,9 @@ function setupKeyboardHandlers() {
         isIncrease = e.code === "Equal" || e.code === "NumpadAdd" || e.code === "Minus";
       }
       e.preventDefault();
-      const fontSizeSelect = dom.fontSizeSelect || document.getElementById("font-size-select");
       const step = 16;
       const newSize = Math.max(4, state.currentFontSize + (isIncrease ? step : -step));
       state.currentFontSize = newSize;
-      let option = fontSizeSelect.querySelector(`option[value="${newSize}"]`);
-      if (!option) {
-        option = document.createElement("option");
-        option.value = newSize; option.textContent = newSize + "px";
-        const options = Array.from(fontSizeSelect.options);
-        let inserted = false;
-        for (let i = 0; i < options.length; i++) {
-          if (parseInt(options[i].value) > newSize) { fontSizeSelect.insertBefore(option, options[i]); inserted = true; break; }
-        }
-        if (!inserted) fontSizeSelect.appendChild(option);
-      }
-      fontSizeSelect.value = newSize;
       if (textEditor.style.display === "block") { textEditor.style.fontSize = `${newSize * state.transform.zoom}px`; }
       // Apply to selected text elements
       if (state.selectedElements.length > 0) {
