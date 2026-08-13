@@ -44,8 +44,8 @@ function buildToolsContent() {
     { key: "T", label: "Text", icon: TOOL_ICONS.text },
     { key: "N", label: "Sticky Note", icon: TOOL_ICONS.stickyNote },
     { key: "E", label: "Eraser", icon: TOOL_ICONS.eraser },
-    { key: "M", label: "Measure", icon: TOOL_ICONS.measure },
-    { key: "S", label: "Guide Line", icon: TOOL_ICONS.guideLine },
+    { key: "Y", label: "Measure", icon: TOOL_ICONS.measure },
+    { key: "S", label: "Split Line", icon: TOOL_ICONS.guideLine },
   ];
 
   const items = tools.map((t) => `
