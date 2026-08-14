@@ -1648,6 +1648,18 @@ function setupKeyboardHandlers() {
       return;
     }
 
+    // Arrow keys (pan canvas when nothing is selected)
+    if (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowRight") {
+      e.preventDefault();
+      const panStep = e.shiftKey ? 200 : 50;
+      if (e.key === "ArrowUp") state.transform.y += panStep;
+      if (e.key === "ArrowDown") state.transform.y -= panStep;
+      if (e.key === "ArrowLeft") state.transform.x += panStep;
+      if (e.key === "ArrowRight") state.transform.x -= panStep;
+      render();
+      return;
+    }
+
     // Alignment & Distribution hotkeys (Alt/Option+key, like Figma)
     // Alt+A = Align Left, Alt+D = Align Right, Alt+H = Center Horizontal
     // Alt+W = Align Top, Alt+S = Align Bottom, Alt+V = Center Vertical
