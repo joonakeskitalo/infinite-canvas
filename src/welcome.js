@@ -47,7 +47,8 @@ function buildToolsContent() {
     { key: "N", label: "Sticky Note", icon: TOOL_ICONS.stickyNote },
     { key: "E", label: "Eraser", icon: TOOL_ICONS.eraser },
     { key: "Y", label: "Measure", icon: TOOL_ICONS.measure },
-    { key: "S", label: "Split Line", icon: TOOL_ICONS.guideLine },
+    { key: "W", label: "Split Line", icon: TOOL_ICONS.guideLine },
+    { key: "S", label: "Stamp", icon: TOOL_ICONS.stamp || "📋" },
     { key: "K", label: "Contrast Checker", icon: TOOL_ICONS.contrast },
     { key: "I", label: "Color Picker", icon: TOOL_ICONS.eyedropper },
   ];
@@ -102,6 +103,18 @@ function buildShortcutsContent() {
       <div class="welcome-shortcut-item">
         <span class="welcome-shortcut-keys">+ / −</span>
         <span class="welcome-shortcut-label">Zoom in/out</span>
+      </div>
+      <div class="welcome-shortcut-item">
+        <span class="welcome-shortcut-keys">${m}+0</span>
+        <span class="welcome-shortcut-label">Zoom to 100%</span>
+      </div>
+      <div class="welcome-shortcut-item">
+        <span class="welcome-shortcut-keys">Shift+1</span>
+        <span class="welcome-shortcut-label">Zoom to fit all</span>
+      </div>
+      <div class="welcome-shortcut-item">
+        <span class="welcome-shortcut-keys">Shift+2</span>
+        <span class="welcome-shortcut-label">Zoom to selection</span>
       </div>
       <div class="welcome-shortcut-item">
         <span class="welcome-shortcut-keys">Shift + / −</span>

@@ -1738,6 +1738,14 @@ function setupKeyboardHandlers() {
       if (key === "[" && e.shiftKey) { sendToBack(); return; }
     }
     if (key === "s") {
+      if (state.currentTool === "stamp") {
+        // Already in stamp mode — no toggle behavior needed
+      }
+      targetTool = "stamp";
+    }
+
+    // W: activate split-line tool
+    if (key === "w" && !e.shiftKey) {
       if (state.currentTool === "split-line") {
         state.splitLineOrientation = state.splitLineOrientation === "vertical" ? "horizontal" : "vertical";
         render();
@@ -1745,10 +1753,7 @@ function setupKeyboardHandlers() {
       }
       targetTool = "split-line";
     }
-
-    // W: activate stamp tool
-    if (key === "w" && !e.shiftKey) targetTool = "stamp";
-    if (key === "w" && e.shiftKey) targetTool = "stamp";
+    if (key === "w" && e.shiftKey) targetTool = "split-line";
 
     // Z key: insert 4x4 grid + diagonal lines + edge inset lines on hovered image
     // Shift+Z: insert 8x8 grid lines on hovered image
