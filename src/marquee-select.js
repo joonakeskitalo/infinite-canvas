@@ -509,10 +509,12 @@ function clearImageRect(imgEl, rect) {
   fullCtx.drawImage(srcImg, 0, 0);
   fullCtx.clearRect(sx, sy, sw, sh);
 
-  // Replace the image source
+  // Use canvas directly to avoid flicker, then convert for persistence
+  imgEl.img = fullCanvas;
+  render();
+
   canvasToImage(fullCanvas, (newImg) => {
     imgEl.img = newImg;
-    render();
     scheduleSave();
   });
 }
@@ -648,14 +650,18 @@ export function marqueeCommit() {
 
 /**
  * Move pixels within the marquee rect of an image to a new position (offset by dx, dy).
- * Clears the source area and paints the pixels at the destination within the same image.
+ * 
+ * If the destination overlaps/touches the original image bounds, the image is expanded
+ * to fit both the original content and the moved pixels.
+ * If the destination is fully detached from the image, the moved pixels become a new
+ * rasterized image element.
  */
 function moveImagePixels(imgEl, rect, dx, dy) {
   const srcImg = imgEl.img;
   const natW = srcImg.naturalWidth || srcImg.width;
   const natH = srcImg.naturalHeight || srcImg.height;
 
-  // Compute intersection of image and marquee rect
+  // Compute intersection of image and marquee rect (source area in world coords)
   const ix = Math.max(imgEl.x, rect.x);
   const iy = Math.max(imgEl.y, rect.y);
   const ix2 = Math.min(imgEl.x + imgEl.w, rect.x + rect.w);
@@ -664,6 +670,13 @@ function moveImagePixels(imgEl, rect, dx, dy) {
   const ih = iy2 - iy;
   if (iw <= 0 || ih <= 0) return;
 
+  // Destination rect in world coords
+  const destWorldX = ix + dx;
+  const destWorldY = iy + dy;
+  const destRect = { x: destWorldX, y: destWorldY, w: iw, h: ih };
+  const imgRect = { x: imgEl.x, y: imgEl.y, w: imgEl.w, h: imgEl.h };
+
+  // Source pixels in image pixel space
   const scaleX = natW / imgEl.w;
   const scaleY = natH / imgEl.h;
 
@@ -683,29 +696,99 @@ function moveImagePixels(imgEl, rect, dx, dy) {
   sh = Math.round(Math.min(sh, natH - sy));
   if (sw <= 0 || sh <= 0) return;
 
-  // Destination in pixel space
-  const destX = Math.round(sx + dx * scaleX);
-  const destY = Math.round(sy + dy * scaleY);
-
-  // Rebuild image: clear source, draw pixels at destination
-  const { canvas: fullCanvas, ctx: fullCtx } = createOffscreen(natW, natH);
-  fullCtx.drawImage(srcImg, 0, 0);
-
-  // Extract the pixels first
+  // Extract the selected pixels
   const { canvas: pixelBuf, ctx: pixelCtx } = createOffscreen(sw, sh);
   pixelCtx.drawImage(srcImg, sx, sy, sw, sh, 0, 0, sw, sh);
 
-  // Clear source area
-  fullCtx.clearRect(sx, sy, sw, sh);
+  // Check if destination touches the original image bounding box
+  const touches = destRect.x < imgRect.x + imgRect.w &&
+                  destRect.x + destRect.w > imgRect.x &&
+                  destRect.y < imgRect.y + imgRect.h &&
+                  destRect.y + destRect.h > imgRect.y;
 
-  // Draw at destination
-  fullCtx.drawImage(pixelBuf, 0, 0, sw, sh, destX, destY, sw, sh);
+  if (touches) {
+    // Expand the image to fit both original bounds and the destination
+    const newWorldX = Math.min(imgEl.x, destWorldX);
+    const newWorldY = Math.min(imgEl.y, destWorldY);
+    const newWorldX2 = Math.max(imgEl.x + imgEl.w, destWorldX + iw);
+    const newWorldY2 = Math.max(imgEl.y + imgEl.h, destWorldY + ih);
+    const newWorldW = newWorldX2 - newWorldX;
+    const newWorldH = newWorldY2 - newWorldY;
 
-  canvasToImage(fullCanvas, (newImg) => {
-    imgEl.img = newImg;
+    // New pixel dimensions (use original scale factor for consistency)
+    const newPixW = Math.round(newWorldW * scaleX);
+    const newPixH = Math.round(newWorldH * scaleY);
+
+    const { canvas: fullCanvas, ctx: fullCtx } = createOffscreen(newPixW, newPixH);
+
+    // Draw original image at its offset within the new canvas
+    const origOffX = Math.round((imgEl.x - newWorldX) * scaleX);
+    const origOffY = Math.round((imgEl.y - newWorldY) * scaleY);
+    fullCtx.drawImage(srcImg, 0, 0, natW, natH, origOffX, origOffY, natW, natH);
+
+    // Clear the source area (in the new coordinate system)
+    const clearX = Math.round((ix - newWorldX) * scaleX);
+    const clearY = Math.round((iy - newWorldY) * scaleY);
+    fullCtx.clearRect(clearX, clearY, sw, sh);
+
+    // Draw moved pixels at destination (in the new coordinate system)
+    const destPixX = Math.round((destWorldX - newWorldX) * scaleX);
+    const destPixY = Math.round((destWorldY - newWorldY) * scaleY);
+    fullCtx.drawImage(pixelBuf, 0, 0, sw, sh, destPixX, destPixY, sw, sh);
+
+    // Use the offscreen canvas directly as the image source to avoid flicker.
+    // OffscreenCanvas is accepted by drawImage, so rendering works immediately.
+    imgEl.img = fullCanvas;
+    imgEl.x = newWorldX;
+    imgEl.y = newWorldY;
+    imgEl.w = newWorldW;
+    imgEl.h = newWorldH;
+    // Clear crop since we've baked everything into a new canvas
+    if (imgEl.crop) delete imgEl.crop;
+    if (imgEl.fullBounds) delete imgEl.fullBounds;
+    spatialUpdate(imgEl);
     render();
-    scheduleSave();
-  });
+
+    // Convert to a proper Image in the background for persistence/serialization
+    canvasToImage(fullCanvas, (newImg) => {
+      imgEl.img = newImg;
+      scheduleSave();
+    });
+  } else {
+    // Destination is fully detached — clear source and create a new element
+
+    // Clear source pixels from original image — use canvas directly to avoid flicker
+    const { canvas: clearedCanvas, ctx: clearedCtx } = createOffscreen(natW, natH);
+    clearedCtx.drawImage(srcImg, 0, 0);
+    clearedCtx.clearRect(sx, sy, sw, sh);
+
+    imgEl.img = clearedCanvas;
+    render();
+
+    // Convert to proper Image for persistence
+    canvasToImage(clearedCanvas, (newImg) => {
+      imgEl.img = newImg;
+      scheduleSave();
+    });
+
+    // Create a new image element from the extracted pixels at destination
+    canvasToImage(pixelBuf, (movedImg) => {
+      const newElement = {
+        id: "img_" + state.elementIdCounter++,
+        elementType: "image",
+        img: movedImg,
+        x: destWorldX,
+        y: destWorldY,
+        w: iw,
+        h: ih,
+        opacity: imgEl.opacity != null ? imgEl.opacity : 1,
+      };
+      state.images.push(newElement);
+      spatialInsert(newElement);
+      render();
+      scheduleSave();
+    });
+  }
 }
 
 /**
