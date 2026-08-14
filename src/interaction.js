@@ -2411,10 +2411,6 @@ function setupMouseHandlers() {
           spatialInsert(clone);
           newElements.push(clone);
         });
-        state.selectedElements = newElements;
-        state.currentTool = "select";
-        updateToolbarUI();
-        toggleAlignmentPanelVisibility();
         render();
         scheduleSave();
         showToast(`Stamped ${newElements.length} element(s) onto image`);
