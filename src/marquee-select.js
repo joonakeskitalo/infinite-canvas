@@ -1,15 +1,24 @@
 /**
- * Marquee (Rectangle Pixel Select) Tool
+ * Marquee (Rectangle Select) Tool
  *
- * Allows selecting a rectangular area from an image element,
- * then moving, cutting, or copying the selected pixels.
+ * Allows selecting a rectangular area on the canvas to capture any elements
+ * (images, drawings, text, connectors, etc.). Supports move, cut, copy, and
+ * duplicate operations.
+ *
+ * Behavior:
+ * - For images: only the pixels within the selection rectangle are affected.
+ *   Copy/cut extracts those pixels; move relocates them within or out of the image.
+ * - For vector elements (drawings, text, etc.): the entire element is affected
+ *   if its bounding box intersects the selection.
+ * - Copying always rasterizes to PNG for the system clipboard.
  */
 
-import { state, spatialInsert } from "./state.js";
+import { state, spatialInsert, spatialRemove, spatialUpdate } from "./state.js";
 import { showToast } from "./utils.js";
 import { pushUndo } from "./history.js";
 import { scheduleSave } from "./persistence.js";
-import { render } from "./rendering.js";
+import { render, drawShape } from "./rendering.js";
+import { getShapeBounds, cloneElement, translateElement } from "./elements.js";
 
 // Marching ants animation
 let _marchingAntsRAF = null;
@@ -32,27 +41,110 @@ function stopMarchingAnts() {
 }
 
 /**
- * Check if a world-space point is inside an image element.
- * Returns the topmost image hit, or null.
+ * Check if two axis-aligned rectangles overlap.
  */
-export function getImageAtWorldPos(worldPos) {
-  // Use elementOrder to find topmost image at this position
-  for (let i = state.elementOrder.length - 1; i >= 0; i--) {
-    const id = state.elementOrder[i];
-    const img = state.images.find(im => im.id === id);
-    if (!img) continue;
-    if (
-      worldPos.x >= img.x && worldPos.x <= img.x + img.w &&
-      worldPos.y >= img.y && worldPos.y <= img.y + img.h
-    ) {
-      return img;
-    }
+function rectsOverlap(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x &&
+         a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+/**
+ * Check if rectangle `inner` is fully contained within `outer`.
+ */
+function rectContains(outer, inner) {
+  return inner.x >= outer.x && inner.y >= outer.y &&
+         inner.x + inner.w <= outer.x + outer.w &&
+         inner.y + inner.h <= outer.y + outer.h;
+}
+
+/**
+ * Find all elements whose bounding box intersects the given rectangle.
+ * Returns separate arrays for vector elements and images.
+ */
+function getElementsInRect(rect) {
+  const vectors = [];
+  const images = [];
+  // Check images
+  for (const img of state.images) {
+    const b = { x: img.x, y: img.y, w: img.w, h: img.h };
+    if (rectsOverlap(rect, b)) images.push(img);
   }
-  return null;
+  // Check drawings (vector elements)
+  for (const shape of state.drawings) {
+    const b = getShapeBounds(shape);
+    if (rectsOverlap(rect, b)) vectors.push(shape);
+  }
+  return { vectors, images };
+}
+
+/**
+ * Create an offscreen canvas helper.
+ */
+function createOffscreen(w, h) {
+  let canvas, ctx;
+  if (typeof OffscreenCanvas !== "undefined") {
+    canvas = new OffscreenCanvas(w, h);
+    ctx = canvas.getContext("2d");
+  } else {
+    canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    ctx = canvas.getContext("2d");
+  }
+  return { canvas, ctx };
+}
+
+/**
+ * Convert a canvas (OffscreenCanvas or regular) to an Image element via blob/dataURL.
+ * Calls callback(imgEl) when ready.
+ */
+function canvasToImage(canvas, callback) {
+  if (canvas instanceof OffscreenCanvas) {
+    canvas.convertToBlob({ type: "image/png" }).then((blob) => {
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => callback(img);
+      img.src = url;
+    });
+  } else {
+    const dataURL = canvas.toDataURL("image/png");
+    const img = new Image();
+    img.onload = () => callback(img);
+    img.src = dataURL;
+  }
+}
+
+/**
+ * Copy a canvas to the system clipboard as PNG. Best-effort, may fail silently.
+ */
+function copyCanvasToClipboard(canvas, successMsg) {
+  if (canvas instanceof OffscreenCanvas) {
+    canvas.convertToBlob({ type: "image/png" }).then((blob) => {
+      navigator.clipboard.write([
+        new ClipboardItem({ "image/png": blob }),
+      ]).then(() => {
+        showToast(successMsg || "Copied to clipboard");
+      }).catch(() => {
+        showToast("Copied selection (internal)");
+      });
+    });
+  } else {
+    canvas.toBlob((blob) => {
+      if (!blob) { showToast("Copied selection (internal)"); return; }
+      navigator.clipboard.write([
+        new ClipboardItem({ "image/png": blob }),
+      ]).then(() => {
+        showToast(successMsg || "Copied to clipboard");
+      }).catch(() => {
+        showToast("Copied selection (internal)");
+      });
+    }, "image/png");
+  }
 }
 
 /**
  * Begin drawing a marquee selection rectangle.
+ * Works anywhere on the canvas.
  */
 export function marqueeStartSelection(worldPos) {
   // If there's an existing marquee selection and we clicked inside it, start dragging
@@ -73,21 +165,17 @@ export function marqueeStartSelection(worldPos) {
     marqueeCommit();
   }
 
-  // Check if clicking on an image
-  const targetImage = getImageAtWorldPos(worldPos);
-  if (!targetImage) {
-    exitMarqueeMode();
-    return;
-  }
-
+  // Start a new selection anywhere on the canvas
   state.marqueeIsSelecting = true;
   state.marqueeStart = { x: worldPos.x, y: worldPos.y };
-  state.marqueeTarget = targetImage;
+  state.marqueeTarget = null;
   state.marqueeRect = { x: worldPos.x, y: worldPos.y, w: 0, h: 0 };
   state.marqueeOffset = { x: 0, y: 0 };
   state.marqueePixelCanvas = null;
   state.marqueeIsDragging = false;
   state.marqueeCut = false;
+  state.marqueeElements = [];
+  state.marqueeIsElementMode = false;
 }
 
 /**
@@ -114,26 +202,12 @@ export function marqueeUpdateSelection(worldPos) {
   const w = Math.abs(worldPos.x - startX);
   const h = Math.abs(worldPos.y - startY);
 
-  // Clamp to target image bounds
-  const img = state.marqueeTarget;
-  if (!img) return;
-  const clampedX = Math.max(img.x, x);
-  const clampedY = Math.max(img.y, y);
-  const clampedMaxX = Math.min(img.x + img.w, x + w);
-  const clampedMaxY = Math.min(img.y + img.h, y + h);
-
-  state.marqueeRect = {
-    x: clampedX,
-    y: clampedY,
-    w: Math.max(0, clampedMaxX - clampedX),
-    h: Math.max(0, clampedMaxY - clampedY),
-  };
-
+  state.marqueeRect = { x, y, w, h };
   render();
 }
 
 /**
- * Finalize drawing the marquee rectangle and extract pixels.
+ * Finalize drawing the marquee rectangle and determine what was selected.
  */
 export function marqueeEndSelection() {
   if (state.marqueeIsDragging) {
@@ -147,103 +221,280 @@ export function marqueeEndSelection() {
 
   const rect = state.marqueeRect;
   if (!rect || rect.w < 2 || rect.h < 2) {
-    // Selection too small, cancel
     exitMarqueeMode();
     return;
   }
 
-  // Extract pixels from the source image
-  extractMarqueePixels();
+  // Find all elements intersecting the marquee rectangle
+  const { vectors, images } = getElementsInRect(rect);
+
+  if (vectors.length === 0 && images.length === 0) {
+    exitMarqueeMode();
+    return;
+  }
+
+  // Store selected elements (vectors + images that overlap)
+  state.marqueeElements = [...vectors, ...images];
+  state.marqueeIsElementMode = true;
   state.marqueeMode = true;
+
+  // Rasterize the selection area (clipped to marquee bounds)
+  rasterizeMarqueeSelection();
+
   startMarchingAnts();
   render();
 }
 
 /**
- * Extract pixels from the target image within the marquee rectangle.
+ * Rasterize the content within the marquee rectangle into an OffscreenCanvas.
+ * Images are clipped to the selection bounds (only the overlapping pixels are captured).
+ * Vector elements are rendered in full but the canvas itself clips to the rect.
  */
-function extractMarqueePixels() {
-  const img = state.marqueeTarget;
+function rasterizeMarqueeSelection() {
   const rect = state.marqueeRect;
-  if (!img || !rect) return;
+  if (!rect || rect.w <= 0 || rect.h <= 0) return;
 
-  const imgEl = img.img;
-  const natW = imgEl.naturalWidth || imgEl.width;
-  const natH = imgEl.naturalHeight || imgEl.height;
+  const elements = state.marqueeElements;
+  if (!elements || elements.length === 0) return;
 
-  // Convert world-space marquee rect to image pixel coordinates
-  const scaleX = natW / img.w;
-  const scaleY = natH / img.h;
-
-  let sx = (rect.x - img.x) * scaleX;
-  let sy = (rect.y - img.y) * scaleY;
-  let sw = rect.w * scaleX;
-  let sh = rect.h * scaleY;
-
-  // Handle crop
-  if (img.crop) {
-    const cropSx = img.crop.x * natW;
-    const cropSy = img.crop.y * natH;
-    sx += cropSx;
-    sy += cropSy;
+  // Pixel density: 1:1 with world units, capped for performance
+  const maxDim = 4096;
+  let scale = 1;
+  if (rect.w > maxDim || rect.h > maxDim) {
+    scale = maxDim / Math.max(rect.w, rect.h);
   }
 
-  // Clamp to valid pixel bounds
-  sx = Math.max(0, Math.round(sx));
-  sy = Math.max(0, Math.round(sy));
-  sw = Math.round(Math.min(sw, natW - sx));
-  sh = Math.round(Math.min(sh, natH - sy));
+  const canvasW = Math.ceil(rect.w * scale);
+  const canvasH = Math.ceil(rect.h * scale);
+  const { canvas: offscreen, ctx: offCtx } = createOffscreen(canvasW, canvasH);
 
-  if (sw <= 0 || sh <= 0) return;
+  // Set up coordinate system: marquee rect origin → (0,0), clipped to canvas bounds
+  offCtx.scale(scale, scale);
+  offCtx.translate(-rect.x, -rect.y);
 
-  // Create offscreen canvas with the selected pixels
-  let offscreen, offCtx;
-  if (typeof OffscreenCanvas !== "undefined") {
-    offscreen = new OffscreenCanvas(sw, sh);
-    offCtx = offscreen.getContext("2d");
-  } else {
-    offscreen = document.createElement("canvas");
-    offscreen.width = sw;
-    offscreen.height = sh;
-    offCtx = offscreen.getContext("2d");
+  // Clip to marquee rectangle (ensures nothing outside it is rendered)
+  offCtx.beginPath();
+  offCtx.rect(rect.x, rect.y, rect.w, rect.h);
+  offCtx.clip();
+
+  // Render elements in z-order
+  const orderedElements = [];
+  for (const id of state.elementOrder) {
+    const el = elements.find(e => e.id === id);
+    if (el) orderedElements.push(el);
   }
 
-  offCtx.drawImage(imgEl, sx, sy, sw, sh, 0, 0, sw, sh);
+  for (const el of orderedElements) {
+    if (el.elementType === "image") {
+      offCtx.save();
+      offCtx.globalAlpha = el.opacity != null ? el.opacity : 1;
+      if (el.crop) {
+        const natW = el.img.naturalWidth || el.img.width;
+        const natH = el.img.naturalHeight || el.img.height;
+        const c = el.crop;
+        offCtx.drawImage(el.img, c.x * natW, c.y * natH, c.w * natW, c.h * natH, el.x, el.y, el.w, el.h);
+      } else {
+        offCtx.drawImage(el.img, el.x, el.y, el.w, el.h);
+      }
+      offCtx.restore();
+    } else {
+      drawShape(offCtx, el, true);
+    }
+  }
+
   state.marqueePixelCanvas = offscreen;
 }
 
 /**
- * Cut the selected pixels from the source image (replace with transparency)
- * and copy them to the clipboard.
+ * Copy the marquee selection to the clipboard as a rasterized PNG.
+ * For the internal clipboard: images are cropped to the selection rect,
+ * vector elements are stored as clones.
+ */
+export function marqueeCopy() {
+  if (!state.marqueeMode || !state.marqueeRect) return;
+
+  const rect = state.marqueeRect;
+  const ox = state.marqueeOffset.x;
+  const oy = state.marqueeOffset.y;
+
+  if (state.marqueeIsElementMode && state.marqueeElements.length > 0) {
+    // Build internal clipboard with properly cropped/clipped elements
+    const clones = [];
+
+    for (const el of state.marqueeElements) {
+      if (el.elementType === "image") {
+        // Crop the image to the intersection of its bounds and the marquee rect
+        const imgClone = cropImageToRect(el, rect);
+        if (imgClone) {
+          imgClone.id = "img_" + state.elementIdCounter++;
+          translateElement(imgClone, ox, oy);
+          clones.push(imgClone);
+        }
+      } else {
+        // Vector elements: clone the whole element
+        const c = cloneElement(el);
+        c.id = "draw_" + state.elementIdCounter++;
+        translateElement(c, ox, oy);
+        clones.push(c);
+      }
+    }
+
+    state.clipboardElements = clones;
+    state.pasteOffset = 0;
+    state.internalCopyPerformed = true;
+  }
+
+  // Rasterize to PNG for system clipboard (already clipped to rect)
+  const pixelCanvas = state.marqueePixelCanvas;
+  if (!pixelCanvas) {
+    showToast("Copied selection (internal)");
+    return;
+  }
+
+  copyCanvasToClipboard(pixelCanvas, "Copied selection to clipboard");
+}
+
+/**
+ * Crop an image element to the intersection with the marquee rect.
+ * Returns a new image element with only the pixels within the rect,
+ * positioned at the intersection's world coordinates.
+ */
+function cropImageToRect(imgEl, rect) {
+  // Compute intersection of image bounds and marquee rect
+  const ix = Math.max(imgEl.x, rect.x);
+  const iy = Math.max(imgEl.y, rect.y);
+  const ix2 = Math.min(imgEl.x + imgEl.w, rect.x + rect.w);
+  const iy2 = Math.min(imgEl.y + imgEl.h, rect.y + rect.h);
+
+  const iw = ix2 - ix;
+  const ih = iy2 - iy;
+  if (iw <= 0 || ih <= 0) return null;
+
+  const srcImg = imgEl.img;
+  const natW = srcImg.naturalWidth || srcImg.width;
+  const natH = srcImg.naturalHeight || srcImg.height;
+
+  // Map world intersection to source pixel coordinates
+  const scaleX = natW / imgEl.w;
+  const scaleY = natH / imgEl.h;
+
+  let sx = (ix - imgEl.x) * scaleX;
+  let sy = (iy - imgEl.y) * scaleY;
+  let sw = iw * scaleX;
+  let sh = ih * scaleY;
+
+  // Handle crop offset
+  if (imgEl.crop) {
+    sx += imgEl.crop.x * natW;
+    sy += imgEl.crop.y * natH;
+  }
+
+  sx = Math.max(0, Math.round(sx));
+  sy = Math.max(0, Math.round(sy));
+  sw = Math.round(Math.min(sw, natW - sx));
+  sh = Math.round(Math.min(sh, natH - sy));
+
+  if (sw <= 0 || sh <= 0) return null;
+
+  // Extract the cropped pixels
+  const { canvas: cropped, ctx: cropCtx } = createOffscreen(sw, sh);
+  cropCtx.drawImage(srcImg, sx, sy, sw, sh, 0, 0, sw, sh);
+
+  // Create image element for the cropped region
+  // We'll need to convert to an Image synchronously for the clone.
+  // Store the canvas as the img source — it works for drawImage.
+  return {
+    id: imgEl.id,
+    elementType: "image",
+    img: cropped, // OffscreenCanvas works with drawImage
+    x: ix,
+    y: iy,
+    w: iw,
+    h: ih,
+    opacity: imgEl.opacity != null ? imgEl.opacity : 1,
+  };
+}
+
+/**
+ * Cut the selected area from the canvas and copy to clipboard.
+ * - For images: clears only the pixels within the selection rect (replaces with transparency).
+ * - For vector elements: removes them entirely from the canvas.
  */
 export function marqueeCut() {
-  if (!state.marqueeMode || !state.marqueeTarget || !state.marqueeRect) return;
+  if (!state.marqueeMode || !state.marqueeRect) return;
   if (state.marqueeCut) return; // Already cut
 
-  // Copy to clipboard first
+  // Copy first
   marqueeCopy();
 
   pushUndo();
 
-  const img = state.marqueeTarget;
   const rect = state.marqueeRect;
-  const imgEl = img.img;
-  const natW = imgEl.naturalWidth || imgEl.width;
-  const natH = imgEl.naturalHeight || imgEl.height;
 
-  const scaleX = natW / img.w;
-  const scaleY = natH / img.h;
+  if (state.marqueeIsElementMode && state.marqueeElements.length > 0) {
+    const vectorsToCut = [];
+    const imagesToCrop = [];
 
-  let sx = (rect.x - img.x) * scaleX;
-  let sy = (rect.y - img.y) * scaleY;
-  let sw = rect.w * scaleX;
-  let sh = rect.h * scaleY;
+    for (const el of state.marqueeElements) {
+      if (el.elementType === "image") {
+        imagesToCrop.push(el);
+      } else {
+        vectorsToCut.push(el);
+      }
+    }
 
-  if (img.crop) {
-    const cropSx = img.crop.x * natW;
-    const cropSy = img.crop.y * natH;
-    sx += cropSx;
-    sy += cropSy;
+    // Remove vector elements entirely
+    if (vectorsToCut.length > 0) {
+      const idsToRemove = new Set(vectorsToCut.map(el => el.id));
+      state.drawings = state.drawings.filter(d => !idsToRemove.has(d.id));
+      for (const el of vectorsToCut) {
+        spatialRemove(el);
+      }
+    }
+
+    // For images: clear only the pixels within the marquee rect
+    for (const img of imagesToCrop) {
+      clearImageRect(img, rect);
+    }
+
+    state.marqueeCut = true;
+    render();
+    scheduleSave();
+
+    const total = vectorsToCut.length + imagesToCrop.length;
+    showToast(`Cut ${total} element(s)`);
+  }
+}
+
+/**
+ * Clear the pixels within a world-space rectangle from an image element.
+ * Replaces the affected area with transparency.
+ */
+function clearImageRect(imgEl, rect) {
+  const srcImg = imgEl.img;
+  const natW = srcImg.naturalWidth || srcImg.width;
+  const natH = srcImg.naturalHeight || srcImg.height;
+
+  // Compute intersection
+  const ix = Math.max(imgEl.x, rect.x);
+  const iy = Math.max(imgEl.y, rect.y);
+  const ix2 = Math.min(imgEl.x + imgEl.w, rect.x + rect.w);
+  const iy2 = Math.min(imgEl.y + imgEl.h, rect.y + rect.h);
+  const iw = ix2 - ix;
+  const ih = iy2 - iy;
+  if (iw <= 0 || ih <= 0) return;
+
+  const scaleX = natW / imgEl.w;
+  const scaleY = natH / imgEl.h;
+
+  let sx = (ix - imgEl.x) * scaleX;
+  let sy = (iy - imgEl.y) * scaleY;
+  let sw = iw * scaleX;
+  let sh = ih * scaleY;
+
+  if (imgEl.crop) {
+    sx += imgEl.crop.x * natW;
+    sy += imgEl.crop.y * natH;
   }
 
   sx = Math.max(0, Math.round(sx));
@@ -253,331 +504,208 @@ export function marqueeCut() {
 
   if (sw <= 0 || sh <= 0) return;
 
-  // Create a new image with the selected region cleared
-  let fullCanvas, fullCtx;
-  if (typeof OffscreenCanvas !== "undefined") {
-    fullCanvas = new OffscreenCanvas(natW, natH);
-    fullCtx = fullCanvas.getContext("2d");
-  } else {
-    fullCanvas = document.createElement("canvas");
-    fullCanvas.width = natW;
-    fullCanvas.height = natH;
-    fullCtx = fullCanvas.getContext("2d");
-  }
-
-  fullCtx.drawImage(imgEl, 0, 0);
+  // Redraw the full image with the intersection cleared
+  const { canvas: fullCanvas, ctx: fullCtx } = createOffscreen(natW, natH);
+  fullCtx.drawImage(srcImg, 0, 0);
   fullCtx.clearRect(sx, sy, sw, sh);
 
-  // Replace the image source with the modified version
-  const newImg = new Image();
-  const dataURL = fullCanvas instanceof OffscreenCanvas
-    ? null // will use blob approach
-    : fullCanvas.toDataURL("image/png");
-
-  if (fullCanvas instanceof OffscreenCanvas) {
-    fullCanvas.convertToBlob({ type: "image/png" }).then((blob) => {
-      const url = URL.createObjectURL(blob);
-      newImg.onload = () => {
-        img.img = newImg;
-        state.marqueeCut = true;
-        render();
-        scheduleSave();
-      };
-      newImg.src = url;
-    });
-  } else {
-    newImg.onload = () => {
-      img.img = newImg;
-      state.marqueeCut = true;
-      render();
-      scheduleSave();
-    };
-    newImg.src = dataURL;
-  }
-
-  showToast("Cut selection");
-}
-
-/**
- * Copy the selected pixels to the clipboard as a PNG image.
- * Also stores internally so the app's own paste handler can use it.
- */
-export function marqueeCopy() {
-  if (!state.marqueeMode || !state.marqueePixelCanvas) return;
-
-  const rect = state.marqueeRect;
-  const ox = state.marqueeOffset.x;
-  const oy = state.marqueeOffset.y;
-  const pixelCanvas = state.marqueePixelCanvas;
-
-  // Store as internal clipboard element so paste always works within the app
-  function storeInternal(imgEl) {
-    const el = {
-      id: "img_" + state.elementIdCounter++,
-      elementType: "image",
-      img: imgEl,
-      x: rect.x + ox,
-      y: rect.y + oy,
-      w: rect.w,
-      h: rect.h,
-      opacity: 1,
-    };
-    state.clipboardElements = [el];
-    state.pasteOffset = 0;
-    state.internalCopyPerformed = true;
-  }
-
-  // Write to system clipboard (best-effort) AND store internally
-  if (pixelCanvas instanceof OffscreenCanvas) {
-    pixelCanvas.convertToBlob({ type: "image/png" }).then((blob) => {
-      const url = URL.createObjectURL(blob);
-      const img = new Image();
-      img.onload = () => {
-        storeInternal(img);
-      };
-      img.src = url;
-      navigator.clipboard.write([
-        new ClipboardItem({ "image/png": blob }),
-      ]).then(() => {
-        showToast("Copied selection to clipboard");
-      }).catch(() => {
-        // System clipboard failed but internal copy still works
-        showToast("Copied selection (internal)");
-      });
-    });
-  } else {
-    // Regular canvas — use toBlob for system clipboard, toDataURL for internal
-    const dataURL = pixelCanvas.toDataURL("image/png");
-    const img = new Image();
-    img.onload = () => {
-      storeInternal(img);
-    };
-    img.src = dataURL;
-
-    pixelCanvas.toBlob((blob) => {
-      if (!blob) { showToast("Copied selection (internal)"); return; }
-      navigator.clipboard.write([
-        new ClipboardItem({ "image/png": blob }),
-      ]).then(() => {
-        showToast("Copied selection to clipboard");
-      }).catch(() => {
-        showToast("Copied selection (internal)");
-      });
-    }, "image/png");
-  }
-}
-
-/**
- * Duplicate the selected pixels as a new image element placed with a small offset.
- */
-export function marqueeDuplicate() {
-  if (!state.marqueeMode || !state.marqueePixelCanvas) return;
-
-  const rect = state.marqueeRect;
-  const ox = state.marqueeOffset.x;
-  const oy = state.marqueeOffset.y;
-  const pixelCanvas = state.marqueePixelCanvas;
-  const offset = 30;
-
-  pushUndo();
-
-  function placeElement(imgEl) {
-    const newElement = {
-      id: "img_" + state.elementIdCounter++,
-      elementType: "image",
-      img: imgEl,
-      x: rect.x + ox + offset,
-      y: rect.y + oy + offset,
-      w: rect.w,
-      h: rect.h,
-      opacity: 1,
-    };
-    state.images.push(newElement);
-    spatialInsert(newElement);
-    exitMarqueeMode();
-    state.selectedElements = [newElement];
-    state.currentTool = "select";
+  // Replace the image source
+  canvasToImage(fullCanvas, (newImg) => {
+    imgEl.img = newImg;
     render();
     scheduleSave();
-    showToast("Duplicated selection");
+  });
+}
+
+/**
+ * Duplicate the selected area as new elements placed with a small offset.
+ */
+export function marqueeDuplicate() {
+  if (!state.marqueeMode || !state.marqueeRect) return;
+
+  const rect = state.marqueeRect;
+  const offset = 30;
+  pushUndo();
+
+  if (state.marqueeIsElementMode && state.marqueeElements.length > 0) {
+    const ox = state.marqueeOffset.x;
+    const oy = state.marqueeOffset.y;
+    const newElements = [];
+    let pendingImages = 0;
+    let allDone = false;
+
+    const finalize = () => {
+      if (!allDone || pendingImages > 0) return;
+      exitMarqueeMode();
+      state.selectedElements = newElements;
+      state.currentTool = "select";
+      render();
+      scheduleSave();
+      showToast(`Duplicated ${newElements.length} element(s)`);
+    };
+
+    for (const el of state.marqueeElements) {
+      if (el.elementType === "image") {
+        // Duplicate only the cropped portion within the marquee
+        const cropped = cropImageToRect(el, rect);
+        if (cropped) {
+          pendingImages++;
+          const croppedCanvas = cropped.img; // This is an OffscreenCanvas
+          canvasToImage(croppedCanvas, (imgEl) => {
+            const newElement = {
+              id: "img_" + state.elementIdCounter++,
+              elementType: "image",
+              img: imgEl,
+              x: cropped.x + ox + offset,
+              y: cropped.y + oy + offset,
+              w: cropped.w,
+              h: cropped.h,
+              opacity: cropped.opacity,
+            };
+            state.images.push(newElement);
+            spatialInsert(newElement);
+            newElements.push(newElement);
+            pendingImages--;
+            finalize();
+          });
+        }
+      } else {
+        // Vector: clone the whole element
+        const c = cloneElement(el);
+        c.id = "draw_" + state.elementIdCounter++;
+        translateElement(c, ox + offset, oy + offset);
+        state.drawings.push(c);
+        spatialInsert(c);
+        newElements.push(c);
+      }
+    }
+
+    allDone = true;
+    finalize(); // In case there are no pending images
+    return;
   }
 
-  if (pixelCanvas instanceof OffscreenCanvas) {
-    pixelCanvas.convertToBlob({ type: "image/png" }).then((blob) => {
-      const url = URL.createObjectURL(blob);
-      const newImg = new Image();
-      newImg.onload = () => placeElement(newImg);
-      newImg.src = url;
+  // Fallback: pixel canvas only
+  if (state.marqueePixelCanvas) {
+    const pixelCanvas = state.marqueePixelCanvas;
+    const ox = state.marqueeOffset.x;
+    const oy = state.marqueeOffset.y;
+
+    canvasToImage(pixelCanvas, (imgEl) => {
+      const newElement = {
+        id: "img_" + state.elementIdCounter++,
+        elementType: "image",
+        img: imgEl,
+        x: rect.x + ox + offset,
+        y: rect.y + oy + offset,
+        w: rect.w,
+        h: rect.h,
+        opacity: 1,
+      };
+      state.images.push(newElement);
+      spatialInsert(newElement);
+      exitMarqueeMode();
+      state.selectedElements = [newElement];
+      state.currentTool = "select";
+      render();
+      scheduleSave();
+      showToast("Duplicated selection");
     });
-  } else {
-    const dataURL = pixelCanvas.toDataURL("image/png");
-    const newImg = new Image();
-    newImg.onload = () => placeElement(newImg);
-    newImg.src = dataURL;
   }
 }
 
 /**
- * Commit the marquee selection — if pixels were moved, bake them into the target image
- * at the new position, or if not moved, just deselect.
+ * Commit the marquee selection.
+ * - If moved: vector elements are translated; image pixels are cut from source and placed at new position.
+ * - If not moved: just deselect.
  */
 export function marqueeCommit() {
   if (!state.marqueeMode) return;
 
   const hasOffset = state.marqueeOffset.x !== 0 || state.marqueeOffset.y !== 0;
 
-  if (hasOffset && state.marqueePixelCanvas && state.marqueeTarget) {
-    if (!state.marqueeCut) {
-      // Need to cut first before placing at new position
-      cutAndPlace();
-    } else {
-      // Already cut, just place at new position
-      placeMarqueePixels();
+  if (hasOffset && state.marqueeIsElementMode && state.marqueeElements.length > 0 && !state.marqueeCut) {
+    pushUndo();
+    const dx = state.marqueeOffset.x;
+    const dy = state.marqueeOffset.y;
+    const rect = state.marqueeRect;
+
+    for (const el of state.marqueeElements) {
+      if (el.elementType === "image") {
+        // For images: cut the pixels from the selection area and place at new position
+        moveImagePixels(el, rect, dx, dy);
+      } else {
+        // Vector elements: just translate
+        translateElement(el, dx, dy);
+        spatialUpdate(el);
+      }
     }
+    scheduleSave();
   }
 
   exitMarqueeMode();
 }
 
 /**
- * Cut the original area and place pixels at the new offset position.
+ * Move pixels within the marquee rect of an image to a new position (offset by dx, dy).
+ * Clears the source area and paints the pixels at the destination within the same image.
  */
-function cutAndPlace() {
-  const img = state.marqueeTarget;
-  const rect = state.marqueeRect;
-  if (!img || !rect || !state.marqueePixelCanvas) return;
+function moveImagePixels(imgEl, rect, dx, dy) {
+  const srcImg = imgEl.img;
+  const natW = srcImg.naturalWidth || srcImg.width;
+  const natH = srcImg.naturalHeight || srcImg.height;
 
-  pushUndo();
+  // Compute intersection of image and marquee rect
+  const ix = Math.max(imgEl.x, rect.x);
+  const iy = Math.max(imgEl.y, rect.y);
+  const ix2 = Math.min(imgEl.x + imgEl.w, rect.x + rect.w);
+  const iy2 = Math.min(imgEl.y + imgEl.h, rect.y + rect.h);
+  const iw = ix2 - ix;
+  const ih = iy2 - iy;
+  if (iw <= 0 || ih <= 0) return;
 
-  const imgEl = img.img;
-  const natW = imgEl.naturalWidth || imgEl.width;
-  const natH = imgEl.naturalHeight || imgEl.height;
+  const scaleX = natW / imgEl.w;
+  const scaleY = natH / imgEl.h;
 
-  const scaleX = natW / img.w;
-  const scaleY = natH / img.h;
+  let sx = (ix - imgEl.x) * scaleX;
+  let sy = (iy - imgEl.y) * scaleY;
+  let sw = iw * scaleX;
+  let sh = ih * scaleY;
 
-  let sx = (rect.x - img.x) * scaleX;
-  let sy = (rect.y - img.y) * scaleY;
-  let sw = rect.w * scaleX;
-  let sh = rect.h * scaleY;
-
-  if (img.crop) {
-    sx += img.crop.x * natW;
-    sy += img.crop.y * natH;
+  if (imgEl.crop) {
+    sx += imgEl.crop.x * natW;
+    sy += imgEl.crop.y * natH;
   }
 
   sx = Math.max(0, Math.round(sx));
   sy = Math.max(0, Math.round(sy));
   sw = Math.round(Math.min(sw, natW - sx));
   sh = Math.round(Math.min(sh, natH - sy));
+  if (sw <= 0 || sh <= 0) return;
 
   // Destination in pixel space
-  const destX = Math.round(sx + state.marqueeOffset.x * scaleX);
-  const destY = Math.round(sy + state.marqueeOffset.y * scaleY);
+  const destX = Math.round(sx + dx * scaleX);
+  const destY = Math.round(sy + dy * scaleY);
 
-  // Create new image with cleared source and placed destination
-  let fullCanvas, fullCtx;
-  if (typeof OffscreenCanvas !== "undefined") {
-    fullCanvas = new OffscreenCanvas(natW, natH);
-    fullCtx = fullCanvas.getContext("2d");
-  } else {
-    fullCanvas = document.createElement("canvas");
-    fullCanvas.width = natW;
-    fullCanvas.height = natH;
-    fullCtx = fullCanvas.getContext("2d");
-  }
+  // Rebuild image: clear source, draw pixels at destination
+  const { canvas: fullCanvas, ctx: fullCtx } = createOffscreen(natW, natH);
+  fullCtx.drawImage(srcImg, 0, 0);
 
-  fullCtx.drawImage(imgEl, 0, 0);
+  // Extract the pixels first
+  const { canvas: pixelBuf, ctx: pixelCtx } = createOffscreen(sw, sh);
+  pixelCtx.drawImage(srcImg, sx, sy, sw, sh, 0, 0, sw, sh);
+
+  // Clear source area
   fullCtx.clearRect(sx, sy, sw, sh);
-  fullCtx.drawImage(state.marqueePixelCanvas, 0, 0, sw, sh, destX, destY, sw, sh);
 
-  const newImg = new Image();
-  if (fullCanvas instanceof OffscreenCanvas) {
-    fullCanvas.convertToBlob({ type: "image/png" }).then((blob) => {
-      const url = URL.createObjectURL(blob);
-      newImg.onload = () => {
-        img.img = newImg;
-        render();
-        scheduleSave();
-      };
-      newImg.src = url;
-    });
-  } else {
-    newImg.onload = () => {
-      img.img = newImg;
-      render();
-      scheduleSave();
-    };
-    newImg.src = fullCanvas.toDataURL("image/png");
-  }
-}
+  // Draw at destination
+  fullCtx.drawImage(pixelBuf, 0, 0, sw, sh, destX, destY, sw, sh);
 
-/**
- * Place marquee pixels at the new position (after already being cut).
- */
-function placeMarqueePixels() {
-  const img = state.marqueeTarget;
-  const rect = state.marqueeRect;
-  if (!img || !rect || !state.marqueePixelCanvas) return;
-
-  const imgEl = img.img;
-  const natW = imgEl.naturalWidth || imgEl.width;
-  const natH = imgEl.naturalHeight || imgEl.height;
-
-  const scaleX = natW / img.w;
-  const scaleY = natH / img.h;
-
-  let sx = (rect.x - img.x) * scaleX;
-  let sy = (rect.y - img.y) * scaleY;
-  let sw = rect.w * scaleX;
-  let sh = rect.h * scaleY;
-
-  if (img.crop) {
-    sx += img.crop.x * natW;
-    sy += img.crop.y * natH;
-  }
-
-  sx = Math.max(0, Math.round(sx));
-  sy = Math.max(0, Math.round(sy));
-  sw = Math.round(Math.min(sw, natW - sx));
-  sh = Math.round(Math.min(sh, natH - sy));
-
-  const destX = Math.round(sx + state.marqueeOffset.x * scaleX);
-  const destY = Math.round(sy + state.marqueeOffset.y * scaleY);
-
-  let fullCanvas, fullCtx;
-  if (typeof OffscreenCanvas !== "undefined") {
-    fullCanvas = new OffscreenCanvas(natW, natH);
-    fullCtx = fullCanvas.getContext("2d");
-  } else {
-    fullCanvas = document.createElement("canvas");
-    fullCanvas.width = natW;
-    fullCanvas.height = natH;
-    fullCtx = fullCanvas.getContext("2d");
-  }
-
-  fullCtx.drawImage(imgEl, 0, 0);
-  fullCtx.drawImage(state.marqueePixelCanvas, 0, 0, sw, sh, destX, destY, sw, sh);
-
-  const newImg = new Image();
-  if (fullCanvas instanceof OffscreenCanvas) {
-    fullCanvas.convertToBlob({ type: "image/png" }).then((blob) => {
-      const url = URL.createObjectURL(blob);
-      newImg.onload = () => {
-        img.img = newImg;
-        render();
-        scheduleSave();
-      };
-      newImg.src = url;
-    });
-  } else {
-    newImg.onload = () => {
-      img.img = newImg;
-      render();
-      scheduleSave();
-    };
-    newImg.src = fullCanvas.toDataURL("image/png");
-  }
+  canvasToImage(fullCanvas, (newImg) => {
+    imgEl.img = newImg;
+    render();
+    scheduleSave();
+  });
 }
 
 /**
@@ -595,6 +723,8 @@ export function exitMarqueeMode() {
   state.marqueeIsSelecting = false;
   state.marqueeStart = null;
   state.marqueeCut = false;
+  state.marqueeElements = [];
+  state.marqueeIsElementMode = false;
   render();
 }
 
@@ -632,15 +762,11 @@ export function renderMarquee(ctx, transform) {
     ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
   }
 
-  // Draw the selected pixels at offset position
-  if (state.marqueePixelCanvas && state.marqueeMode) {
+  // Show preview of what's being moved
+  if ((ox !== 0 || oy !== 0) && state.marqueePixelCanvas) {
     ctx.save();
-    ctx.globalAlpha = 0.9;
-    ctx.drawImage(
-      state.marqueePixelCanvas,
-      rect.x + ox, rect.y + oy,
-      rect.w, rect.h
-    );
+    ctx.globalAlpha = state.marqueeCut ? 0.9 : 0.6;
+    ctx.drawImage(state.marqueePixelCanvas, rect.x + ox, rect.y + oy, rect.w, rect.h);
     ctx.restore();
   }
 
@@ -668,7 +794,7 @@ export function renderMarquee(ctx, transform) {
 }
 
 /**
- * Render just the selection rectangle while dragging to define it (before pixels are extracted).
+ * Render just the selection rectangle while dragging to define it (before selection is finalized).
  */
 export function renderMarqueeSelecting(ctx, transform) {
   if (!state.marqueeIsSelecting || !state.marqueeRect) return;

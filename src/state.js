@@ -139,17 +139,19 @@ export const state = {
   isSaving: false,
   pendingSave: false,
 
-  // Marquee (rectangle pixel select) tool
+  // Marquee (rectangle select) tool — works on any element
   marqueeMode: false,         // true when a marquee selection is active
-  marqueeTarget: null,        // the image element being marqueed
+  marqueeTarget: null,        // (legacy) the image element for pixel-mode marquee
   marqueeRect: null,          // {x, y, w, h} world-coords of the selection rectangle
-  marqueePixelCanvas: null,   // OffscreenCanvas with the extracted pixel region
+  marqueePixelCanvas: null,   // OffscreenCanvas with rasterized content of selection
   marqueeOffset: { x: 0, y: 0 }, // offset from original position while dragging
-  marqueeIsDragging: false,   // true while moving the selected pixels
+  marqueeIsDragging: false,   // true while moving the selected region
   marqueeDragStart: null,     // {x, y} world-coords where drag started
   marqueeIsSelecting: false,  // true while drawing the marquee rectangle
   marqueeStart: null,         // {x, y} world-coords where rectangle drawing started
-  marqueeCut: false,          // true if pixels have been "lifted" (cut) from the source
+  marqueeCut: false,          // true if elements have been cut from the canvas
+  marqueeElements: [],        // array of element references captured by the marquee
+  marqueeIsElementMode: false, // true when operating on elements (not just image pixels)
 
   // Grid
   gridVisible: false,
