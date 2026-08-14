@@ -2027,31 +2027,71 @@ function setupKeyboardHandlers() {
       return;
     }
 
-    // Shift+1/2/3 set drawing line thickness
-    if (e.shiftKey && (e.code === "Digit1" || e.code === "Digit2" || e.code === "Digit3")) {
+    // Shift+1: Zoom to fit all elements
+    if (e.shiftKey && e.code === "Digit1") {
       e.preventDefault();
-      const widthMap = { "Digit1": 2, "Digit2": 4, "Digit3": 10 };
-      const newWidth = widthMap[e.code];
-      state.currentLineWidth = newWidth;
-      const lineWidthBtns = document.querySelectorAll(".line-width-btn");
-      lineWidthBtns.forEach((b) => {
-        if (parseInt(b.dataset.width, 10) === newWidth) b.classList.add("active");
-        else b.classList.remove("active");
+      const allElements = [...state.images, ...state.drawings];
+      if (allElements.length === 0) { showToast("No elements on canvas"); return; }
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      allElements.forEach((el) => {
+        const b = el.elementType === "image" ? { x: el.x, y: el.y, w: el.w, h: el.h } : getShapeBounds(el);
+        if (b.x < minX) minX = b.x;
+        if (b.y < minY) minY = b.y;
+        if (b.x + b.w > maxX) maxX = b.x + b.w;
+        if (b.y + b.h > maxY) maxY = b.y + b.h;
       });
-      // Apply to selected drawing elements if any
-      if (state.selectedElements.length > 0) {
-        let changed = false;
-        state.selectedElements.forEach((el) => {
-          if (el.elementType === "drawing" && el.type !== "text") {
-            el.width = newWidth;
-            changed = true;
-          }
-        });
-        if (changed) render();
-      }
-      showToast(`Line width: ${newWidth}px`);
+      const boundsW = maxX - minX;
+      const boundsH = maxY - minY;
+      if (boundsW <= 0 || boundsH <= 0) { showToast("No elements on canvas"); return; }
+      const canvas = document.getElementById("canvas");
+      const padding = 60;
+      const availW = canvas.width - padding * 2;
+      const availH = canvas.height - padding * 2;
+      const newZoom = Math.min(availW / boundsW, availH / boundsH, 12.0);
+      const clampedZoom = Math.max(0.05, Math.min(12.0, newZoom));
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+      state.transform.zoom = clampedZoom;
+      state.transform.x = canvas.width / 2 - centerX * clampedZoom;
+      state.transform.y = canvas.height / 2 - centerY * clampedZoom;
+      updateZoomSliderValue();
+      render();
+      showToast("Zoom to fit");
       return;
     }
+
+    // Shift+2: Zoom to selection
+    if (e.shiftKey && e.code === "Digit2") {
+      e.preventDefault();
+      if (state.selectedElements.length === 0) { showToast("No elements selected"); return; }
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      state.selectedElements.forEach((el) => {
+        const b = el.elementType === "image" ? { x: el.x, y: el.y, w: el.w, h: el.h } : getShapeBounds(el);
+        if (b.x < minX) minX = b.x;
+        if (b.y < minY) minY = b.y;
+        if (b.x + b.w > maxX) maxX = b.x + b.w;
+        if (b.y + b.h > maxY) maxY = b.y + b.h;
+      });
+      const boundsW = maxX - minX;
+      const boundsH = maxY - minY;
+      if (boundsW <= 0 || boundsH <= 0) { showToast("Selection has no area"); return; }
+      const canvas = document.getElementById("canvas");
+      const padding = 60;
+      const availW = canvas.width - padding * 2;
+      const availH = canvas.height - padding * 2;
+      const newZoom = Math.min(availW / boundsW, availH / boundsH, 12.0);
+      const clampedZoom = Math.max(0.05, Math.min(12.0, newZoom));
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+      state.transform.zoom = clampedZoom;
+      state.transform.x = canvas.width / 2 - centerX * clampedZoom;
+      state.transform.y = canvas.height / 2 - centerY * clampedZoom;
+      updateZoomSliderValue();
+      render();
+      showToast("Zoom to selection");
+      return;
+    }
+
 
     // Number keys 1-3 set stroke width on selected drawing elements or when a drawing tool is active
     const isDrawingTool = state.currentTool === "pen" || state.currentTool === "line" || state.currentTool === "arrow" || state.currentTool === "rect-border" || state.currentTool === "rect-fill" || state.currentTool === "measure" || state.currentTool === "split-line";
@@ -2170,6 +2210,13 @@ function setupKeyboardHandlers() {
     if (e.key.toLowerCase() === "j" && e.shiftKey) { e.preventDefault(); executeJPEGExport(1.0, { download: true }); return; }
     if (e.key.toLowerCase() === "p" && !e.shiftKey) { e.preventDefault(); executePNGExport(1.0); return; }
     if (e.key.toLowerCase() === "p" && e.shiftKey) { e.preventDefault(); executePNGExport(0.5); return; }
+    // Cmd+0: reset zoom to 100%
+    if (e.key === "0" || e.code === "Digit0") {
+      e.preventDefault();
+      applyZoom(1.0, window.innerWidth / 2, window.innerHeight / 2);
+      showToast("Zoom: 100%");
+      return;
+    }
   });
 
   function applyColorToSelectedElements(color) {
