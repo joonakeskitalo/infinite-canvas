@@ -236,6 +236,7 @@ export function updateCursor() {
   else if (state.currentTool === "measure") container.style.cursor = "crosshair";
   else if (state.currentTool === "split-line") container.style.cursor = "crosshair";
   else if (state.currentTool === "stamp") container.style.cursor = "copy";
+  else if (state.currentTool === "accessibility-preview") container.style.cursor = "crosshair";
   else container.style.cursor = "crosshair";
 }
 

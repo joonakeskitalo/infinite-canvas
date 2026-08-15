@@ -13,6 +13,7 @@ import {
 } from "./elements.js";
 import { getFullImageBounds } from "./crop.js";
 import { renderMarquee, renderMarqueeSelecting } from "./marquee-select.js";
+import { renderAccessibilityPreviewSelection, isAccessibilityPreviewSelecting } from "./accessibility-preview.js";
 
 // --- PERFORMANCE: requestAnimationFrame batching ---
 let _renderScheduled = false;
@@ -1025,6 +1026,11 @@ function _doRender(targetCtx, isExporting) {
       renderMarquee(targetCtx, transform);
     } else if (state.marqueeIsSelecting) {
       renderMarqueeSelecting(targetCtx, transform);
+    }
+
+    // Accessibility preview selection rectangle
+    if (isAccessibilityPreviewSelecting()) {
+      renderAccessibilityPreviewSelection(targetCtx, transform);
     }
 
     // Snap guides

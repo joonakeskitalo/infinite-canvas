@@ -49,6 +49,13 @@ import {
   marqueeCut, marqueeCopy, marqueeDuplicate, marqueeCommit, exitMarqueeMode,
 } from "./marquee-select.js";
 import { generateAccessibilityGrid } from "./accessibility-grid.js";
+import {
+  accessibilityPreviewStart, accessibilityPreviewMove, accessibilityPreviewEnd,
+  renderAccessibilityPreviewSelection, isAccessibilityPreviewSelecting,
+  isAccessibilityPreviewModalOpen,
+  activateAccessibilityPreview, deactivateAccessibilityPreview,
+  handleAccessibilityPreviewDrop,
+} from "./accessibility-preview.js";
 
 /**
  * Snap a split-line position to the nearest fraction (halves, thirds, quarters)
@@ -114,6 +121,8 @@ export function initEventHandlers() {
       if (state.currentTool !== "measure") { state.measureHoverGuides = []; state.activeMeasureLine = null; }
       if (state.currentTool !== "marquee" && state.marqueeMode) { marqueeCommit(); }
       if (state.currentTool !== "split-line") { state.splitLineHoveredImage = null; state.splitLineWorldPos = null; }
+      if (state.currentTool === "accessibility-preview") { activateAccessibilityPreview(); }
+      else { deactivateAccessibilityPreview(); }
       if (state.currentTool === "contrast") { state.contrastClickCount = 0; state.contrastColor1 = null; state.contrastColor2 = null; state.contrastWorldPos1 = null; state.activeContrastLine = null; showContrastWaiting(1); }
       else { hideContrastPanel(); }
       if (state.currentTool === "text") { colorPicker.value = state.textDrawColor; }
@@ -680,6 +689,11 @@ export function initEventHandlers() {
   window.addEventListener("dragover", (e) => e.preventDefault());
   window.addEventListener("drop", (e) => {
     e.preventDefault();
+    // Check if this is a drag from the accessibility preview panel
+    if (e.dataTransfer && e.dataTransfer.types.includes("application/x-a11y-preview")) {
+      handleAccessibilityPreviewDrop(e);
+      return;
+    }
     if (e.dataTransfer && e.dataTransfer.files.length > 0) {
       const dropWorldPos = screenToWorld(e.clientX, e.clientY);
       for (let file of e.dataTransfer.files) {
@@ -1529,7 +1543,13 @@ function setupKeyboardHandlers() {
     // Escape
     if (e.key === "Escape") {
       e.preventDefault();
-      if (state.selectedElements.length > 0) {
+      if (isAccessibilityPreviewModalOpen()) {
+        deactivateAccessibilityPreview();
+        state.currentTool = "select";
+        updateToolbarUI();
+        updateCursor();
+        render();
+      } else if (state.selectedElements.length > 0) {
         state.selectedElements = [];
         toggleAlignmentPanelVisibility();
         render();
@@ -1739,6 +1759,7 @@ function setupKeyboardHandlers() {
     if (key === "y") targetTool = "measure";
     if (key === "k" && e.shiftKey) { generateAccessibilityGrid(); return; }
     if (key === "k") targetTool = "contrast";
+    if (key === "j") targetTool = "accessibility-preview";
     // Bracket keys: adjust z-index (no modifier required)
     if ((key === "[" || key === "]") && state.currentTool === "select" && state.selectedElements.length > 0) {
       e.preventDefault();
@@ -2494,6 +2515,11 @@ function setupMouseHandlers() {
 
     if (state.currentTool === "marquee") {
       marqueeStartSelection(worldPos);
+      return;
+    }
+
+    if (state.currentTool === "accessibility-preview") {
+      accessibilityPreviewStart(worldPos);
       return;
     }
 
@@ -3381,6 +3407,8 @@ function setupMouseHandlers() {
       }
     } else if (state.marqueeIsSelecting || state.marqueeIsDragging) {
       marqueeUpdateSelection(worldPos);
+    } else if (isAccessibilityPreviewSelecting()) {
+      accessibilityPreviewMove(worldPos);
     } else if (state.activeMeasureLine) {
       // Don't update measure line until user has dragged beyond minimum distance
       const screenDx = e.clientX - state.startX;
@@ -3454,6 +3482,11 @@ function setupMouseHandlers() {
     if (state.currentTool === "marquee" && (state.marqueeIsSelecting || state.marqueeIsDragging)) {
       marqueeEndSelection();
       render();
+      return;
+    }
+
+    if (state.currentTool === "accessibility-preview" && isAccessibilityPreviewSelecting()) {
+      accessibilityPreviewEnd();
       return;
     }
 
