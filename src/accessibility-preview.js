@@ -267,6 +267,40 @@ export function isAccessibilityPreviewModalOpen() {
   return panelOpen;
 }
 
+// --- Resize logic ---
+
+/**
+ * Set up drag-to-resize behavior on the left edge handle.
+ */
+function setupResizeHandle(handle, panel) {
+  let startX = 0;
+  let startWidth = 0;
+
+  const onMouseMove = (e) => {
+    const dx = startX - e.clientX;
+    const newWidth = Math.max(320, Math.min(window.innerWidth * 0.8 - 32, startWidth + dx));
+    panel.style.width = newWidth + "px";
+  };
+
+  const onMouseUp = () => {
+    document.removeEventListener("mousemove", onMouseMove);
+    document.removeEventListener("mouseup", onMouseUp);
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+  };
+
+  handle.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    startX = e.clientX;
+    startWidth = panel.offsetWidth;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  });
+}
+
 // --- Panel lifecycle ---
 
 /**
@@ -280,6 +314,12 @@ export function openPanel() {
   const panel = document.createElement("div");
   panel.id = "accessibility-preview-panel";
   panel.className = "accessibility-preview-panel";
+
+  // Resize handle on the left edge
+  const resizeHandle = document.createElement("div");
+  resizeHandle.className = "accessibility-preview-resize-handle";
+  panel.appendChild(resizeHandle);
+  setupResizeHandle(resizeHandle, panel);
 
   // Header
   const header = document.createElement("div");

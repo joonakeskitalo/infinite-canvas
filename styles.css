@@ -2029,9 +2029,10 @@ input[type="color"]::-webkit-color-swatch {
   position: fixed;
   top: 72px;
   right: 16px;
-  bottom: 16px;
+  bottom: 56px;
   width: 520px;
-  max-width: calc(50vw - 32px);
+  min-width: 320px;
+  max-width: calc(80vw - 32px);
   background: #fafafa;
   z-index: 9;
   display: flex;
@@ -2040,6 +2041,21 @@ input[type="color"]::-webkit-color-swatch {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.08);
   border-radius: 12px;
   border: 1px solid #e0e0e0;
+}
+
+.accessibility-preview-resize-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 1;
+}
+
+.accessibility-preview-resize-handle:hover,
+.accessibility-preview-resize-handle:active {
+  background: rgba(124, 58, 237, 0.2);
 }
 
 .accessibility-preview-header {
