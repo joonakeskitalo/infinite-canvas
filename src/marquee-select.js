@@ -371,7 +371,10 @@ function cropImageToRect(imgEl, rect) {
   const ih = iy2 - iy;
   if (iw <= 0 || ih <= 0) return null;
 
-  const srcImg = imgEl.img;
+  // Use filtered image source when a color filter is active
+  const srcImg = (state.currentFilter && state.currentFilter !== "none")
+    ? getFilteredImage(imgEl)
+    : imgEl.img;
   const natW = srcImg.naturalWidth || srcImg.width;
   const natH = srcImg.naturalHeight || srcImg.height;
 

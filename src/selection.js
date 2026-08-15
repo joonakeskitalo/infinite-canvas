@@ -13,7 +13,7 @@ import {
 } from "./elements.js";
 import { pushUndo } from "./history.js";
 import { scheduleSave } from "./persistence.js";
-import { render } from "./rendering.js";
+import { render, getFilteredImage } from "./rendering.js";
 import { updateToolbarUI, toggleAlignmentPanelVisibility } from "./toolbar.js";
 
 export function expandSelectionToGroups() {
@@ -148,7 +148,17 @@ export function sendBackward() {
 
 export function copySelectionToClipboard() {
   if (state.selectedElements.length === 0) return;
-  state.clipboardElements = state.selectedElements.map((el) => cloneElement(el));
+  state.clipboardElements = state.selectedElements.map((el) => {
+    const clone = cloneElement(el);
+    // If a color filter is active, bake it into cloned image elements
+    if (clone.elementType === "image" && clone.img && state.currentFilter && state.currentFilter !== "none") {
+      const filtered = getFilteredImage(el);
+      clone.img = filtered;
+      // Clear crop since the filtered canvas is already the full rendered image
+      clone.crop = null;
+    }
+    return clone;
+  });
   state.pasteOffset = 0;
   state.internalCopyPerformed = true;
 
@@ -172,7 +182,24 @@ function serializeClipboardElements(elements) {
   return elements.map((el) => {
     if (el.elementType === "image") {
       // Serialize image element with data URL
-      const imgSrc = el.img ? el.img.src : null;
+      // el.img may be an Image (has .src) or an OffscreenCanvas/Canvas (filtered)
+      let imgSrc = null;
+      if (el.img) {
+        if (el.img.src) {
+          // Regular Image element — use its src directly
+          imgSrc = el.img.src;
+        } else if (el.img instanceof OffscreenCanvas) {
+          // Filtered OffscreenCanvas — convert to data URL via regular canvas
+          const tmp = document.createElement("canvas");
+          tmp.width = el.img.width;
+          tmp.height = el.img.height;
+          tmp.getContext("2d").drawImage(el.img, 0, 0);
+          imgSrc = tmp.toDataURL("image/png");
+        } else if (el.img.toDataURL) {
+          // Regular canvas
+          imgSrc = el.img.toDataURL("image/png");
+        }
+      }
       return {
         id: el.id,
         elementType: "image",
@@ -386,6 +413,12 @@ export function duplicateSelection() {
   state.selectedElements.forEach((el) => {
     const clone = cloneElement(el);
     clone.id = (clone.elementType === "image" ? "img_" : "draw_") + state.elementIdCounter++;
+    // If a color filter is active, bake it into duplicated image elements
+    if (clone.elementType === "image" && clone.img && state.currentFilter && state.currentFilter !== "none") {
+      const filtered = getFilteredImage(el);
+      clone.img = filtered;
+      clone.crop = null;
+    }
     if (clone.groupId) {
       if (!groupIdMap.has(clone.groupId)) {
         groupIdMap.set(clone.groupId, "group_" + state.groupIdCounter++);
