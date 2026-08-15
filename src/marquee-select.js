@@ -17,7 +17,7 @@ import { state, spatialInsert, spatialRemove, spatialUpdate } from "./state.js";
 import { showToast } from "./utils.js";
 import { pushUndo } from "./history.js";
 import { scheduleSave } from "./persistence.js";
-import { render, drawShape } from "./rendering.js";
+import { render, drawShape, getFilteredImage } from "./rendering.js";
 import { getShapeBounds, cloneElement, translateElement } from "./elements.js";
 
 // Marching ants animation
@@ -288,13 +288,14 @@ function rasterizeMarqueeSelection() {
     if (el.elementType === "image") {
       offCtx.save();
       offCtx.globalAlpha = el.opacity != null ? el.opacity : 1;
+      const drawSrc = state.currentFilter !== "none" ? getFilteredImage(el) : el.img;
       if (el.crop) {
         const natW = el.img.naturalWidth || el.img.width;
         const natH = el.img.naturalHeight || el.img.height;
         const c = el.crop;
-        offCtx.drawImage(el.img, c.x * natW, c.y * natH, c.w * natW, c.h * natH, el.x, el.y, el.w, el.h);
+        offCtx.drawImage(drawSrc, c.x * natW, c.y * natH, c.w * natW, c.h * natH, el.x, el.y, el.w, el.h);
       } else {
-        offCtx.drawImage(el.img, el.x, el.y, el.w, el.h);
+        offCtx.drawImage(drawSrc, el.x, el.y, el.w, el.h);
       }
       offCtx.restore();
     } else {
