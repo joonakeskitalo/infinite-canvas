@@ -48,6 +48,7 @@ import {
   marqueeStartSelection, marqueeUpdateSelection, marqueeEndSelection,
   marqueeCut, marqueeCopy, marqueeDuplicate, marqueeCommit, exitMarqueeMode,
 } from "./marquee-select.js";
+import { generateAccessibilityGrid } from "./accessibility-grid.js";
 
 /**
  * Snap a split-line position to the nearest fraction (halves, thirds, quarters)
@@ -127,6 +128,14 @@ export function initEventHandlers() {
       }
     });
   });
+
+  // --- Accessibility Grid button ---
+  const accessibilityGridBtn = document.getElementById("accessibility-grid-btn");
+  if (accessibilityGridBtn) {
+    accessibilityGridBtn.addEventListener("click", () => {
+      generateAccessibilityGrid();
+    });
+  }
 
   // --- Color picker ---
   colorPicker.addEventListener("input", (e) => {
@@ -1728,6 +1737,7 @@ function setupKeyboardHandlers() {
     if (key === "e") targetTool = "eraser";
     if (key === "m") targetTool = "marquee";
     if (key === "y") targetTool = "measure";
+    if (key === "k" && e.shiftKey) { generateAccessibilityGrid(); return; }
     if (key === "k") targetTool = "contrast";
     // Bracket keys: adjust z-index (no modifier required)
     if ((key === "[" || key === "]") && state.currentTool === "select" && state.selectedElements.length > 0) {
