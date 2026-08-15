@@ -2041,6 +2041,7 @@ input[type="color"]::-webkit-color-swatch {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.08);
   border-radius: 12px;
   border: 1px solid #e0e0e0;
+  container-type: inline-size;
 }
 
 .accessibility-preview-resize-handle {
@@ -2100,6 +2101,18 @@ input[type="color"]::-webkit-color-swatch {
   grid-auto-rows: min-content;
   gap: 10px;
   align-content: start;
+}
+
+@container (min-width: 600px) {
+  .accessibility-preview-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@container (min-width: 850px) {
+  .accessibility-preview-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 .accessibility-preview-cell {
