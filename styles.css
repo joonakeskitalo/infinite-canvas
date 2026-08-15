@@ -2106,14 +2106,15 @@ input[type="color"]::-webkit-color-swatch {
   background: #fff;
   border-radius: 8px;
   overflow: hidden;
-  border: 1px solid #e8e8e8;
+  border: 1px solid #e0e0e0;
   display: flex;
   flex-direction: column;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
 .accessibility-preview-cell:hover {
   border-color: #7c3aed;
-  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.1);
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.15);
 }
 
 .accessibility-preview-img {

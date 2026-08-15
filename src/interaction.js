@@ -52,9 +52,9 @@ import { generateAccessibilityGrid } from "./accessibility-grid.js";
 import {
   accessibilityPreviewStart, accessibilityPreviewMove, accessibilityPreviewEnd,
   renderAccessibilityPreviewSelection, isAccessibilityPreviewSelecting,
-  isAccessibilityPreviewModalOpen,
+  isAccessibilityPreviewInteracting, isAccessibilityPreviewModalOpen,
   activateAccessibilityPreview, deactivateAccessibilityPreview,
-  handleAccessibilityPreviewDrop,
+  handleAccessibilityPreviewDrop, getAccessibilityPreviewCursor,
 } from "./accessibility-preview.js";
 
 /**
@@ -2327,6 +2327,12 @@ function setupMouseHandlers() {
       if (changed) render();
     }
 
+    // Accessibility preview cursor (move/resize handles)
+    if (state.currentTool === "accessibility-preview" && !state.isInteracting) {
+      const mouseWorld = screenToWorld(e.clientX, e.clientY);
+      container.style.cursor = getAccessibilityPreviewCursor(mouseWorld);
+    }
+
     // Resize handle cursor
     if (state.currentTool === "select" && !state.isInteracting && !state.cropMode && state.selectedElements.length === 1) {
       const el = state.selectedElements[0];
@@ -3407,7 +3413,7 @@ function setupMouseHandlers() {
       }
     } else if (state.marqueeIsSelecting || state.marqueeIsDragging) {
       marqueeUpdateSelection(worldPos);
-    } else if (isAccessibilityPreviewSelecting()) {
+    } else if (isAccessibilityPreviewInteracting()) {
       accessibilityPreviewMove(worldPos);
     } else if (state.activeMeasureLine) {
       // Don't update measure line until user has dragged beyond minimum distance
@@ -3485,7 +3491,7 @@ function setupMouseHandlers() {
       return;
     }
 
-    if (state.currentTool === "accessibility-preview" && isAccessibilityPreviewSelecting()) {
+    if (state.currentTool === "accessibility-preview" && isAccessibilityPreviewInteracting()) {
       accessibilityPreviewEnd();
       return;
     }

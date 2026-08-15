@@ -2,10 +2,9 @@
  * Accessibility Preview Tool
  *
  * A tool mode with a non-blocking side panel. When activated, a panel opens
- * on the right side (50% screen width) showing color-filtered previews.
- * The user draws marquee-style selections on the canvas (which remains fully
- * interactive) and the panel updates with the filtered versions of the
- * selected area.
+ * on the right side showing color-filtered previews. The user draws a
+ * marquee-style selection on the canvas that remains visible, and can be
+ * moved and resized. The panel updates live as the selection changes.
  */
 
 import { state, getElementsInZOrder, spatialInsert } from "./state.js";
@@ -17,7 +16,6 @@ import { scheduleSave } from "./persistence.js";
 
 // --- Preview filters ---
 const PREVIEW_FILTERS = [
-  { key: "none", label: "Original" },
   { key: "protanopia", label: "Protanopia" },
   { key: "deuteranopia", label: "Deuteranopia" },
   { key: "tritanopia", label: "Tritanopia" },
@@ -25,17 +23,31 @@ const PREVIEW_FILTERS = [
   { key: "grayscale", label: "Grayscale" },
   { key: "low-contrast", label: "Low Contrast" },
   { key: "high-contrast", label: "High Contrast" },
+  { key: "none", label: "Original" },
 ];
 
+// --- Resize handle size (in screen pixels, will be divided by zoom) ---
+const HANDLE_SIZE = 8;
+
 // --- Tool state ---
-let isSelecting = false;
-let selectionStart = null;
-let selectionRect = null;
+let isDrawing = false;       // True while drawing a new selection
+let drawStart = null;        // {x, y} world coords where drawing started
+
+// Persistent selection rectangle (world coords) — stays on canvas
+let activeRect = null;       // {x, y, w, h} or null
+
+// Interaction mode for existing selection
+let interactionMode = null;  // null | "move" | "resize-tl" | "resize-tr" | "resize-bl" | "resize-br" | "resize-t" | "resize-b" | "resize-l" | "resize-r"
+let interactionStart = null; // {x, y} world pos at drag start
+let interactionOrigRect = null; // copy of activeRect at drag start
 
 // --- Panel state ---
 let panelOpen = false;
 let panelEl = null;
 let gridEl = null;
+
+// Debounce timer for live updates during move/resize
+let updateTimer = null;
 
 /**
  * Create an OffscreenCanvas helper.
@@ -137,36 +149,107 @@ function canvasToDataURL(canvas) {
   return canvas.toDataURL("image/png");
 }
 
+// --- Hit testing for the persistent selection ---
+
+/**
+ * Get the handle positions for the active selection rect.
+ * Returns an array of { id, x, y } in world coords.
+ */
+function getHandles(rect, zoom) {
+  const { x, y, w, h } = rect;
+  return [
+    { id: "resize-tl", x: x, y: y },
+    { id: "resize-tr", x: x + w, y: y },
+    { id: "resize-bl", x: x, y: y + h },
+    { id: "resize-br", x: x + w, y: y + h },
+  ];
+}
+
+/**
+ * Determine what the cursor hit: a handle, inside the rect (move), or outside (new draw).
+ * Returns the interaction mode string or null.
+ */
+function hitTestSelection(worldPos, zoom) {
+  if (!activeRect) return null;
+
+  const hs = HANDLE_SIZE / zoom;
+
+  // Check handles first
+  const handles = getHandles(activeRect, zoom);
+  for (const handle of handles) {
+    if (Math.abs(worldPos.x - handle.x) <= hs && Math.abs(worldPos.y - handle.y) <= hs) {
+      return handle.id;
+    }
+  }
+
+  // Check if inside the rect (move)
+  if (worldPos.x >= activeRect.x && worldPos.x <= activeRect.x + activeRect.w &&
+      worldPos.y >= activeRect.y && worldPos.y <= activeRect.y + activeRect.h) {
+    return "move";
+  }
+
+  return null;
+}
+
 // --- Selection rendering ---
 
 /**
- * Render the selection rectangle on the canvas while dragging.
+ * Render the persistent selection and its handles, or the in-progress drawing rect.
  */
 export function renderAccessibilityPreviewSelection(ctx, transform) {
-  if (!isSelecting || !selectionRect) return;
-
-  const rect = selectionRect;
-  if (rect.w < 1 && rect.h < 1) return;
-
   const zoom = transform.zoom;
 
+  // Draw the in-progress selection while dragging to create
+  if (isDrawing && drawStart) {
+    const rect = activeRect;
+    if (rect && (rect.w > 1 || rect.h > 1)) {
+      drawSelectionRect(ctx, rect, zoom, false);
+    }
+    return;
+  }
+
+  // Draw the persistent active selection
+  if (activeRect && activeRect.w > 1 && activeRect.h > 1) {
+    drawSelectionRect(ctx, activeRect, zoom, true);
+  }
+}
+
+/**
+ * Draw a selection rectangle with optional handles.
+ */
+function drawSelectionRect(ctx, rect, zoom, showHandles) {
   ctx.save();
 
-  ctx.fillStyle = "rgba(128, 0, 255, 0.08)";
+  // Fill
+  ctx.fillStyle = "rgba(124, 58, 237, 0.06)";
   ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
 
+  // Border
   ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 1.5 / zoom;
+  ctx.lineWidth = 2 / zoom;
   ctx.setLineDash([]);
   ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
 
   ctx.strokeStyle = "#7c3aed";
-  ctx.lineWidth = 1.5 / zoom;
+  ctx.lineWidth = 2 / zoom;
   const dashLen = 6 / zoom;
   ctx.setLineDash([dashLen, dashLen]);
   ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
-
   ctx.setLineDash([]);
+
+  // Handles
+  if (showHandles) {
+    const hs = HANDLE_SIZE / zoom;
+    const handles = getHandles(rect, zoom);
+    ctx.fillStyle = "#fff";
+    ctx.strokeStyle = "#7c3aed";
+    ctx.lineWidth = 1.5 / zoom;
+    for (const handle of handles) {
+      ctx.fillRect(handle.x - hs / 2, handle.y - hs / 2, hs, hs);
+      ctx.strokeRect(handle.x - hs / 2, handle.y - hs / 2, hs, hs);
+    }
+  }
+
   ctx.restore();
 }
 
@@ -176,88 +259,202 @@ export function renderAccessibilityPreviewSelection(ctx, transform) {
  * Called on mousedown when the accessibility-preview tool is active.
  */
 export function accessibilityPreviewStart(worldPos) {
-  // Open the panel if not already open
   if (!panelOpen) {
     openPanel();
   }
-  isSelecting = true;
-  selectionStart = { x: worldPos.x, y: worldPos.y };
-  selectionRect = { x: worldPos.x, y: worldPos.y, w: 0, h: 0 };
+
+  const zoom = state.transform.zoom;
+
+  // Check if clicking on existing selection (handles or inside)
+  const hit = hitTestSelection(worldPos, zoom);
+
+  if (hit) {
+    // Start move or resize interaction
+    interactionMode = hit;
+    interactionStart = { x: worldPos.x, y: worldPos.y };
+    interactionOrigRect = { ...activeRect };
+    return;
+  }
+
+  // Check if clicking an image (no existing selection hit)
+  const images = state.images;
+  let hitImage = null;
+  for (let i = state.elementOrder.length - 1; i >= 0; i--) {
+    const id = state.elementOrder[i];
+    const img = images.find((el) => el.id === id);
+    if (!img) continue;
+    if (worldPos.x >= img.x && worldPos.x <= img.x + img.w &&
+        worldPos.y >= img.y && worldPos.y <= img.y + img.h) {
+      hitImage = img;
+      break;
+    }
+  }
+
+  // Start drawing a new selection
+  isDrawing = true;
+  drawStart = { x: worldPos.x, y: worldPos.y };
+  activeRect = { x: worldPos.x, y: worldPos.y, w: 0, h: 0 };
 }
 
 /**
- * Called on mousemove during selection.
+ * Called on mousemove during interaction.
  */
 export function accessibilityPreviewMove(worldPos) {
-  if (!isSelecting || !selectionStart) return;
+  // Drawing a new selection
+  if (isDrawing && drawStart) {
+    const x = Math.min(drawStart.x, worldPos.x);
+    const y = Math.min(drawStart.y, worldPos.y);
+    const w = Math.abs(worldPos.x - drawStart.x);
+    const h = Math.abs(worldPos.y - drawStart.y);
+    activeRect = { x, y, w, h };
+    render();
+    return;
+  }
 
-  const x = Math.min(selectionStart.x, worldPos.x);
-  const y = Math.min(selectionStart.y, worldPos.y);
-  const w = Math.abs(worldPos.x - selectionStart.x);
-  const h = Math.abs(worldPos.y - selectionStart.y);
+  // Moving or resizing the existing selection
+  if (interactionMode && interactionStart && interactionOrigRect) {
+    const dx = worldPos.x - interactionStart.x;
+    const dy = worldPos.y - interactionStart.y;
+    const orig = interactionOrigRect;
 
-  selectionRect = { x, y, w, h };
-  render();
+    if (interactionMode === "move") {
+      activeRect = { x: orig.x + dx, y: orig.y + dy, w: orig.w, h: orig.h };
+    } else {
+      activeRect = computeResize(orig, interactionMode, dx, dy);
+    }
+
+    render();
+    scheduleLiveUpdate();
+    return;
+  }
 }
 
 /**
- * Called on mouseup to finalize selection and update the panel.
- * If the drag was very small (a click), try to select the image under the cursor.
+ * Called on mouseup to finalize interaction.
  */
 export function accessibilityPreviewEnd() {
-  if (!isSelecting) return;
-  isSelecting = false;
+  if (isDrawing) {
+    const clickPos = drawStart;
+    isDrawing = false;
+    drawStart = null;
 
-  const rect = selectionRect;
-  selectionRect = null;
-  render();
-
-  // If the selection is too small, treat it as a click — find image under cursor
-  if (!rect || rect.w < 5 || rect.h < 5) {
-    const clickPos = selectionStart;
-    if (!clickPos) return;
-
-    // Find the topmost image under the click position
-    const images = state.images;
-    let hitImage = null;
-    for (let i = state.elementOrder.length - 1; i >= 0; i--) {
-      const id = state.elementOrder[i];
-      const img = images.find((el) => el.id === id);
-      if (!img) continue;
-      if (clickPos.x >= img.x && clickPos.x <= img.x + img.w &&
-          clickPos.y >= img.y && clickPos.y <= img.y + img.h) {
-        hitImage = img;
-        break;
+    // If too small, check if it was a click on an image
+    if (!activeRect || activeRect.w < 5 || activeRect.h < 5) {
+      const images = state.images;
+      let hitImage = null;
+      if (clickPos) {
+        for (let i = state.elementOrder.length - 1; i >= 0; i--) {
+          const id = state.elementOrder[i];
+          const img = images.find((el) => el.id === id);
+          if (!img) continue;
+          if (clickPos.x >= img.x && clickPos.x <= img.x + img.w &&
+              clickPos.y >= img.y && clickPos.y <= img.y + img.h) {
+            hitImage = img;
+            break;
+          }
+        }
       }
+      if (hitImage) {
+        activeRect = { x: hitImage.x, y: hitImage.y, w: hitImage.w, h: hitImage.h };
+        render();
+        refreshPreview();
+        return;
+      }
+      activeRect = null;
+      render();
+      clearPanelGrid();
+      return;
     }
 
-    if (hitImage) {
-      // Rasterize the full image bounds
-      const sourceCanvas = rasterizeWorldRect({
-        x: hitImage.x, y: hitImage.y, w: hitImage.w, h: hitImage.h,
-      });
-      if (sourceCanvas) {
-        if (!panelOpen) openPanel();
-        updatePanelGrid(sourceCanvas);
-      }
-    }
+    render();
+    refreshPreview();
     return;
   }
 
-  const sourceCanvas = rasterizeWorldRect(rect);
-  if (!sourceCanvas) {
-    showToast("Could not capture area");
+  if (interactionMode) {
+    interactionMode = null;
+    interactionStart = null;
+    interactionOrigRect = null;
+    refreshPreview();
     return;
   }
-
-  updatePanelGrid(sourceCanvas);
 }
 
 /**
- * Check if the tool is currently selecting.
+ * Compute new rect after a resize drag.
+ */
+function computeResize(orig, mode, dx, dy) {
+  let { x, y, w, h } = orig;
+
+  if (mode.includes("l")) { x += dx; w -= dx; }
+  if (mode.includes("r")) { w += dx; }
+  if (mode.includes("t")) { y += dy; h -= dy; }
+  if (mode.includes("b")) { h += dy; }
+
+  // Ensure minimum size
+  if (w < 10) { w = 10; if (mode.includes("l")) x = orig.x + orig.w - 10; }
+  if (h < 10) { h = 10; if (mode.includes("t")) y = orig.y + orig.h - 10; }
+
+  return { x, y, w, h };
+}
+
+/**
+ * Schedule a debounced live update of the panel during move/resize.
+ */
+function scheduleLiveUpdate() {
+  if (updateTimer) clearTimeout(updateTimer);
+  updateTimer = setTimeout(() => {
+    updateTimer = null;
+    refreshPreview();
+  }, 100);
+}
+
+/**
+ * Clear the panel grid and show the empty state.
+ */
+function clearPanelGrid() {
+  if (!gridEl) return;
+  gridEl.innerHTML = "";
+  const emptyState = document.createElement("div");
+  emptyState.className = "accessibility-preview-empty";
+  emptyState.innerHTML = `
+    <div class="accessibility-preview-empty-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="4 2"/>
+        <path d="M9 12h6M12 9v6"/>
+      </svg>
+    </div>
+    <p>Click an image or draw a selection to preview color accessibility filters</p>
+  `;
+  gridEl.appendChild(emptyState);
+}
+
+/**
+ * Refresh the panel with the current active rect content.
+ */
+function refreshPreview() {
+  if (!activeRect || activeRect.w < 5 || activeRect.h < 5) return;
+  if (!panelOpen) return;
+
+  const sourceCanvas = rasterizeWorldRect(activeRect);
+  if (sourceCanvas) {
+    updatePanelGrid(sourceCanvas);
+  }
+}
+
+/**
+ * Check if the tool is currently in an active interaction (drawing, moving, or resizing).
+ * Used by the main mousemove handler to route events.
+ */
+export function isAccessibilityPreviewInteracting() {
+  return isDrawing || interactionMode != null;
+}
+
+/**
+ * Check if there's a visible selection to render (for the render loop).
  */
 export function isAccessibilityPreviewSelecting() {
-  return isSelecting && selectionRect != null;
+  return activeRect != null;
 }
 
 /**
@@ -267,12 +464,26 @@ export function isAccessibilityPreviewModalOpen() {
   return panelOpen;
 }
 
-// --- Resize logic ---
-
 /**
- * Set up drag-to-resize behavior on the left edge handle.
+ * Get the current cursor style based on what the user is hovering.
+ * Called from the main interaction module to set the cursor.
  */
-function setupResizeHandle(handle, panel) {
+export function getAccessibilityPreviewCursor(worldPos) {
+  if (!activeRect) return "crosshair";
+
+  const zoom = state.transform.zoom;
+  const hit = hitTestSelection(worldPos, zoom);
+
+  if (!hit) return "crosshair";
+  if (hit === "move") return "move";
+  if (hit === "resize-tl" || hit === "resize-br") return "nwse-resize";
+  if (hit === "resize-tr" || hit === "resize-bl") return "nesw-resize";
+  return "crosshair";
+}
+
+// --- Panel resize handle ---
+
+function setupPanelResizeHandle(handle, panel) {
   let startX = 0;
   let startWidth = 0;
 
@@ -304,13 +515,12 @@ function setupResizeHandle(handle, panel) {
 // --- Panel lifecycle ---
 
 /**
- * Open the side panel. Called when the tool is activated.
+ * Open the side panel.
  */
 export function openPanel() {
   if (panelOpen) return;
   panelOpen = true;
 
-  // Create panel element (non-blocking, no overlay)
   const panel = document.createElement("div");
   panel.id = "accessibility-preview-panel";
   panel.className = "accessibility-preview-panel";
@@ -319,7 +529,7 @@ export function openPanel() {
   const resizeHandle = document.createElement("div");
   resizeHandle.className = "accessibility-preview-resize-handle";
   panel.appendChild(resizeHandle);
-  setupResizeHandle(resizeHandle, panel);
+  setupPanelResizeHandle(resizeHandle, panel);
 
   // Header
   const header = document.createElement("div");
@@ -362,10 +572,15 @@ export function openPanel() {
 
   panelEl = panel;
   gridEl = grid;
+
+  // If there's already an active selection, show it
+  if (activeRect && activeRect.w > 5 && activeRect.h > 5) {
+    refreshPreview();
+  }
 }
 
 /**
- * Close the panel and restore canvas size.
+ * Close the panel.
  */
 export function closePanel() {
   if (!panelOpen) return;
@@ -377,19 +592,18 @@ export function closePanel() {
     gridEl = null;
   }
 
+  activeRect = null;
   render();
 }
 
 /**
  * Update the panel grid with filtered versions of the source canvas.
- * Each cell shows the filtered image with a label overlay and is draggable to the canvas.
  */
 function updatePanelGrid(sourceCanvas) {
   if (!gridEl) return;
 
   gridEl.innerHTML = "";
 
-  // Store the source dimensions for drop sizing
   const srcW = sourceCanvas.width;
   const srcH = sourceCanvas.height;
 
@@ -419,7 +633,7 @@ function updatePanelGrid(sourceCanvas) {
     cell.appendChild(labelEl);
     gridEl.appendChild(cell);
 
-    // --- Drag to canvas ---
+    // Drag to canvas
     img.addEventListener("dragstart", (e) => {
       e.dataTransfer.setData("text/plain", "accessibility-preview-drag");
       e.dataTransfer.setData("application/x-a11y-preview", JSON.stringify({
@@ -435,7 +649,6 @@ function updatePanelGrid(sourceCanvas) {
 
 /**
  * Handle drop events on the canvas from the accessibility preview panel.
- * Creates a new image element at the drop position.
  */
 export function handleAccessibilityPreviewDrop(e) {
   const payload = e.dataTransfer.getData("application/x-a11y-preview");
@@ -474,8 +687,7 @@ export function handleAccessibilityPreviewDrop(e) {
 }
 
 /**
- * Called when the tool is activated (e.g., from toolbar click or keyboard shortcut).
- * Opens the panel immediately.
+ * Called when the tool is activated.
  */
 export function activateAccessibilityPreview() {
   if (!panelOpen) {
@@ -485,8 +697,8 @@ export function activateAccessibilityPreview() {
 
 /**
  * Called when switching away from this tool.
- * Closes the panel.
  */
 export function deactivateAccessibilityPreview() {
+  activeRect = null;
   closePanel();
 }
