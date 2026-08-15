@@ -48,7 +48,6 @@ import {
   marqueeStartSelection, marqueeUpdateSelection, marqueeEndSelection,
   marqueeCut, marqueeCopy, marqueeDuplicate, marqueeCommit, exitMarqueeMode,
 } from "./marquee-select.js";
-import { generateAccessibilityGrid } from "./accessibility-grid.js";
 import {
   accessibilityPreviewStart, accessibilityPreviewMove, accessibilityPreviewEnd,
   renderAccessibilityPreviewSelection, isAccessibilityPreviewSelecting,
@@ -137,14 +136,6 @@ export function initEventHandlers() {
       }
     });
   });
-
-  // --- Accessibility Grid button ---
-  const accessibilityGridBtn = document.getElementById("accessibility-grid-btn");
-  if (accessibilityGridBtn) {
-    accessibilityGridBtn.addEventListener("click", () => {
-      generateAccessibilityGrid();
-    });
-  }
 
   // --- Color picker ---
   colorPicker.addEventListener("input", (e) => {
@@ -1757,7 +1748,6 @@ function setupKeyboardHandlers() {
     if (key === "e") targetTool = "eraser";
     if (key === "m") targetTool = "marquee";
     if (key === "y") targetTool = "measure";
-    if (key === "k" && e.shiftKey) { generateAccessibilityGrid(); return; }
     if (key === "k") targetTool = "contrast";
     if (key === "j") targetTool = "accessibility-preview";
     // Bracket keys: adjust z-index (no modifier required)
