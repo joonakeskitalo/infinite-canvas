@@ -2182,3 +2182,46 @@ input[type="color"]::-webkit-color-swatch {
   max-width: 220px;
   color: #888;
 }
+
+/* Accessibility Preview — Fullscreen Modal (Shift+Hover) */
+
+.accessibility-preview-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  z-index: 8; /* below the panel (z-index 9) so it sits underneath it */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 16px;
+  background: rgba(0, 0, 0, 0.92);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.accessibility-preview-modal-overlay.visible {
+  opacity: 1;
+  pointer-events: none; /* keep non-interactive so panel hover still works */
+}
+
+.accessibility-preview-modal-img {
+  max-width: 90%;
+  max-height: 80vh;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 16px 64px rgba(0, 0, 0, 0.5);
+}
+
+.accessibility-preview-modal-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(124, 58, 237, 0.8);
+  padding: 6px 16px;
+  border-radius: 20px;
+  letter-spacing: 0.3px;
+}

@@ -50,6 +50,12 @@ let gridEl = null;
 // Debounce timer for live updates during move/resize
 let updateTimer = null;
 
+// --- Fullscreen modal preview state ---
+let modalOverlay = null;
+let modalImg = null;
+let modalLabel = null;
+let isShiftHeld = false;
+
 /**
  * Create an OffscreenCanvas helper.
  */
@@ -663,6 +669,10 @@ export function openPanel() {
   panelEl = panel;
   gridEl = grid;
 
+  // Register shift key listeners for modal preview
+  document.addEventListener("keydown", onKeyDownForModal);
+  document.addEventListener("keyup", onKeyUpForModal);
+
   // If there's already an active selection, show it
   if (activeRect && activeRect.w > 5 && activeRect.h > 5) {
     refreshPreview();
@@ -676,6 +686,20 @@ export function closePanel() {
   if (!panelOpen) return;
   panelOpen = false;
 
+  // Remove shift key listeners
+  document.removeEventListener("keydown", onKeyDownForModal);
+  document.removeEventListener("keyup", onKeyUpForModal);
+  isShiftHeld = false;
+  hideModal();
+
+  // Remove modal overlay
+  if (modalOverlay) {
+    modalOverlay.remove();
+    modalOverlay = null;
+    modalImg = null;
+    modalLabel = null;
+  }
+
   if (panelEl) {
     panelEl.remove();
     panelEl = null;
@@ -684,6 +708,105 @@ export function closePanel() {
 
   activeRect = null;
   render();
+}
+
+// --- Fullscreen modal preview ---
+
+/**
+ * Create the fullscreen modal overlay element (lazily, once).
+ */
+function ensureModalOverlay() {
+  if (modalOverlay) return;
+
+  modalOverlay = document.createElement("div");
+  modalOverlay.className = "accessibility-preview-modal-overlay";
+
+  modalImg = document.createElement("img");
+  modalImg.className = "accessibility-preview-modal-img";
+
+  modalLabel = document.createElement("div");
+  modalLabel.className = "accessibility-preview-modal-label";
+
+  modalOverlay.appendChild(modalImg);
+  modalOverlay.appendChild(modalLabel);
+  document.body.appendChild(modalOverlay);
+}
+
+/**
+ * Show the fullscreen modal with the given image data URL and filter label.
+ */
+function showModal(dataURL, label) {
+  ensureModalOverlay();
+  modalImg.src = dataURL;
+  modalLabel.textContent = label;
+
+  // Center the image in the space left of the panel
+  if (panelEl) {
+    const panelWidth = window.innerWidth - panelEl.getBoundingClientRect().left;
+    modalOverlay.style.paddingRight = panelWidth + "px";
+  } else {
+    modalOverlay.style.paddingRight = "0";
+  }
+
+  modalOverlay.classList.add("visible");
+}
+
+/**
+ * Hide the fullscreen modal.
+ */
+function hideModal() {
+  if (modalOverlay) {
+    modalOverlay.classList.remove("visible");
+  }
+}
+
+/**
+ * Track shift key state for the modal preview hover behavior.
+ */
+function onKeyDownForModal(e) {
+  if (e.key === "Shift") {
+    isShiftHeld = true;
+  }
+}
+
+function onKeyUpForModal(e) {
+  if (e.key === "Shift") {
+    isShiftHeld = false;
+    hideModal();
+  }
+}
+
+/**
+ * Insert a filtered preview image onto the canvas at the center of the current view.
+ */
+function insertPreviewImageToCanvas(dataURL, w, h, label) {
+  const img = new Image();
+  img.onload = () => {
+    pushUndo();
+
+    // Place at center of current viewport
+    const cx = (-state.transform.x + window.innerWidth / 2) / state.transform.zoom;
+    const cy = (-state.transform.y + window.innerHeight / 2) / state.transform.zoom;
+
+    const newImg = {
+      id: "img_" + state.elementIdCounter++,
+      elementType: "image",
+      img,
+      x: cx - w / 2,
+      y: cy - h / 2,
+      w,
+      h,
+      opacity: 1,
+    };
+    state.images.push(newImg);
+    spatialInsert(newImg);
+
+    state.selectedElements = [newImg];
+    render();
+    scheduleSave();
+    showToast(`Placed "${label}" on canvas`);
+  };
+  img.src = dataURL;
 }
 
 /**
@@ -733,6 +856,32 @@ function updatePanelGrid(sourceCanvas) {
         label,
       }));
       e.dataTransfer.effectAllowed = "copy";
+    });
+
+    // Shift+hover: fullscreen modal preview
+    cell.addEventListener("mouseenter", () => {
+      if (isShiftHeld) {
+        showModal(dataURL, label);
+      }
+    });
+
+    cell.addEventListener("mousemove", () => {
+      if (isShiftHeld && modalOverlay && !modalOverlay.classList.contains("visible")) {
+        showModal(dataURL, label);
+      }
+    });
+
+    cell.addEventListener("mouseleave", () => {
+      hideModal();
+    });
+
+    // Cmd+click (Meta+click): insert image to canvas
+    cell.addEventListener("click", (e) => {
+      if (e.metaKey || e.ctrlKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        insertPreviewImageToCanvas(dataURL, srcW, srcH, label);
+      }
     });
   }
 }
