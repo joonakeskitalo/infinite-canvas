@@ -13,12 +13,13 @@
  * - Copying always rasterizes to PNG for the system clipboard.
  */
 
-import { state, spatialInsert, spatialRemove, spatialUpdate } from "./state.js";
+import { state, CONSTANTS, spatialInsert, spatialRemove, spatialUpdate } from "./state.js";
 import { showToast } from "./utils.js";
 import { pushUndo } from "./history.js";
 import { scheduleSave } from "./persistence.js";
 import { render, drawShape, getFilteredImage } from "./rendering.js";
 import { getShapeBounds, cloneElement, translateElement } from "./elements.js";
+import { serializeClipboardElements } from "./selection.js";
 
 // Marching ants animation
 let _marchingAntsRAF = null;
@@ -307,9 +308,9 @@ function rasterizeMarqueeSelection() {
 }
 
 /**
- * Copy the marquee selection to the clipboard as a rasterized PNG.
- * For the internal clipboard: images are cropped to the selection rect,
- * vector elements are stored as clones.
+ * Copy the marquee selection to the internal clipboard for paste.
+ * Images are cropped to the selection rect, vector elements are stored as clones.
+ * Writes serialized element data to the system clipboard for cross-tab paste support.
  */
 export function marqueeCopy() {
   if (!state.marqueeMode || !state.marqueeRect) return;
@@ -343,16 +344,17 @@ export function marqueeCopy() {
     state.clipboardElements = clones;
     state.pasteOffset = 0;
     state.internalCopyPerformed = true;
-  }
 
-  // Rasterize to PNG for system clipboard (already clipped to rect)
-  const pixelCanvas = state.marqueePixelCanvas;
-  if (!pixelCanvas) {
-    showToast("Copied selection (internal)");
-    return;
-  }
+    // Serialize elements for cross-tab clipboard transfer (same as copySelectionToClipboard)
+    const serialized = serializeClipboardElements(clones);
+    const clipboardPayload = CONSTANTS.INTERNAL_COPY_MIME + "\n" + JSON.stringify(serialized);
 
-  copyCanvasToClipboard(pixelCanvas, "Copied selection to clipboard");
+    navigator.clipboard.writeText(clipboardPayload).then(() => {
+      showToast(`Copied ${clones.length} element(s)`);
+    }).catch(() => {
+      showToast(`Copied ${clones.length} element(s) (internal)`);
+    });
+  }
 }
 
 /**

@@ -178,7 +178,7 @@ export function copySelectionToClipboard() {
   });
 }
 
-function serializeClipboardElements(elements) {
+export function serializeClipboardElements(elements) {
   return elements.map((el) => {
     if (el.elementType === "image") {
       // Serialize image element with data URL
