@@ -325,18 +325,48 @@ function snapAccessibilityRect(rect) {
 export function accessibilityPreviewMove(worldPos, shiftKey) {
   // Drawing a new selection
   if (isDrawing && drawStart) {
-    let x = Math.min(drawStart.x, worldPos.x);
-    let y = Math.min(drawStart.y, worldPos.y);
-    let w = Math.abs(worldPos.x - drawStart.x);
-    let h = Math.abs(worldPos.y - drawStart.y);
+    let endX = worldPos.x;
+    let endY = worldPos.y;
 
     if (shiftKey) {
-      const rect = { x, y, w, h };
-      const snapped = snapAccessibilityRect(rect);
-      x = snapped.x; y = snapped.y; w = snapped.w; h = snapped.h;
+      // Snap only the dragged endpoint, keep drawStart fixed
+      if (state.gridVisible && state.gridSize > 0) {
+        const g = state.gridSize;
+        endX = Math.round(endX / g) * g;
+        endY = Math.round(endY / g) * g;
+        state.activeSnapGuides = [];
+      } else {
+        const tempRect = {
+          x: Math.min(drawStart.x, endX), y: Math.min(drawStart.y, endY),
+          w: Math.abs(endX - drawStart.x), h: Math.abs(endY - drawStart.y),
+        };
+        const targets = getSnapTargets([], tempRect);
+        const threshold = CONSTANTS.SNAP_THRESHOLD / state.transform.zoom;
+        let bestDistX = threshold, bestDistY = threshold;
+        let dx = 0, dy = 0;
+        for (const tX of targets.x) {
+          const dist = Math.abs(endX - tX);
+          if (dist < bestDistX) { bestDistX = dist; dx = tX - endX; }
+        }
+        for (const tY of targets.y) {
+          const dist = Math.abs(endY - tY);
+          if (dist < bestDistY) { bestDistY = dist; dy = tY - endY; }
+        }
+        endX += dx;
+        endY += dy;
+        const guides = [];
+        if (dx !== 0) { for (const tX of targets.x) { if (Math.abs(endX - tX) < 0.5) guides.push({ axis: "x", pos: tX }); } }
+        if (dy !== 0) { for (const tY of targets.y) { if (Math.abs(endY - tY) < 0.5) guides.push({ axis: "y", pos: tY }); } }
+        state.activeSnapGuides = guides;
+      }
     } else {
       state.activeSnapGuides = [];
     }
+
+    const x = Math.min(drawStart.x, endX);
+    const y = Math.min(drawStart.y, endY);
+    const w = Math.abs(endX - drawStart.x);
+    const h = Math.abs(endY - drawStart.y);
 
     activeRect = { x, y, w, h };
     render();
