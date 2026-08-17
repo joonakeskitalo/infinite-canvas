@@ -47,6 +47,7 @@ import { showContrastResult, showContrastWaiting, hideContrastPanel, contrastRat
 import {
   marqueeStartSelection, marqueeUpdateSelection, marqueeEndSelection,
   marqueeCut, marqueeCopy, marqueeDuplicate, marqueeCommit, exitMarqueeMode,
+  marqueeExportPNG,
 } from "./marquee-select.js";
 import {
   accessibilityPreviewStart, accessibilityPreviewMove, accessibilityPreviewEnd,
@@ -573,8 +574,16 @@ export function initEventHandlers() {
   window.addEventListener("beforeunload", (e) => { if (state.isDirty) { e.preventDefault(); e.returnValue = ""; } });
 
   // --- Export and download buttons ---
-  exportBtn.addEventListener("click", (e) => executePNGExport(e.shiftKey ? 0.5 : 1.0));
-  document.getElementById("download-png-btn").addEventListener("click", (e) => executePNGExport(e.shiftKey ? 0.5 : 1.0, { download: true }));
+  exportBtn.addEventListener("click", (e) => {
+    const scale = e.shiftKey ? 0.5 : 1.0;
+    if (state.marqueeMode) { marqueeExportPNG(scale); return; }
+    executePNGExport(scale);
+  });
+  document.getElementById("download-png-btn").addEventListener("click", (e) => {
+    const scale = e.shiftKey ? 0.5 : 1.0;
+    if (state.marqueeMode) { marqueeExportPNG(scale, { download: true }); return; }
+    executePNGExport(scale, { download: true });
+  });
   document.getElementById("download-jpeg-btn").addEventListener("click", (e) => executeJPEGExport(e.shiftKey ? 0.5 : 1.0, { download: true }));
   downloadImagesBtn.addEventListener("click", () => {
     if (state.images.length === 0) { showToast("No pasted images found to download!"); return; }
@@ -2230,12 +2239,32 @@ function setupKeyboardHandlers() {
     }
     if (e.key.toLowerCase() === "v") { return; } // Let native paste fire
     if (e.key.toLowerCase() === "a") { e.preventDefault(); selectAllElements(); return; }
-    if (e.key.toLowerCase() === "e" && !e.shiftKey && !e.altKey) { e.preventDefault(); executePNGExport(1.0); return; }
-    if (e.altKey && e.code === "KeyE") { e.preventDefault(); executePNGExport(0.5); return; }
-    if (e.key.toLowerCase() === "e" && e.shiftKey) { e.preventDefault(); executePNGExport(1.0, { download: true }); return; }
+    if (e.key.toLowerCase() === "e" && !e.shiftKey && !e.altKey) {
+      e.preventDefault();
+      if (state.marqueeMode) { marqueeExportPNG(1.0); return; }
+      executePNGExport(1.0); return;
+    }
+    if (e.altKey && e.code === "KeyE") {
+      e.preventDefault();
+      if (state.marqueeMode) { marqueeExportPNG(0.5); return; }
+      executePNGExport(0.5); return;
+    }
+    if (e.key.toLowerCase() === "e" && e.shiftKey) {
+      e.preventDefault();
+      if (state.marqueeMode) { marqueeExportPNG(1.0, { download: true }); return; }
+      executePNGExport(1.0, { download: true }); return;
+    }
     if (e.key.toLowerCase() === "j" && e.shiftKey) { e.preventDefault(); executeJPEGExport(1.0, { download: true }); return; }
-    if (e.key.toLowerCase() === "p" && !e.shiftKey) { e.preventDefault(); executePNGExport(1.0); return; }
-    if (e.key.toLowerCase() === "p" && e.shiftKey) { e.preventDefault(); executePNGExport(0.5); return; }
+    if (e.key.toLowerCase() === "p" && !e.shiftKey) {
+      e.preventDefault();
+      if (state.marqueeMode) { marqueeExportPNG(1.0); return; }
+      executePNGExport(1.0); return;
+    }
+    if (e.key.toLowerCase() === "p" && e.shiftKey) {
+      e.preventDefault();
+      if (state.marqueeMode) { marqueeExportPNG(0.5); return; }
+      executePNGExport(0.5); return;
+    }
     // Cmd+0: reset zoom to 100%
     if (e.key === "0" || e.code === "Digit0") {
       e.preventDefault();

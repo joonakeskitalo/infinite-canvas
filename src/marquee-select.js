@@ -420,6 +420,152 @@ function cropImageToRect(imgEl, rect) {
 }
 
 /**
+ * Export the marquee selection as PNG — either to the clipboard or as a downloaded file.
+ * Behaves like the regular selection export: bounds are computed from the captured elements
+ * (not the marquee rectangle itself), with padding, and rendered with the canvas background.
+ *
+ * @param {number} scaleFactor - Export scale (1.0 = full, 0.5 = half).
+ * @param {{download?: boolean}} options - If download is true, triggers a file download instead of clipboard copy.
+ */
+export function marqueeExportPNG(scaleFactor = 1.0, { download = false } = {}) {
+  if (!state.marqueeMode || !state.marqueeRect) {
+    showToast("No marquee selection active");
+    return;
+  }
+
+  const elements = state.marqueeElements;
+  if (!elements || elements.length === 0) {
+    showToast("No elements in marquee selection");
+    return;
+  }
+
+  // Compute bounds from the visible portion of elements (clipped to the marquee rect)
+  const marqueeRect = state.marqueeRect;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const el of elements) {
+    let elMinX, elMinY, elMaxX, elMaxY;
+    if (el.elementType === "image") {
+      elMinX = el.x; elMinY = el.y;
+      elMaxX = el.x + el.w; elMaxY = el.y + el.h;
+    } else {
+      const b = getShapeBounds(el);
+      elMinX = b.x; elMinY = b.y;
+      elMaxX = b.x + b.w; elMaxY = b.y + b.h;
+    }
+    // Intersect element bounds with marquee rect
+    const clippedMinX = Math.max(elMinX, marqueeRect.x);
+    const clippedMinY = Math.max(elMinY, marqueeRect.y);
+    const clippedMaxX = Math.min(elMaxX, marqueeRect.x + marqueeRect.w);
+    const clippedMaxY = Math.min(elMaxY, marqueeRect.y + marqueeRect.h);
+    if (clippedMinX >= clippedMaxX || clippedMinY >= clippedMaxY) continue;
+    if (clippedMinX < minX) minX = clippedMinX;
+    if (clippedMinY < minY) minY = clippedMinY;
+    if (clippedMaxX > maxX) maxX = clippedMaxX;
+    if (clippedMaxY > maxY) maxY = clippedMaxY;
+  }
+
+  const padding = 50;
+  const bounds = { minX: minX - padding, minY: minY - padding, maxX: maxX + padding, maxY: maxY + padding };
+
+  // Compute export dimensions with scale limits
+  const MAX_CANVAS_DIM = 16384;
+  const MAX_CANVAS_AREA = 16384 * 16384;
+
+  let exportW = (bounds.maxX - bounds.minX) * scaleFactor;
+  let exportH = (bounds.maxY - bounds.minY) * scaleFactor;
+
+  let effectiveScale = scaleFactor;
+  const dimScale = Math.min(MAX_CANVAS_DIM / exportW, MAX_CANVAS_DIM / exportH, 1);
+  const areaScale = Math.min(Math.sqrt(MAX_CANVAS_AREA / (exportW * exportH)), 1);
+  const downscale = Math.min(dimScale, areaScale);
+
+  if (downscale < 1) {
+    effectiveScale = scaleFactor * downscale;
+    exportW = Math.floor((bounds.maxX - bounds.minX) * effectiveScale);
+    exportH = Math.floor((bounds.maxY - bounds.minY) * effectiveScale);
+    showToast(`Selection too large — exporting at ${Math.round(effectiveScale * 100)}% scale`);
+  }
+
+  // Render elements in z-order onto export canvas
+  const canvasW = Math.ceil(exportW);
+  const canvasH = Math.ceil(exportH);
+  const { canvas: exportCanvas, ctx: exportCtx } = createOffscreen(canvasW, canvasH);
+
+  // Fill background
+  exportCtx.fillStyle = state.bgColor;
+  exportCtx.fillRect(0, 0, canvasW, canvasH);
+
+  // Set up world coordinate system
+  exportCtx.save();
+  exportCtx.scale(effectiveScale, effectiveScale);
+  exportCtx.translate(-bounds.minX, -bounds.minY);
+
+  // Clip rendering to the marquee rectangle so elements are cropped to the selection area
+  const rect = state.marqueeRect;
+  exportCtx.beginPath();
+  exportCtx.rect(rect.x, rect.y, rect.w, rect.h);
+  exportCtx.clip();
+
+  // Get elements in z-order
+  const orderedElements = [];
+  for (const id of state.elementOrder) {
+    const el = elements.find(e => e.id === id);
+    if (el) orderedElements.push(el);
+  }
+
+  for (const el of orderedElements) {
+    if (el.elementType === "image") {
+      exportCtx.save();
+      exportCtx.globalAlpha = el.opacity != null ? el.opacity : 1;
+      const drawSrc = state.currentFilter !== "none" ? getFilteredImage(el) : el.img;
+      if (el.crop) {
+        const natW = el.img.naturalWidth || el.img.width;
+        const natH = el.img.naturalHeight || el.img.height;
+        const c = el.crop;
+        exportCtx.drawImage(drawSrc, c.x * natW, c.y * natH, c.w * natW, c.h * natH, el.x, el.y, el.w, el.h);
+      } else {
+        exportCtx.drawImage(drawSrc, el.x, el.y, el.w, el.h);
+      }
+      exportCtx.restore();
+    } else {
+      drawShape(exportCtx, el, true);
+    }
+  }
+
+  exportCtx.restore();
+
+  const scaleLabel = scaleFactor === 0.5 ? " at 50%" : "";
+  const count = elements.length;
+
+  if (download) {
+    // Download as file
+    const doDownload = (blob) => {
+      if (!blob) { showToast("Failed to export marquee selection"); return; }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const now = new Date();
+      const dtPrefix = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`;
+      a.href = url;
+      a.download = `${dtPrefix}_marquee_export.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast(`Marquee selection (${count} elements) downloaded${scaleLabel}!`);
+    };
+
+    if (exportCanvas instanceof OffscreenCanvas) {
+      exportCanvas.convertToBlob({ type: "image/png" }).then(doDownload);
+    } else {
+      exportCanvas.toBlob(doDownload, "image/png");
+    }
+  } else {
+    // Copy to clipboard
+    copyCanvasToClipboard(exportCanvas, `Marquee selection (${count} elements) copied${scaleLabel}!`);
+  }
+}
+
+/**
  * Cut the selected area from the canvas and copy to clipboard.
  * - For images: clears only the pixels within the selection rect (replaces with transparency).
  * - For vector elements: removes them entirely from the canvas.
