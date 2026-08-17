@@ -13,7 +13,7 @@
  * - Copying always rasterizes to PNG for the system clipboard.
  */
 
-import { state, CONSTANTS, spatialInsert, spatialRemove, spatialUpdate } from "./state.js";
+import { state, CONSTANTS, spatialInsert, spatialRemove, spatialUpdate, invalidateZOrderCache } from "./state.js";
 import { showToast } from "./utils.js";
 import { pushUndo } from "./history.js";
 import { scheduleSave } from "./persistence.js";
@@ -57,6 +57,129 @@ function rectContains(outer, inner) {
   return inner.x >= outer.x && inner.y >= outer.y &&
          inner.x + inner.w <= outer.x + outer.w &&
          inner.y + inner.h <= outer.y + outer.h;
+}
+
+/**
+ * Clip a line segment (p0 → p1) to an axis-aligned rectangle using Cohen-Sutherland.
+ * Returns null if fully outside, or {start, end} clipped to the rect.
+ */
+function clipLineToRect(p0x, p0y, p1x, p1y, rect) {
+  const xmin = rect.x, ymin = rect.y;
+  const xmax = rect.x + rect.w, ymax = rect.y + rect.h;
+
+  const INSIDE = 0, LEFT = 1, RIGHT = 2, BOTTOM = 4, TOP = 8;
+  function code(x, y) {
+    let c = INSIDE;
+    if (x < xmin) c |= LEFT;
+    else if (x > xmax) c |= RIGHT;
+    if (y < ymin) c |= TOP;
+    else if (y > ymax) c |= BOTTOM;
+    return c;
+  }
+
+  let x0 = p0x, y0 = p0y, x1 = p1x, y1 = p1y;
+  let code0 = code(x0, y0);
+  let code1 = code(x1, y1);
+
+  for (let iter = 0; iter < 20; iter++) {
+    if ((code0 | code1) === 0) return { start: { x: x0, y: y0 }, end: { x: x1, y: y1 } };
+    if ((code0 & code1) !== 0) return null;
+
+    const codeOut = code0 !== 0 ? code0 : code1;
+    let x, y;
+    if (codeOut & TOP) { x = x0 + (x1 - x0) * (ymin - y0) / (y1 - y0); y = ymin; }
+    else if (codeOut & BOTTOM) { x = x0 + (x1 - x0) * (ymax - y0) / (y1 - y0); y = ymax; }
+    else if (codeOut & RIGHT) { y = y0 + (y1 - y0) * (xmax - x0) / (x1 - x0); x = xmax; }
+    else { y = y0 + (y1 - y0) * (xmin - x0) / (x1 - x0); x = xmin; }
+
+    if (codeOut === code0) { x0 = x; y0 = y; code0 = code(x0, y0); }
+    else { x1 = x; y1 = y; code1 = code(x1, y1); }
+  }
+  return null;
+}
+
+/**
+ * Clip a polyline (array of points) to an axis-aligned rectangle.
+ * Returns an array of points that are inside the rect, with segments that cross
+ * the boundary clipped to the edge. Returns null if nothing remains inside.
+ */
+function clipPolylineToRect(points, rect) {
+  if (!points || points.length === 0) return null;
+  const clipped = [];
+
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i];
+    const inside = p.x >= rect.x && p.x <= rect.x + rect.w &&
+                   p.y >= rect.y && p.y <= rect.y + rect.h;
+    if (i === 0) {
+      if (inside) clipped.push({ x: p.x, y: p.y });
+      continue;
+    }
+    const prev = points[i - 1];
+    const seg = clipLineToRect(prev.x, prev.y, p.x, p.y, rect);
+    if (seg) {
+      // Add clipped start if it differs from last point in clipped array
+      const last = clipped[clipped.length - 1];
+      if (!last || Math.abs(last.x - seg.start.x) > 0.01 || Math.abs(last.y - seg.start.y) > 0.01) {
+        clipped.push(seg.start);
+      }
+      clipped.push(seg.end);
+    }
+  }
+  return clipped.length >= 2 ? clipped : null;
+}
+
+/**
+ * Clip a drawing/vector element to the given rectangle.
+ * Returns a cloned element with geometry clipped to the rect, or null if nothing remains.
+ */
+function clipDrawingToRect(el, rect) {
+  const c = cloneElement(el);
+
+  if (el.type === "pen") {
+    const clippedPoints = clipPolylineToRect(el.points, rect);
+    if (!clippedPoints) return null;
+    c.points = clippedPoints;
+    return c;
+  }
+
+  if (el.type === "text") {
+    // Text: include the whole element if its bounding box overlaps the rect
+    const b = getShapeBounds(el);
+    if (rectsOverlap(rect, b)) return c;
+    return null;
+  }
+
+  if (el.type === "rect-border" || el.type === "rect-fill") {
+    // Rectangles: intersect the rectangle with the marquee rect
+    const elMinX = Math.min(el.start.x, el.end.x);
+    const elMinY = Math.min(el.start.y, el.end.y);
+    const elMaxX = Math.max(el.start.x, el.end.x);
+    const elMaxY = Math.max(el.start.y, el.end.y);
+
+    const clippedMinX = Math.max(elMinX, rect.x);
+    const clippedMinY = Math.max(elMinY, rect.y);
+    const clippedMaxX = Math.min(elMaxX, rect.x + rect.w);
+    const clippedMaxY = Math.min(elMaxY, rect.y + rect.h);
+
+    if (clippedMinX >= clippedMaxX || clippedMinY >= clippedMaxY) return null;
+
+    c.start = { x: clippedMinX, y: clippedMinY };
+    c.end = { x: clippedMaxX, y: clippedMaxY };
+    return c;
+  }
+
+  // Lines, arrows, measure, connector, contrast-line, etc.: clip the line segment
+  if (el.start && el.end) {
+    const clipped = clipLineToRect(el.start.x, el.start.y, el.end.x, el.end.y, rect);
+    if (!clipped) return null;
+    c.start = clipped.start;
+    c.end = clipped.end;
+    return c;
+  }
+
+  // Fallback: return clone as-is if type is unknown
+  return c;
 }
 
 /**
@@ -387,7 +510,14 @@ export function marqueeCopy() {
     // Build internal clipboard with properly cropped/clipped elements
     const clones = [];
 
-    for (const el of state.marqueeElements) {
+    // Process elements in their original z-order
+    const orderedElements = [];
+    for (const id of state.elementOrder) {
+      const el = state.marqueeElements.find(e => e.id === id);
+      if (el) orderedElements.push(el);
+    }
+
+    for (const el of orderedElements) {
       if (el.elementType === "image") {
         // Crop the image to the intersection of its bounds and the marquee rect
         const imgClone = cropImageToRect(el, rect);
@@ -397,11 +527,13 @@ export function marqueeCopy() {
           clones.push(imgClone);
         }
       } else {
-        // Vector elements: clone the whole element
-        const c = cloneElement(el);
-        c.id = "draw_" + state.elementIdCounter++;
-        translateElement(c, ox, oy);
-        clones.push(c);
+        // Vector elements: clip to marquee rect then translate
+        const c = clipDrawingToRect(el, rect);
+        if (c) {
+          c.id = "draw_" + state.elementIdCounter++;
+          translateElement(c, ox, oy);
+          clones.push(c);
+        }
       }
     }
 
@@ -755,21 +887,40 @@ export function marqueeDuplicate() {
 
     const finalize = () => {
       if (!allDone || pendingImages > 0) return;
+      // Filter out any null placeholders (shouldn't normally occur)
+      const validElements = newElements.filter(Boolean);
+      // Re-order elementOrder so new elements match original z-order
+      const newIds = new Set(validElements.map(e => e.id));
+      state.elementOrder = state.elementOrder.filter(id => !newIds.has(id));
+      for (const el of validElements) {
+        state.elementOrder.push(el.id);
+      }
+      invalidateZOrderCache();
       exitMarqueeMode();
-      state.selectedElements = newElements;
+      state.selectedElements = validElements;
       state.currentTool = "select";
       render();
       scheduleSave();
-      showToast(`Duplicated ${newElements.length} element(s)`);
+      showToast(`Duplicated ${validElements.length} element(s)`);
     };
 
-    for (const el of state.marqueeElements) {
+    // Process elements in their original z-order
+    const orderedElements = [];
+    for (const id of state.elementOrder) {
+      const el = state.marqueeElements.find(e => e.id === id);
+      if (el) orderedElements.push(el);
+    }
+
+    for (const el of orderedElements) {
       if (el.elementType === "image") {
         // Duplicate only the cropped portion within the marquee
         const cropped = cropImageToRect(el, rect);
         if (cropped) {
           pendingImages++;
           const croppedCanvas = cropped.img; // This is an OffscreenCanvas
+          // Reserve position in newElements array to maintain z-order
+          const idx = newElements.length;
+          newElements.push(null); // placeholder
           canvasToImage(croppedCanvas, (imgEl) => {
             const newElement = {
               id: "img_" + state.elementIdCounter++,
@@ -783,21 +934,26 @@ export function marqueeDuplicate() {
             };
             state.images.push(newElement);
             spatialInsert(newElement);
-            newElements.push(newElement);
+            newElements[idx] = newElement;
             pendingImages--;
             finalize();
           });
         }
       } else {
-        // Vector: clone the whole element
-        const c = cloneElement(el);
-        c.id = "draw_" + state.elementIdCounter++;
-        translateElement(c, ox + offset, oy + offset);
-        state.drawings.push(c);
-        spatialInsert(c);
-        newElements.push(c);
+        // Vector: clip to marquee rect then translate
+        const c = clipDrawingToRect(el, rect);
+        if (c) {
+          c.id = "draw_" + state.elementIdCounter++;
+          translateElement(c, ox + offset, oy + offset);
+          state.drawings.push(c);
+          spatialInsert(c);
+          newElements.push(c);
+        }
       }
     }
+
+    // Remove null placeholders for images that were fully outside the rect
+    // (shouldn't happen since getElementsInRect already checks overlap, but be safe)
 
     allDone = true;
     finalize(); // In case there are no pending images
