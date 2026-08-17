@@ -2537,7 +2537,8 @@ function setupMouseHandlers() {
         showToast(`Stamped ${newElements.length} element(s) onto image`);
       } else {
         // Click/drag on empty space: start stamp marquee area select
-        if (!state.stampClipboard || state.stampClipboard.length === 0) {
+        // Cmd/Ctrl+drag removes drawings, normal drag stamps (needs clipboard)
+        if (!(e.metaKey || e.ctrlKey) && (!state.stampClipboard || state.stampClipboard.length === 0)) {
           showToast("No stamp clipboard — use Shift+Click on an image first");
           return;
         }
@@ -3530,6 +3531,7 @@ function setupMouseHandlers() {
 
     if (state.currentTool === "stamp" && state.stampMarqueeActive) {
       // Finalize stamp marquee: stamp onto all images intersecting the rectangle
+      // or remove all drawings in the area if Alt/Option is held
       state.stampMarqueeActive = false;
       const rect = state.stampMarqueeRect;
       if (!rect || rect.w < 2 || rect.h < 2) {
@@ -3538,7 +3540,55 @@ function setupMouseHandlers() {
         render();
         return;
       }
-      // Find all images that intersect the marquee rectangle
+
+      // Cmd/Ctrl+release: remove all non-image drawings within the marquee area
+      if (e.metaKey || e.ctrlKey) {
+        const toRemove = [];
+        for (let i = state.drawings.length - 1; i >= 0; i--) {
+          const shape = state.drawings[i];
+          if (shape.locked) continue;
+          const b = getShapeBounds(shape);
+          // Check if drawing's bounding box intersects the marquee rect
+          if (b.x < rect.x + rect.w && b.x + b.w > rect.x &&
+              b.y < rect.y + rect.h && b.y + b.h > rect.y) {
+            toRemove.push(i);
+          }
+        }
+        if (toRemove.length === 0) {
+          showToast("No drawings in selection area");
+          state.stampMarqueeRect = null;
+          state.stampMarqueeStart = null;
+          render();
+          return;
+        }
+        pushUndo();
+        const removedIds = [];
+        // Remove in reverse order to preserve indices
+        for (const idx of toRemove) {
+          const el = state.drawings[idx];
+          removedIds.push(el.id);
+          spatialRemove(el);
+          state.drawings.splice(idx, 1);
+        }
+        // Clean up connector references pointing to removed elements
+        for (const shape of state.drawings) {
+          if (shape.type !== "connector") continue;
+          if (shape.startConn && removedIds.includes(shape.startConn.elementId)) {
+            shape.startConn = null;
+          }
+          if (shape.endConn && removedIds.includes(shape.endConn.elementId)) {
+            shape.endConn = null;
+          }
+        }
+        state.stampMarqueeRect = null;
+        state.stampMarqueeStart = null;
+        render();
+        scheduleSave();
+        showToast(`Removed ${toRemove.length} drawing(s) from area`);
+        return;
+      }
+
+      // Normal release: stamp onto all images intersecting the rectangle
       const hitImages = state.images.filter(img => {
         return img.x < rect.x + rect.w && img.x + img.w > rect.x &&
                img.y < rect.y + rect.h && img.y + img.h > rect.y;
