@@ -62,6 +62,9 @@ const GUIDE_COMPUTE_INTERVAL_MS = 60; // ms between expensive guide recalculatio
 let _lastGuideComputeTime = 0;
 // --- PERFORMANCE: Map for O(1) drag offset lookup ---
 let _dragOffsetMap = null;
+// --- PERFORMANCE: Cached selected element IDs for the current drag ---
+let _dragExcludeIds = null; // Array of selected element IDs (stable during a drag)
+let _dragExcludeIdSet = null; // Set version for O(1) lookups
 
 /**
  * Snap a split-line position to the nearest fraction (halves, thirds, quarters)
@@ -2855,6 +2858,9 @@ function setupMouseHandlers() {
         });
         // PERFORMANCE: Build a Map for O(1) offset lookups during drag (avoids O(n²) with .find())
         _dragOffsetMap = new Map(state.dragOffsets.map((o) => [o.id, o]));
+        // PERFORMANCE: Cache selected IDs for the entire drag duration
+        _dragExcludeIds = state.selectedElements.map((el) => el.id);
+        _dragExcludeIdSet = new Set(_dragExcludeIds);
         toggleAlignmentPanelVisibility();
       } else {
         // Start region selection
@@ -3354,7 +3360,7 @@ function setupMouseHandlers() {
           if (Math.sqrt(screenDx * screenDx + screenDy * screenDy) < CONSTANTS.MIN_MOVE_DISTANCE) return;
           state.hasDragThresholdBeenMet = true;
         }
-        const excludeIds = state.selectedElements.map((el) => el.id);
+        const excludeIds = _dragExcludeIds || state.selectedElements.map((el) => el.id);
         state.selectedElements.forEach((el) => {
           const offset = _dragOffsetMap ? _dragOffsetMap.get(el.id) : state.dragOffsets.find((o) => o.id === el.id);
           if (!offset) return;
@@ -3367,9 +3373,21 @@ function setupMouseHandlers() {
 
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         state.selectedElements.forEach((el) => {
-          let b = el.elementType === "image" ? { x: el.x, y: el.y, w: el.w, h: el.h } : getShapeBounds(el);
-          if (b.x < minX) minX = b.x; if (b.y < minY) minY = b.y;
-          if (b.x + b.w > maxX) maxX = b.x + b.w; if (b.y + b.h > maxY) maxY = b.y + b.h;
+          let bx, by, bw, bh;
+          if (el.elementType === "image") {
+            bx = el.x; by = el.y; bw = el.w; bh = el.h;
+          } else if (el.start && el.end) {
+            // Fast path for line-type elements (line, arrow, split lines, connectors)
+            bx = Math.min(el.start.x, el.end.x);
+            by = Math.min(el.start.y, el.end.y);
+            bw = Math.max(el.start.x, el.end.x) - bx;
+            bh = Math.max(el.start.y, el.end.y) - by;
+          } else {
+            const b = getShapeBounds(el);
+            bx = b.x; by = b.y; bw = b.w; bh = b.h;
+          }
+          if (bx < minX) minX = bx; if (by < minY) minY = by;
+          if (bx + bw > maxX) maxX = bx + bw; if (by + bh > maxY) maxY = by + bh;
         });
         let groupBounds = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 
@@ -3405,9 +3423,9 @@ function setupMouseHandlers() {
             // Recompute
             minX = Infinity; minY = Infinity; maxX = -Infinity; maxY = -Infinity;
             state.selectedElements.forEach((el) => {
-              let b = el.elementType === "image" ? { x: el.x, y: el.y, w: el.w, h: el.h } : getShapeBounds(el);
-              if (b.x < minX) minX = b.x; if (b.y < minY) minY = b.y;
-              if (b.x + b.w > maxX) maxX = b.x + b.w; if (b.y + b.h > maxY) maxY = b.y + b.h;
+              if (el.elementType === "image") { if (el.x < minX) minX = el.x; if (el.y < minY) minY = el.y; if (el.x + el.w > maxX) maxX = el.x + el.w; if (el.y + el.h > maxY) maxY = el.y + el.h; }
+              else if (el.start && el.end) { const x0 = Math.min(el.start.x, el.end.x), y0 = Math.min(el.start.y, el.end.y), x1 = Math.max(el.start.x, el.end.x), y1 = Math.max(el.start.y, el.end.y); if (x0 < minX) minX = x0; if (y0 < minY) minY = y0; if (x1 > maxX) maxX = x1; if (y1 > maxY) maxY = y1; }
+              else { const b = getShapeBounds(el); if (b.x < minX) minX = b.x; if (b.y < minY) minY = b.y; if (b.x + b.w > maxX) maxX = b.x + b.w; if (b.y + b.h > maxY) maxY = b.y + b.h; }
             });
             groupBounds = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
             state.activeSnapGuides = [];
@@ -3431,9 +3449,9 @@ function setupMouseHandlers() {
             // Recompute
             minX = Infinity; minY = Infinity; maxX = -Infinity; maxY = -Infinity;
             state.selectedElements.forEach((el) => {
-              let b = el.elementType === "image" ? { x: el.x, y: el.y, w: el.w, h: el.h } : getShapeBounds(el);
-              if (b.x < minX) minX = b.x; if (b.y < minY) minY = b.y;
-              if (b.x + b.w > maxX) maxX = b.x + b.w; if (b.y + b.h > maxY) maxY = b.y + b.h;
+              if (el.elementType === "image") { if (el.x < minX) minX = el.x; if (el.y < minY) minY = el.y; if (el.x + el.w > maxX) maxX = el.x + el.w; if (el.y + el.h > maxY) maxY = el.y + el.h; }
+              else if (el.start && el.end) { const x0 = Math.min(el.start.x, el.end.x), y0 = Math.min(el.start.y, el.end.y), x1 = Math.max(el.start.x, el.end.x), y1 = Math.max(el.start.y, el.end.y); if (x0 < minX) minX = x0; if (y0 < minY) minY = y0; if (x1 > maxX) maxX = x1; if (y1 > maxY) maxY = y1; }
+              else { const b = getShapeBounds(el); if (b.x < minX) minX = b.x; if (b.y < minY) minY = b.y; if (b.x + b.w > maxX) maxX = b.x + b.w; if (b.y + b.h > maxY) maxY = b.y + b.h; }
             });
             groupBounds = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
             state.activeSnapGuides = snap.guides;
@@ -3455,8 +3473,8 @@ function setupMouseHandlers() {
             state.activeSpacingGuides = getSpacingGuides(groupBounds, excludeIds, guideOpts);
           }
         }
-        updateConnectorsForElements(state.selectedElements.map((el) => el.id));
-        const draggedIds = new Set(state.selectedElements.map((el) => el.id));
+        updateConnectorsForElements(_dragExcludeIds || state.selectedElements.map((el) => el.id));
+        const draggedIds = _dragExcludeIdSet || new Set(state.selectedElements.map((el) => el.id));
         for (const el of state.selectedElements) {
           if (el.type === "connector") {
             if (el.startConn && !draggedIds.has(el.startConn.elementId)) el.startConn = null;
@@ -3888,6 +3906,8 @@ function setupMouseHandlers() {
       for (const el of state.selectedElements) spatialUpdate(el);
     }
     _dragOffsetMap = null;
+    _dragExcludeIds = null;
+    _dragExcludeIdSet = null;
 
     toggleAlignmentPanelVisibility();
     render();

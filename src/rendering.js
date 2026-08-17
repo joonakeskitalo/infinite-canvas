@@ -685,6 +685,12 @@ function _doRender(targetCtx, isExporting) {
 
   const _vp = !isExporting ? getViewportBounds() : null;
 
+  // PERFORMANCE: Pre-build a Set of selected element IDs for O(1) lookups in the render loop.
+  // Replaces repeated O(n) state.selectedElements.some() calls per element.
+  const _selectedIdSet = !isExporting && state.selectedElements.length > 0
+    ? new Set(state.selectedElements.map(el => el.id))
+    : null;
+
   // 0. Render background grid
   if (!isExporting && state.gridVisible && state.gridSize > 0) {
     const gridSize = state.gridSize;
@@ -793,7 +799,7 @@ function _doRender(targetCtx, isExporting) {
       targetCtx.restore();
 
       if (!isExporting && state.currentTool === "select" && !state.overlaysHidden && !(state.cropMode && state.cropTarget && state.cropTarget.id === imgData.id)) {
-        const isSelected = state.selectedElements.some((s) => s.id === imgData.id);
+        const isSelected = _selectedIdSet && _selectedIdSet.has(imgData.id);
         const isGrouped = !!imgData.groupId;
         targetCtx.save();
         targetCtx.strokeStyle = isSelected ? (isGrouped ? "#28a745" : "#ff4444") : "#007acc";
@@ -840,7 +846,7 @@ function _doRender(targetCtx, isExporting) {
       // and drawn together, avoiding per-element save/beginPath/stroke/restore overhead.
       if (shape.isSplitLine && !shape.locked) {
         const isSelected = !isExporting && state.currentTool === "select" && !state.overlaysHidden &&
-          state.selectedElements.some((s) => s.id === shape.id);
+          _selectedIdSet && _selectedIdSet.has(shape.id);
         if (!isSelected) {
           const lineWidth = isExporting ? shape.width * 2 : shape.width / transform.zoom;
           const opacity = shape.opacity != null ? shape.opacity : 1;
@@ -863,7 +869,7 @@ function _doRender(targetCtx, isExporting) {
 
       drawShape(targetCtx, shape, isExporting);
       if (!isExporting && state.currentTool === "select" && !state.overlaysHidden) {
-        const isSelected = state.selectedElements.some((s) => s.id === shape.id);
+        const isSelected = _selectedIdSet && _selectedIdSet.has(shape.id);
         if (isSelected) {
           const b = shapeBounds || getShapeBounds(shape);
           const isGrouped = !!shape.groupId;
