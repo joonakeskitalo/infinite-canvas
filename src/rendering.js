@@ -1033,6 +1033,31 @@ function _doRender(targetCtx, isExporting) {
       renderAccessibilityPreviewSelection(targetCtx, transform);
     }
 
+    // Stamp marquee selection rectangle (while dragging to select area)
+    if (state.stampMarqueeActive && state.stampMarqueeRect) {
+      const rect = state.stampMarqueeRect;
+      if (rect.w > 1 || rect.h > 1) {
+        const zoom = transform.zoom;
+        targetCtx.save();
+        // Semi-transparent fill
+        targetCtx.fillStyle = "rgba(255, 140, 0, 0.1)";
+        targetCtx.fillRect(rect.x, rect.y, rect.w, rect.h);
+        // Solid white border
+        targetCtx.strokeStyle = "#fff";
+        targetCtx.lineWidth = 1.5 / zoom;
+        targetCtx.setLineDash([]);
+        targetCtx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+        // Dashed orange border
+        targetCtx.strokeStyle = "#ff8c00";
+        targetCtx.lineWidth = 1.5 / zoom;
+        const dashLen = 6 / zoom;
+        targetCtx.setLineDash([dashLen, dashLen]);
+        targetCtx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+        targetCtx.setLineDash([]);
+        targetCtx.restore();
+      }
+    }
+
     // Snap guides
     if (state.activeSnapGuides.length > 0) {
       targetCtx.save();

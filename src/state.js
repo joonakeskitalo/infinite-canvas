@@ -167,6 +167,11 @@ export const state = {
   // Stamp clipboard (Shift+W / W): copy non-image elements overlapping a hovered image
   stampClipboard: [],           // cloned non-image elements (positions relative to source image origin)
   stampSourceBounds: null,      // {x, y, w, h} of the source image at copy time
+
+  // Stamp marquee (drag to select area and stamp all images within it)
+  stampMarqueeActive: false,    // true while drawing the stamp marquee rectangle
+  stampMarqueeStart: null,      // {x, y} world-coords where rectangle drawing started
+  stampMarqueeRect: null,       // {x, y, w, h} world-coords of the selection rectangle
 };
 
 // Spatial index lives outside state object to avoid polluting its hidden class

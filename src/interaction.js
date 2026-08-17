@@ -2458,6 +2458,7 @@ function setupMouseHandlers() {
     if (state.currentTool === "eraser") { checkAndEraseAtPosition(worldPos); return; }
 
     // Stamp tool: Shift+Click copies elements from hovered image, Click pastes onto hovered image
+    // Drag (no shift, with clipboard): start marquee area select to stamp multiple images
     if (state.currentTool === "stamp") {
       let hoveredImg = null;
       for (let i = state.images.length - 1; i >= 0; i--) {
@@ -2468,12 +2469,12 @@ function setupMouseHandlers() {
           break;
         }
       }
-      if (!hoveredImg) {
-        showToast("Hover over an image to stamp");
-        return;
-      }
       if (e.shiftKey) {
-        // Shift+Click: copy overlapping non-image elements
+        // Shift+Click: copy overlapping non-image elements from hovered image
+        if (!hoveredImg) {
+          showToast("Hover over an image to copy stamp");
+          return;
+        }
         const imgBounds = { minX: hoveredImg.x, minY: hoveredImg.y, maxX: hoveredImg.x + hoveredImg.w, maxY: hoveredImg.y + hoveredImg.h };
         const candidates = spatialIndex.queryRect(imgBounds);
         const overlapping = candidates.filter(el => el.elementType !== "image");
@@ -2496,8 +2497,8 @@ function setupMouseHandlers() {
         });
         state.stampSourceBounds = { x: hoveredImg.x, y: hoveredImg.y, w: hoveredImg.w, h: hoveredImg.h };
         showToast(`Stamp-copied ${overlapping.length} element(s)`);
-      } else {
-        // Click: paste stamp clipboard onto hovered image
+      } else if (hoveredImg) {
+        // Click on a single image: paste stamp clipboard onto it (existing behavior)
         if (!state.stampClipboard || state.stampClipboard.length === 0) {
           showToast("No stamp clipboard — use Shift+Click first");
           return;
@@ -2534,6 +2535,15 @@ function setupMouseHandlers() {
         render();
         scheduleSave();
         showToast(`Stamped ${newElements.length} element(s) onto image`);
+      } else {
+        // Click/drag on empty space: start stamp marquee area select
+        if (!state.stampClipboard || state.stampClipboard.length === 0) {
+          showToast("No stamp clipboard — use Shift+Click on an image first");
+          return;
+        }
+        state.stampMarqueeActive = true;
+        state.stampMarqueeStart = { x: worldPos.x, y: worldPos.y };
+        state.stampMarqueeRect = { x: worldPos.x, y: worldPos.y, w: 0, h: 0 };
       }
       return;
     }
@@ -3430,6 +3440,20 @@ function setupMouseHandlers() {
         }
         render();
       }
+    } else if (state.stampMarqueeActive) {
+      // Update stamp marquee rectangle while dragging
+      const screenDx = e.clientX - state.startX;
+      const screenDy = e.clientY - state.startY;
+      if (Math.sqrt(screenDx * screenDx + screenDy * screenDy) < CONSTANTS.MIN_DRAW_DISTANCE) return;
+      const startX = state.stampMarqueeStart.x;
+      const startY = state.stampMarqueeStart.y;
+      state.stampMarqueeRect = {
+        x: Math.min(startX, worldPos.x),
+        y: Math.min(startY, worldPos.y),
+        w: Math.abs(worldPos.x - startX),
+        h: Math.abs(worldPos.y - startY),
+      };
+      render();
     } else if (state.marqueeIsSelecting || state.marqueeIsDragging) {
       marqueeUpdateSelection(worldPos, e.shiftKey);
     } else if (isAccessibilityPreviewInteracting()) {
@@ -3502,6 +3526,74 @@ function setupMouseHandlers() {
       state.cropDragEdge = null;
       state.cropDragStart = null;
       render(); return;
+    }
+
+    if (state.currentTool === "stamp" && state.stampMarqueeActive) {
+      // Finalize stamp marquee: stamp onto all images intersecting the rectangle
+      state.stampMarqueeActive = false;
+      const rect = state.stampMarqueeRect;
+      if (!rect || rect.w < 2 || rect.h < 2) {
+        state.stampMarqueeRect = null;
+        state.stampMarqueeStart = null;
+        render();
+        return;
+      }
+      // Find all images that intersect the marquee rectangle
+      const hitImages = state.images.filter(img => {
+        return img.x < rect.x + rect.w && img.x + img.w > rect.x &&
+               img.y < rect.y + rect.h && img.y + img.h > rect.y;
+      });
+      if (hitImages.length === 0) {
+        showToast("No images in selection area");
+        state.stampMarqueeRect = null;
+        state.stampMarqueeStart = null;
+        render();
+        return;
+      }
+      if (!state.stampClipboard || state.stampClipboard.length === 0) {
+        showToast("No stamp clipboard — use Shift+Click first");
+        state.stampMarqueeRect = null;
+        state.stampMarqueeStart = null;
+        render();
+        return;
+      }
+      pushUndo();
+      const srcW = state.stampSourceBounds.w;
+      const srcH = state.stampSourceBounds.h;
+      let totalStamped = 0;
+      hitImages.forEach(targetImg => {
+        const scaleX = targetImg.w / srcW;
+        const scaleY = targetImg.h / srcH;
+        const groupIdMap = new Map();
+        state.stampClipboard.forEach(srcEl => {
+          const clone = JSON.parse(JSON.stringify(srcEl));
+          clone.id = "draw_" + state.elementIdCounter++;
+          if (clone.groupId) {
+            if (!groupIdMap.has(clone.groupId)) {
+              groupIdMap.set(clone.groupId, "group_" + state.groupIdCounter++);
+            }
+            clone.groupId = groupIdMap.get(clone.groupId);
+          }
+          if (clone.type === "pen" && clone.points) {
+            clone.points = clone.points.map(p => ({
+              x: p.x * scaleX + targetImg.x,
+              y: p.y * scaleY + targetImg.y,
+            }));
+          } else if (clone.start) {
+            clone.start = { x: clone.start.x * scaleX + targetImg.x, y: clone.start.y * scaleY + targetImg.y };
+            if (clone.end) clone.end = { x: clone.end.x * scaleX + targetImg.x, y: clone.end.y * scaleY + targetImg.y };
+          }
+          state.drawings.push(clone);
+          spatialInsert(clone);
+          totalStamped++;
+        });
+      });
+      state.stampMarqueeRect = null;
+      state.stampMarqueeStart = null;
+      render();
+      scheduleSave();
+      showToast(`Stamped onto ${hitImages.length} image(s) (${totalStamped} elements)`);
+      return;
     }
 
     if (state.currentTool === "marquee" && (state.marqueeIsSelecting || state.marqueeIsDragging)) {
