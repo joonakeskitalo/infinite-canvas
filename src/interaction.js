@@ -3446,8 +3446,9 @@ function setupMouseHandlers() {
           const now = performance.now();
           if (now - _lastGuideComputeTime >= GUIDE_COMPUTE_INTERVAL_MS) {
             _lastGuideComputeTime = now;
-            state.activeProximityGuides = getProximityGuides(groupBounds, excludeIds);
-            state.activeSpacingGuides = getSpacingGuides(groupBounds, excludeIds);
+            const guideOpts = { excludeSplitLines: true };
+            state.activeProximityGuides = getProximityGuides(groupBounds, excludeIds, guideOpts);
+            state.activeSpacingGuides = getSpacingGuides(groupBounds, excludeIds, guideOpts);
           }
         }
         updateConnectorsForElements(state.selectedElements.map((el) => el.id));

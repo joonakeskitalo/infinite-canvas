@@ -10,8 +10,9 @@ import { getShapeBounds, getElementBounds } from "./elements.js";
 // Threshold below which linear iteration is faster than spatial index overhead
 const SPATIAL_INDEX_THRESHOLD = 50;
 
-export function getClosestElements(bounds, excludeIds, maxCount) {
+export function getClosestElements(bounds, excludeIds, maxCount, options) {
   const excluded = new Set(excludeIds);
+  const skipSplitLines = options && options.excludeSplitLines;
   const myCx = bounds.x + bounds.w / 2;
   const myCy = bounds.y + bounds.h / 2;
 
@@ -50,6 +51,7 @@ export function getClosestElements(bounds, excludeIds, maxCount) {
     const nearby = spatialIndex.queryNearest(spatialBounds, excluded, maxCount * 3);
     for (const el of nearby) {
       if (el.type === "connector") continue;
+      if (skipSplitLines && el.isSplitLine) continue;
       const b = el.elementType === "image"
         ? { x: el.x, y: el.y, w: el.w, h: el.h }
         : getShapeBounds(el);
@@ -64,6 +66,7 @@ export function getClosestElements(bounds, excludeIds, maxCount) {
     for (const shape of state.drawings) {
       if (excluded.has(shape.id)) continue;
       if (shape.type === "connector") continue;
+      if (skipSplitLines && shape.isSplitLine) continue;
       addElement(getShapeBounds(shape), shape.groupId);
     }
   }
@@ -80,9 +83,10 @@ export function getClosestElements(bounds, excludeIds, maxCount) {
   return candidates.slice(0, maxCount).map((c) => c.bounds);
 }
 
-export function getSnapTargets(excludeIds, bounds) {
+export function getSnapTargets(excludeIds, bounds, options) {
   const targets = { x: [], y: [] };
   const excluded = new Set(excludeIds);
+  const skipSplitLines = options && options.excludeSplitLines;
 
   for (const guide of state.guides) {
     if (guide.axis === "x") targets.x.push(guide.position);
@@ -91,7 +95,7 @@ export function getSnapTargets(excludeIds, bounds) {
 
   let elementBounds;
   if (bounds) {
-    elementBounds = getClosestElements(bounds, excludeIds, CONSTANTS.MAX_GUIDE_NEIGHBORS);
+    elementBounds = getClosestElements(bounds, excludeIds, CONSTANTS.MAX_GUIDE_NEIGHBORS, options);
   } else {
     const groupBoundsMap = new Map();
     elementBounds = [];
@@ -119,6 +123,7 @@ export function getSnapTargets(excludeIds, bounds) {
     state.drawings.forEach((shape) => {
       if (excluded.has(shape.id)) return;
       if (shape.type === "connector") return;
+      if (skipSplitLines && shape.isSplitLine) return;
       addEl(getShapeBounds(shape), shape.groupId);
     });
 
@@ -182,8 +187,8 @@ export function snapToElements(bounds, targets, threshold) {
   return { dx, dy, guides };
 }
 
-export function snapToSpacing(bounds, excludeIds, threshold) {
-  const allElements = getClosestElements(bounds, excludeIds, CONSTANTS.MAX_GUIDE_NEIGHBORS);
+export function snapToSpacing(bounds, excludeIds, threshold, options) {
+  const allElements = getClosestElements(bounds, excludeIds, CONSTANTS.MAX_GUIDE_NEIGHBORS, options);
   if (allElements.length < 2) return { dx: 0, dy: 0 };
 
   const myLeft = bounds.x, myRight = bounds.x + bounds.w;
@@ -254,14 +259,14 @@ export function snapToSpacing(bounds, excludeIds, threshold) {
   return { dx: bestDx, dy: bestDy };
 }
 
-export function getProximityGuides(bounds, excludeIds) {
+export function getProximityGuides(bounds, excludeIds, options) {
   const PROXIMITY_RANGE = 150 / state.transform.zoom;
   const guides = [];
 
   const myLeft = bounds.x, myRight = bounds.x + bounds.w, myCx = bounds.x + bounds.w / 2;
   const myTop = bounds.y, myBottom = bounds.y + bounds.h, myCy = bounds.y + bounds.h / 2;
 
-  const allElements = getClosestElements(bounds, excludeIds, CONSTANTS.MAX_GUIDE_NEIGHBORS);
+  const allElements = getClosestElements(bounds, excludeIds, CONSTANTS.MAX_GUIDE_NEIGHBORS, options);
 
   for (const el of allElements) {
     const elLeft = el.x, elRight = el.x + el.w, elCx = el.x + el.w / 2;
@@ -305,14 +310,14 @@ export function getProximityGuides(bounds, excludeIds) {
   return Array.from(best.values());
 }
 
-export function getSpacingGuides(bounds, excludeIds) {
+export function getSpacingGuides(bounds, excludeIds, options) {
   const guides = [];
   const SPACING_RANGE = 300 / state.transform.zoom;
 
   const myLeft = bounds.x, myRight = bounds.x + bounds.w;
   const myTop = bounds.y, myBottom = bounds.y + bounds.h;
 
-  const allElements = getClosestElements(bounds, excludeIds, CONSTANTS.MAX_GUIDE_NEIGHBORS);
+  const allElements = getClosestElements(bounds, excludeIds, CONSTANTS.MAX_GUIDE_NEIGHBORS, options);
 
   for (const el of allElements) {
     const elLeft = el.x, elRight = el.x + el.w;
