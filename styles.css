@@ -2214,6 +2214,7 @@ input[type="color"]::-webkit-color-swatch {
   object-fit: contain;
   border-radius: 8px;
   box-shadow: 0 16px 64px rgba(0, 0, 0, 0.5);
+  transition: opacity 0.1s ease;
 }
 
 .accessibility-preview-modal-label {

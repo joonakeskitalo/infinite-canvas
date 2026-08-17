@@ -14,6 +14,7 @@ import { applyFilterToImageData } from "./filter-kernels.js";
 import { pushUndo } from "./history.js";
 import { scheduleSave } from "./persistence.js";
 import { getSnapTargets, snapToElements, snapResizeEdges } from "./snap-guides.js";
+import { getShapeBounds } from "./elements.js";
 
 // --- Preview filters ---
 const PREVIEW_FILTERS = [
@@ -55,6 +56,7 @@ let modalOverlay = null;
 let modalImg = null;
 let modalLabel = null;
 let isShiftHeld = false;
+let hoveredCellData = null; // { dataURL, label } of the cell currently under the cursor
 
 /**
  * Create an OffscreenCanvas helper.
@@ -72,31 +74,68 @@ function createOffscreen(w, h) {
 
 /**
  * Rasterize the content of a world-space rectangle from the current canvas state.
+ * Computes tight bounds from element extents clipped to the marquee rect
+ * (same approach as marqueeExportPNG) so the output is auto-cropped to content.
  */
 function rasterizeWorldRect(rect) {
-  const maxDim = 4096;
-  let scale = 1;
-  if (rect.w > maxDim || rect.h > maxDim) {
-    scale = maxDim / Math.max(rect.w, rect.h);
+  const elements = getElementsInZOrder();
+
+  // Compute tight bounds from element extents clipped to the marquee rect
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const el of elements) {
+    let elMinX, elMinY, elMaxX, elMaxY;
+    if (el.elementType === "image") {
+      elMinX = el.x; elMinY = el.y;
+      elMaxX = el.x + el.w; elMaxY = el.y + el.h;
+    } else {
+      const b = getShapeBounds(el);
+      elMinX = b.x; elMinY = b.y;
+      elMaxX = b.x + b.w; elMaxY = b.y + b.h;
+    }
+    // Intersect element bounds with marquee rect
+    const clippedMinX = Math.max(elMinX, rect.x);
+    const clippedMinY = Math.max(elMinY, rect.y);
+    const clippedMaxX = Math.min(elMaxX, rect.x + rect.w);
+    const clippedMaxY = Math.min(elMaxY, rect.y + rect.h);
+    if (clippedMinX >= clippedMaxX || clippedMinY >= clippedMaxY) continue;
+    if (clippedMinX < minX) minX = clippedMinX;
+    if (clippedMinY < minY) minY = clippedMinY;
+    if (clippedMaxX > maxX) maxX = clippedMaxX;
+    if (clippedMaxY > maxY) maxY = clippedMaxY;
   }
 
-  const canvasW = Math.ceil(rect.w * scale);
-  const canvasH = Math.ceil(rect.h * scale);
+  // If no elements overlap the rect, fall back to the full rect
+  if (minX >= maxX || minY >= maxY) {
+    minX = rect.x; minY = rect.y;
+    maxX = rect.x + rect.w; maxY = rect.y + rect.h;
+  }
+
+  const tightW = maxX - minX;
+  const tightH = maxY - minY;
+
+  const maxDim = 4096;
+  let scale = 1;
+  if (tightW > maxDim || tightH > maxDim) {
+    scale = maxDim / Math.max(tightW, tightH);
+  }
+
+  const canvasW = Math.ceil(tightW * scale);
+  const canvasH = Math.ceil(tightH * scale);
   if (canvasW <= 0 || canvasH <= 0) return null;
 
   const { canvas: offscreen, ctx } = createOffscreen(canvasW, canvasH);
 
   ctx.scale(scale, scale);
-  ctx.translate(-rect.x, -rect.y);
+  ctx.translate(-minX, -minY);
 
+  // Clip to the original marquee rect so elements are cropped at its edges
   ctx.beginPath();
   ctx.rect(rect.x, rect.y, rect.w, rect.h);
   ctx.clip();
 
   ctx.fillStyle = state.bgColor;
-  ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+  ctx.fillRect(minX, minY, tightW, tightH);
 
-  const elements = getElementsInZOrder();
   for (const el of elements) {
     if (el.elementType === "image") {
       if (el.x + el.w < rect.x || el.x > rect.x + rect.w ||
@@ -119,7 +158,7 @@ function rasterizeWorldRect(rect) {
     }
   }
 
-  return offscreen;
+  return { canvas: offscreen, worldW: tightW, worldH: tightH };
 }
 
 /**
@@ -532,9 +571,9 @@ function refreshPreview() {
   if (!activeRect || activeRect.w < 5 || activeRect.h < 5) return;
   if (!panelOpen) return;
 
-  const sourceCanvas = rasterizeWorldRect(activeRect);
-  if (sourceCanvas) {
-    updatePanelGrid(sourceCanvas);
+  const result = rasterizeWorldRect(activeRect);
+  if (result) {
+    updatePanelGrid(result.canvas, result.worldW, result.worldH);
   }
 }
 
@@ -690,6 +729,7 @@ export function closePanel() {
   document.removeEventListener("keydown", onKeyDownForModal);
   document.removeEventListener("keyup", onKeyUpForModal);
   isShiftHeld = false;
+  hoveredCellData = null;
   hideModal();
 
   // Remove modal overlay
@@ -733,12 +773,16 @@ function ensureModalOverlay() {
 }
 
 /**
- * Show the fullscreen modal with the given image data URL and filter label.
+ * Show the fullscreen modal backdrop and set its content.
+ * The backdrop stays visible as long as Shift is held over the grid;
+ * only the image/label inside updates when switching cells.
  */
 function showModal(dataURL, label) {
   ensureModalOverlay();
   modalImg.src = dataURL;
+  modalImg.style.opacity = "1";
   modalLabel.textContent = label;
+  modalLabel.style.visibility = "visible";
 
   // Center the image in the space left of the panel
   if (panelEl) {
@@ -752,7 +796,25 @@ function showModal(dataURL, label) {
 }
 
 /**
- * Hide the fullscreen modal.
+ * Show just the backdrop without specific image content (between cells).
+ */
+function showModalBackdrop() {
+  ensureModalOverlay();
+  modalImg.style.opacity = "0";
+  modalLabel.style.visibility = "hidden";
+
+  if (panelEl) {
+    const panelWidth = window.innerWidth - panelEl.getBoundingClientRect().left;
+    modalOverlay.style.paddingRight = panelWidth + "px";
+  } else {
+    modalOverlay.style.paddingRight = "0";
+  }
+
+  modalOverlay.classList.add("visible");
+}
+
+/**
+ * Hide the fullscreen modal completely.
  */
 function hideModal() {
   if (modalOverlay) {
@@ -766,6 +828,13 @@ function hideModal() {
 function onKeyDownForModal(e) {
   if (e.key === "Shift") {
     isShiftHeld = true;
+    // If already hovering over a cell, show the modal with its content
+    if (hoveredCellData) {
+      showModal(hoveredCellData.dataURL, hoveredCellData.label);
+    } else if (gridEl && gridEl.matches(":hover")) {
+      // Over the grid but between cells — show backdrop only
+      showModalBackdrop();
+    }
   }
 }
 
@@ -778,6 +847,7 @@ function onKeyUpForModal(e) {
 
 /**
  * Insert a filtered preview image onto the canvas at the center of the current view.
+ * Uses the world-space dimensions of the rasterized content for placement.
  */
 function insertPreviewImageToCanvas(dataURL, w, h, label) {
   const img = new Image();
@@ -811,14 +881,14 @@ function insertPreviewImageToCanvas(dataURL, w, h, label) {
 
 /**
  * Update the panel grid with filtered versions of the source canvas.
+ * @param {HTMLCanvasElement|OffscreenCanvas} sourceCanvas - The rasterized content.
+ * @param {number} worldW - World-space width of the rasterized content.
+ * @param {number} worldH - World-space height of the rasterized content.
  */
-function updatePanelGrid(sourceCanvas) {
+function updatePanelGrid(sourceCanvas, worldW, worldH) {
   if (!gridEl) return;
 
   gridEl.innerHTML = "";
-
-  const srcW = sourceCanvas.width;
-  const srcH = sourceCanvas.height;
 
   for (const { key, label } of PREVIEW_FILTERS) {
     const cell = document.createElement("div");
@@ -851,8 +921,8 @@ function updatePanelGrid(sourceCanvas) {
       e.dataTransfer.setData("text/plain", "accessibility-preview-drag");
       e.dataTransfer.setData("application/x-a11y-preview", JSON.stringify({
         dataURL,
-        w: srcW,
-        h: srcH,
+        w: worldW,
+        h: worldH,
         label,
       }));
       e.dataTransfer.effectAllowed = "copy";
@@ -860,19 +930,20 @@ function updatePanelGrid(sourceCanvas) {
 
     // Shift+hover: fullscreen modal preview
     cell.addEventListener("mouseenter", () => {
+      hoveredCellData = { dataURL, label };
       if (isShiftHeld) {
         showModal(dataURL, label);
       }
     });
 
-    cell.addEventListener("mousemove", () => {
-      if (isShiftHeld && modalOverlay && !modalOverlay.classList.contains("visible")) {
-        showModal(dataURL, label);
-      }
-    });
-
     cell.addEventListener("mouseleave", () => {
-      hideModal();
+      if (hoveredCellData && hoveredCellData.dataURL === dataURL) {
+        hoveredCellData = null;
+      }
+      // Keep backdrop visible while shift is held — avoids flash between cells
+      if (isShiftHeld) {
+        showModalBackdrop();
+      }
     });
 
     // Cmd+click (Meta+click): insert image to canvas
@@ -880,7 +951,7 @@ function updatePanelGrid(sourceCanvas) {
       if (e.metaKey || e.ctrlKey) {
         e.preventDefault();
         e.stopPropagation();
-        insertPreviewImageToCanvas(dataURL, srcW, srcH, label);
+        insertPreviewImageToCanvas(dataURL, worldW, worldH, label);
       }
     });
   }
