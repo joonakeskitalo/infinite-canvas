@@ -60,6 +60,8 @@ import {
 // --- PERFORMANCE: Throttle proximity/spacing guide computation during drag ---
 const GUIDE_COMPUTE_INTERVAL_MS = 60; // ms between expensive guide recalculations
 let _lastGuideComputeTime = 0;
+// --- PERFORMANCE: Map for O(1) drag offset lookup ---
+let _dragOffsetMap = null;
 
 /**
  * Snap a split-line position to the nearest fraction (halves, thirds, quarters)
@@ -2851,6 +2853,8 @@ function setupMouseHandlers() {
             return { id: el.id, type: "shape", start: { ...el.start }, end: el.end ? { ...el.end } : null, startMouse: { ...worldPos } };
           }
         });
+        // PERFORMANCE: Build a Map for O(1) offset lookups during drag (avoids O(n²) with .find())
+        _dragOffsetMap = new Map(state.dragOffsets.map((o) => [o.id, o]));
         toggleAlignmentPanelVisibility();
       } else {
         // Start region selection
@@ -3352,7 +3356,7 @@ function setupMouseHandlers() {
         }
         const excludeIds = state.selectedElements.map((el) => el.id);
         state.selectedElements.forEach((el) => {
-          const offset = state.dragOffsets.find((o) => o.id === el.id);
+          const offset = _dragOffsetMap ? _dragOffsetMap.get(el.id) : state.dragOffsets.find((o) => o.id === el.id);
           if (!offset) return;
           const curDx = worldPos.x - offset.startMouse.x;
           const curDy = worldPos.y - offset.startMouse.y;
@@ -3883,6 +3887,7 @@ function setupMouseHandlers() {
       }
       for (const el of state.selectedElements) spatialUpdate(el);
     }
+    _dragOffsetMap = null;
 
     toggleAlignmentPanelVisibility();
     render();

@@ -737,6 +737,29 @@ function _doRender(targetCtx, isExporting) {
     // Always include crop target
     if (state.cropMode && state.cropTarget) visibleSet.add(state.cropTarget.id);
   }
+
+  // PERFORMANCE: Batch consecutive split lines into single stroke calls.
+  // Split lines sharing color+width+opacity are drawn together with one beginPath/stroke.
+  let _splitBatch = null; // { color, width, opacity, lines: [{start, end}] }
+
+  function _flushSplitBatch() {
+    if (!_splitBatch || _splitBatch.lines.length === 0) return;
+    targetCtx.save();
+    targetCtx.globalAlpha = _splitBatch.opacity;
+    targetCtx.strokeStyle = _splitBatch.color;
+    targetCtx.lineWidth = _splitBatch.width;
+    targetCtx.lineCap = "round";
+    targetCtx.beginPath();
+    for (let i = 0; i < _splitBatch.lines.length; i++) {
+      const ln = _splitBatch.lines[i];
+      targetCtx.moveTo(ln.start.x, ln.start.y);
+      targetCtx.lineTo(ln.end.x, ln.end.y);
+    }
+    targetCtx.stroke();
+    targetCtx.restore();
+    _splitBatch = null;
+  }
+
   zOrderedElements.forEach((el) => {
     if (el.elementType === "image") {
       const imgData = el;
@@ -811,6 +834,33 @@ function _doRender(targetCtx, isExporting) {
           if (!isRectInViewport(shapeBounds.x, shapeBounds.y, shapeBounds.w, shapeBounds.h, _vp)) return;
         }
       }
+
+      // PERFORMANCE: Batch split lines into a single stroke call.
+      // Split lines that don't need individual selection UI are accumulated
+      // and drawn together, avoiding per-element save/beginPath/stroke/restore overhead.
+      if (shape.isSplitLine && !shape.locked) {
+        const isSelected = !isExporting && state.currentTool === "select" && !state.overlaysHidden &&
+          state.selectedElements.some((s) => s.id === shape.id);
+        if (!isSelected) {
+          const lineWidth = isExporting ? shape.width * 2 : shape.width / transform.zoom;
+          const opacity = shape.opacity != null ? shape.opacity : 1;
+          // Check if current batch matches; if not, flush and start new batch
+          if (_splitBatch && (_splitBatch.color !== shape.color || _splitBatch.width !== lineWidth || _splitBatch.opacity !== opacity)) {
+            _flushSplitBatch();
+          }
+          if (!_splitBatch) {
+            _splitBatch = { color: shape.color, width: lineWidth, opacity, lines: [] };
+          }
+          _splitBatch.lines.push({ start: shape.start, end: shape.end });
+          return;
+        }
+        // Selected split line — flush batch, then draw individually with selection UI below
+        _flushSplitBatch();
+      } else if (_splitBatch) {
+        // Non-split-line element encountered — flush any pending batch to preserve z-order
+        _flushSplitBatch();
+      }
+
       drawShape(targetCtx, shape, isExporting);
       if (!isExporting && state.currentTool === "select" && !state.overlaysHidden) {
         const isSelected = state.selectedElements.some((s) => s.id === shape.id);
@@ -861,6 +911,8 @@ function _doRender(targetCtx, isExporting) {
       }
     }
   });
+  // Flush any remaining batched split lines
+  _flushSplitBatch();
 
   // 1.5 Render crop mode overlay (always on top of all elements)
   if (!isExporting && state.cropMode && state.cropTarget && state.cropRect) {
