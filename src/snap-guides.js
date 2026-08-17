@@ -132,6 +132,13 @@ export function getSnapTargets(excludeIds, bounds) {
     targets.y.push(b.y, b.y + b.h, b.y + b.h / 2);
   }
 
+  // Add 25% increment snap points for images
+  for (const img of state.images) {
+    if (excluded.has(img.id)) continue;
+    targets.x.push(img.x + img.w * 0.25, img.x + img.w * 0.75);
+    targets.y.push(img.y + img.h * 0.25, img.y + img.h * 0.75);
+  }
+
   return targets;
 }
 
