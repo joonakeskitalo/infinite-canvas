@@ -20,6 +20,7 @@ import { scheduleSave } from "./persistence.js";
 import { render, drawShape, getFilteredImage } from "./rendering.js";
 import { getShapeBounds, cloneElement, translateElement } from "./elements.js";
 import { serializeClipboardElements } from "./selection.js";
+import { getSnapTargets, snapToElements } from "./snap-guides.js";
 
 // Marching ants animation
 let _marchingAntsRAF = null;
@@ -181,15 +182,39 @@ export function marqueeStartSelection(worldPos) {
 
 /**
  * Update the marquee rectangle while dragging to define it.
+ * Pass shiftKey=true to enable snapping to grid or other elements.
  */
-export function marqueeUpdateSelection(worldPos) {
+export function marqueeUpdateSelection(worldPos, shiftKey) {
   if (state.marqueeIsDragging && state.marqueeDragStart) {
     const dx = worldPos.x - state.marqueeDragStart.x;
     const dy = worldPos.y - state.marqueeDragStart.y;
-    state.marqueeOffset = {
+    let newOffset = {
       x: state.marqueeDragStart.ox + dx,
       y: state.marqueeDragStart.oy + dy,
     };
+
+    if (shiftKey) {
+      // Snap the moved marquee position (position changes, size stays fixed)
+      const rect = state.marqueeRect;
+      const movedRect = { x: rect.x + newOffset.x, y: rect.y + newOffset.y, w: rect.w, h: rect.h };
+      if (state.gridVisible && state.gridSize > 0) {
+        const g = state.gridSize;
+        const snappedX = Math.round(movedRect.x / g) * g;
+        const snappedY = Math.round(movedRect.y / g) * g;
+        state.activeSnapGuides = [];
+        newOffset = { x: snappedX - rect.x, y: snappedY - rect.y };
+      } else {
+        const targets = getSnapTargets([], movedRect);
+        const threshold = CONSTANTS.SNAP_THRESHOLD / state.transform.zoom;
+        const snap = snapToElements(movedRect, targets, threshold);
+        state.activeSnapGuides = snap.guides;
+        newOffset = { x: newOffset.x + snap.dx, y: newOffset.y + snap.dy };
+      }
+    } else {
+      state.activeSnapGuides = [];
+    }
+
+    state.marqueeOffset = newOffset;
     render();
     return;
   }
@@ -198,10 +223,49 @@ export function marqueeUpdateSelection(worldPos) {
 
   const startX = state.marqueeStart.x;
   const startY = state.marqueeStart.y;
-  const x = Math.min(startX, worldPos.x);
-  const y = Math.min(startY, worldPos.y);
-  const w = Math.abs(worldPos.x - startX);
-  const h = Math.abs(worldPos.y - startY);
+  let endX = worldPos.x;
+  let endY = worldPos.y;
+
+  if (shiftKey) {
+    // Snap only the dragged endpoint, keep the start point fixed
+    if (state.gridVisible && state.gridSize > 0) {
+      const g = state.gridSize;
+      endX = Math.round(endX / g) * g;
+      endY = Math.round(endY / g) * g;
+      state.activeSnapGuides = [];
+    } else {
+      // Build a temporary rect to find snap targets, then snap the end point
+      const tempRect = {
+        x: Math.min(startX, endX), y: Math.min(startY, endY),
+        w: Math.abs(endX - startX), h: Math.abs(endY - startY),
+      };
+      const targets = getSnapTargets([], tempRect);
+      const threshold = CONSTANTS.SNAP_THRESHOLD / state.transform.zoom;
+      let bestDistX = threshold, bestDistY = threshold;
+      let dx = 0, dy = 0;
+      for (const tX of targets.x) {
+        const dist = Math.abs(endX - tX);
+        if (dist < bestDistX) { bestDistX = dist; dx = tX - endX; }
+      }
+      for (const tY of targets.y) {
+        const dist = Math.abs(endY - tY);
+        if (dist < bestDistY) { bestDistY = dist; dy = tY - endY; }
+      }
+      endX += dx;
+      endY += dy;
+      const guides = [];
+      if (dx !== 0) { for (const tX of targets.x) { if (Math.abs(endX - tX) < 0.5) guides.push({ axis: "x", pos: tX }); } }
+      if (dy !== 0) { for (const tY of targets.y) { if (Math.abs(endY - tY) < 0.5) guides.push({ axis: "y", pos: tY }); } }
+      state.activeSnapGuides = guides;
+    }
+  } else {
+    state.activeSnapGuides = [];
+  }
+
+  const x = Math.min(startX, endX);
+  const y = Math.min(startY, endY);
+  const w = Math.abs(endX - startX);
+  const h = Math.abs(endY - startY);
 
   state.marqueeRect = { x, y, w, h };
   render();

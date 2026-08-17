@@ -3431,9 +3431,9 @@ function setupMouseHandlers() {
         render();
       }
     } else if (state.marqueeIsSelecting || state.marqueeIsDragging) {
-      marqueeUpdateSelection(worldPos);
+      marqueeUpdateSelection(worldPos, e.shiftKey);
     } else if (isAccessibilityPreviewInteracting()) {
-      accessibilityPreviewMove(worldPos);
+      accessibilityPreviewMove(worldPos, e.shiftKey);
     } else if (state.activeMeasureLine) {
       // Don't update measure line until user has dragged beyond minimum distance
       const screenDx = e.clientX - state.startX;

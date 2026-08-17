@@ -7,12 +7,13 @@
  * moved and resized. The panel updates live as the selection changes.
  */
 
-import { state, getElementsInZOrder, spatialInsert } from "./state.js";
+import { state, CONSTANTS, getElementsInZOrder, spatialInsert } from "./state.js";
 import { screenToWorld, showToast } from "./utils.js";
 import { render, drawShape, getFilteredImage } from "./rendering.js";
 import { applyFilterToImageData } from "./filter-kernels.js";
 import { pushUndo } from "./history.js";
 import { scheduleSave } from "./persistence.js";
+import { getSnapTargets, snapToElements, snapResizeEdges } from "./snap-guides.js";
 
 // --- Preview filters ---
 const PREVIEW_FILTERS = [
@@ -297,15 +298,46 @@ export function accessibilityPreviewStart(worldPos) {
 }
 
 /**
- * Called on mousemove during interaction.
+ * Snap an accessibility preview rect's edges to the grid or other elements.
+ * Returns the snapped rectangle.
  */
-export function accessibilityPreviewMove(worldPos) {
+function snapAccessibilityRect(rect) {
+  if (state.gridVisible && state.gridSize > 0) {
+    const g = state.gridSize;
+    const x = Math.round(rect.x / g) * g;
+    const y = Math.round(rect.y / g) * g;
+    const x2 = Math.round((rect.x + rect.w) / g) * g;
+    const y2 = Math.round((rect.y + rect.h) / g) * g;
+    state.activeSnapGuides = [];
+    return { x, y, w: x2 - x, h: y2 - y };
+  }
+  const targets = getSnapTargets([], rect);
+  const threshold = CONSTANTS.SNAP_THRESHOLD / state.transform.zoom;
+  const snap = snapToElements(rect, targets, threshold);
+  state.activeSnapGuides = snap.guides;
+  return { x: rect.x + snap.dx, y: rect.y + snap.dy, w: rect.w, h: rect.h };
+}
+
+/**
+ * Called on mousemove during interaction.
+ * Pass shiftKey=true to enable snapping to grid or other elements.
+ */
+export function accessibilityPreviewMove(worldPos, shiftKey) {
   // Drawing a new selection
   if (isDrawing && drawStart) {
-    const x = Math.min(drawStart.x, worldPos.x);
-    const y = Math.min(drawStart.y, worldPos.y);
-    const w = Math.abs(worldPos.x - drawStart.x);
-    const h = Math.abs(worldPos.y - drawStart.y);
+    let x = Math.min(drawStart.x, worldPos.x);
+    let y = Math.min(drawStart.y, worldPos.y);
+    let w = Math.abs(worldPos.x - drawStart.x);
+    let h = Math.abs(worldPos.y - drawStart.y);
+
+    if (shiftKey) {
+      const rect = { x, y, w, h };
+      const snapped = snapAccessibilityRect(rect);
+      x = snapped.x; y = snapped.y; w = snapped.w; h = snapped.h;
+    } else {
+      state.activeSnapGuides = [];
+    }
+
     activeRect = { x, y, w, h };
     render();
     return;
@@ -318,9 +350,37 @@ export function accessibilityPreviewMove(worldPos) {
     const orig = interactionOrigRect;
 
     if (interactionMode === "move") {
-      activeRect = { x: orig.x + dx, y: orig.y + dy, w: orig.w, h: orig.h };
+      let movedRect = { x: orig.x + dx, y: orig.y + dy, w: orig.w, h: orig.h };
+      if (shiftKey) {
+        movedRect = snapAccessibilityRect(movedRect);
+      } else {
+        state.activeSnapGuides = [];
+      }
+      activeRect = movedRect;
     } else {
-      activeRect = computeResize(orig, interactionMode, dx, dy);
+      let resized = computeResize(orig, interactionMode, dx, dy);
+      if (shiftKey) {
+        // Snap the resized edges to elements/grid
+        if (state.gridVisible && state.gridSize > 0) {
+          const g = state.gridSize;
+          const x = Math.round(resized.x / g) * g;
+          const y = Math.round(resized.y / g) * g;
+          const x2 = Math.round((resized.x + resized.w) / g) * g;
+          const y2 = Math.round((resized.y + resized.h) / g) * g;
+          resized = { x, y, w: x2 - x, h: y2 - y };
+          state.activeSnapGuides = [];
+        } else {
+          const handlePos = interactionMode.replace("resize-", "");
+          const targets = getSnapTargets([], resized);
+          const threshold = CONSTANTS.SNAP_THRESHOLD / state.transform.zoom;
+          const snap = snapResizeEdges(resized, handlePos, targets, threshold);
+          resized = { x: resized.x + (handlePos.includes("l") ? snap.dx : 0), y: resized.y + (handlePos.includes("t") ? snap.dy : 0), w: resized.w + (handlePos.includes("r") ? snap.dx : (handlePos.includes("l") ? -snap.dx : 0)), h: resized.h + (handlePos.includes("b") ? snap.dy : (handlePos.includes("t") ? -snap.dy : 0)) };
+          state.activeSnapGuides = snap.guides;
+        }
+      } else {
+        state.activeSnapGuides = [];
+      }
+      activeRect = resized;
     }
 
     render();
