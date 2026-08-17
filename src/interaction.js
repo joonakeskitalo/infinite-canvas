@@ -2835,7 +2835,34 @@ function setupMouseHandlers() {
 
       if (clickedElement) {
         state.isRegionSelecting = false;
-        if (isModifierActive) {
+        if (e.metaKey && !e.shiftKey && !e.ctrlKey) {
+          // Cmd-click: select the clicked element plus all elements overlapping its bounds
+          const clickedBounds = clickedElement.elementType === "image"
+            ? { x: clickedElement.x, y: clickedElement.y, w: clickedElement.w, h: clickedElement.h }
+            : getShapeBounds(clickedElement);
+          const queryRect = {
+            minX: clickedBounds.x, minY: clickedBounds.y,
+            maxX: clickedBounds.x + clickedBounds.w, maxY: clickedBounds.y + clickedBounds.h,
+          };
+          const candidates = spatialIndex.queryRect(queryRect);
+          const overlapping = [];
+          for (const el of candidates) {
+            if (el.locked) continue;
+            // Verify actual bounding box overlap (spatial index may return false positives)
+            const elBounds = el.elementType === "image"
+              ? { x: el.x, y: el.y, w: el.w, h: el.h }
+              : getShapeBounds(el);
+            const overlaps = elBounds.x < clickedBounds.x + clickedBounds.w &&
+                             elBounds.x + elBounds.w > clickedBounds.x &&
+                             elBounds.y < clickedBounds.y + clickedBounds.h &&
+                             elBounds.y + elBounds.h > clickedBounds.y;
+            if (overlaps) {
+              if (el.elementType !== "image" && el.type !== "text") el.elementType = "drawing";
+              overlapping.push(el);
+            }
+          }
+          state.selectedElements = overlapping;
+        } else if (isModifierActive) {
           const idx = state.selectedElements.findIndex((el) => el.id === clickedElement.id);
           if (idx !== -1) state.selectedElements.splice(idx, 1);
           else state.selectedElements.push(clickedElement);
