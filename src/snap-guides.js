@@ -193,12 +193,24 @@ export function snapToSpacing(bounds, excludeIds, threshold, options) {
 
   const myLeft = bounds.x, myRight = bounds.x + bounds.w;
   const myTop = bounds.y, myBottom = bounds.y + bounds.h;
+  const myCx = (myLeft + myRight) / 2;
+  const myCy = (myTop + myBottom) / 2;
+
+  // Max distance: only consider elements within this range of the dragged selection.
+  // Elements further away shouldn't influence spacing snaps.
+  const maxDist = Math.max(bounds.w, bounds.h, 500 / state.transform.zoom);
 
   const refGapsX = [], refGapsY = [];
 
   for (let i = 0; i < allElements.length; i++) {
+    const a = allElements[i];
+    const aCx = a.x + a.w / 2, aCy = a.y + a.h / 2;
+    // Skip element if its center is too far from the dragged bounds center
+    if (Math.abs(aCx - myCx) > maxDist && Math.abs(aCy - myCy) > maxDist) continue;
     for (let j = i + 1; j < allElements.length; j++) {
-      const a = allElements[i], b = allElements[j];
+      const b = allElements[j];
+      const bCx = b.x + b.w / 2, bCy = b.y + b.h / 2;
+      if (Math.abs(bCx - myCx) > maxDist && Math.abs(bCy - myCy) > maxDist) continue;
       const aL = a.x, aR = a.x + a.w, aT = a.y, aB = a.y + a.h;
       const bL = b.x, bR = b.x + b.w, bT = b.y, bB = b.y + b.h;
       if (aB > bT && aT < bB) {
@@ -220,6 +232,9 @@ export function snapToSpacing(bounds, excludeIds, threshold, options) {
 
   for (const el of allElements) {
     const elL = el.x, elR = el.x + el.w, elT = el.y, elB = el.y + el.h;
+    // Skip elements too far from the dragged selection
+    const elCx = (elL + elR) / 2, elCy = (elT + elB) / 2;
+    if (Math.abs(elCx - myCx) > maxDist && Math.abs(elCy - myCy) > maxDist) continue;
 
     if (myBottom > elT && myTop < elB) {
       if (elR <= myLeft + threshold * 2) {
