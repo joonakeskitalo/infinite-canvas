@@ -1329,15 +1329,20 @@ function handlePaste(e) {
   // Check for cross-tab serialized element data
   const text = clipboardData.getData("text/plain");
   if (text && text.startsWith(CONSTANTS.INTERNAL_COPY_MIME + "\n")) {
-    // Same-tab paste: if we already have clipboard elements in memory, use them directly
-    if (state.internalCopyPerformed && state.clipboardElements.length > 0) {
+    // Parse the copy ID and JSON from the payload (format: MIME\ncopyId\nJSON)
+    const afterMime = text.slice(CONSTANTS.INTERNAL_COPY_MIME.length + 1);
+    const newlineIdx = afterMime.indexOf("\n");
+    const payloadCopyId = newlineIdx !== -1 ? afterMime.slice(0, newlineIdx) : null;
+    const jsonStr = newlineIdx !== -1 ? afterMime.slice(newlineIdx + 1) : afterMime;
+
+    // Same-tab paste: only use local clipboard if the copy ID matches this tab's last copy
+    if (state.internalCopyPerformed && state.clipboardElements.length > 0 && payloadCopyId && payloadCopyId === state.internalCopyId) {
       e.preventDefault();
       pasteFromClipboard();
       return;
     }
-    // Cross-tab paste: deserialize from clipboard text
+    // Cross-tab paste (or copy ID mismatch): deserialize from clipboard text
     try {
-      const jsonStr = text.slice(CONSTANTS.INTERNAL_COPY_MIME.length + 1);
       const serialized = JSON.parse(jsonStr);
       if (Array.isArray(serialized) && serialized.length > 0) {
         e.preventDefault();

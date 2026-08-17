@@ -161,10 +161,11 @@ export function copySelectionToClipboard() {
   });
   state.pasteOffset = 0;
   state.internalCopyPerformed = true;
+  state.internalCopyId = Date.now() + "-" + Math.random().toString(36).slice(2, 10);
 
   // Serialize elements for cross-tab clipboard transfer
   const serialized = serializeClipboardElements(state.clipboardElements);
-  const clipboardPayload = CONSTANTS.INTERNAL_COPY_MIME + "\n" + JSON.stringify(serialized);
+  const clipboardPayload = CONSTANTS.INTERNAL_COPY_MIME + "\n" + state.internalCopyId + "\n" + JSON.stringify(serialized);
 
   // Use Clipboard API to write serialized data to system clipboard
   navigator.clipboard.writeText(clipboardPayload).then(() => {

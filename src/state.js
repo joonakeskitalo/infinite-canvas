@@ -78,6 +78,7 @@ export const state = {
   clipboardElements: [],
   pasteOffset: 0,
   internalCopyPerformed: false,
+  internalCopyId: null,
 
   // Measurement tool
   measureHoverGuides: [],

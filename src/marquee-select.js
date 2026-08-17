@@ -408,10 +408,11 @@ export function marqueeCopy() {
     state.clipboardElements = clones;
     state.pasteOffset = 0;
     state.internalCopyPerformed = true;
+    state.internalCopyId = Date.now() + "-" + Math.random().toString(36).slice(2, 10);
 
     // Serialize elements for cross-tab clipboard transfer (same as copySelectionToClipboard)
     const serialized = serializeClipboardElements(clones);
-    const clipboardPayload = CONSTANTS.INTERNAL_COPY_MIME + "\n" + JSON.stringify(serialized);
+    const clipboardPayload = CONSTANTS.INTERNAL_COPY_MIME + "\n" + state.internalCopyId + "\n" + JSON.stringify(serialized);
 
     navigator.clipboard.writeText(clipboardPayload).then(() => {
       showToast(`Copied ${clones.length} element(s)`);
