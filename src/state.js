@@ -240,6 +240,7 @@ export function rebuildSpatialIndex() {
   for (const shape of state.drawings) {
     spatialIndex.insert(shape, getElementSpatialBounds(shape));
   }
+  invalidateZOrderCache();
 }
 
 /**
@@ -260,13 +261,29 @@ export function rebuildElementOrder() {
     if (!keptSet.has(el.id)) kept.push(el.id);
   }
   state.elementOrder = kept;
+  invalidateZOrderCache();
 }
 
 /**
  * Get all elements in z-order (bottom to top).
- * Returns an array of element references ordered by state.elementOrder.
+ * Returns a cached array of element references ordered by state.elementOrder.
+ * The cache is invalidated when elements are added/removed or order changes.
  */
+let _zOrderCache = null;
+let _zOrderCacheKey = null;
+
+export function invalidateZOrderCache() {
+  _zOrderCache = null;
+  _zOrderCacheKey = null;
+}
+
 export function getElementsInZOrder() {
+  // Use a composite key: element count + order length + first/last IDs
+  const key = state.images.length + ":" + state.drawings.length + ":" + state.elementOrder.length +
+    ":" + (state.elementOrder[0] || "") + ":" + (state.elementOrder[state.elementOrder.length - 1] || "");
+  if (_zOrderCache && _zOrderCacheKey === key) {
+    return _zOrderCache;
+  }
   const map = new Map();
   for (const el of state.images) map.set(el.id, el);
   for (const el of state.drawings) map.set(el.id, el);
@@ -275,6 +292,8 @@ export function getElementsInZOrder() {
     const el = map.get(id);
     if (el) result.push(el);
   }
+  _zOrderCache = result;
+  _zOrderCacheKey = key;
   return result;
 }
 
@@ -286,6 +305,7 @@ export function spatialInsert(el) {
   if (!state.elementOrder.includes(el.id)) {
     state.elementOrder.push(el.id);
   }
+  invalidateZOrderCache();
 }
 
 /**
@@ -295,6 +315,7 @@ export function spatialRemove(el) {
   spatialIndex.remove(el);
   const idx = state.elementOrder.indexOf(el.id);
   if (idx !== -1) state.elementOrder.splice(idx, 1);
+  invalidateZOrderCache();
 }
 
 /**

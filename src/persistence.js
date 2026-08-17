@@ -4,7 +4,7 @@
  * Save/load canvas state to .icv files.
  */
 
-import { state, CONSTANTS, getDom, rebuildSpatialIndex, rebuildElementOrder } from "./state.js";
+import { state, CONSTANTS, getDom, rebuildSpatialIndex, rebuildElementOrder, invalidateZOrderCache } from "./state.js";
 import { serializeElement } from "./elements.js";
 import { updateUndoRedoButtons } from "./history.js";
 import { showToast } from "./utils.js";
@@ -200,6 +200,7 @@ async function restoreFromZip(arrayBuf) {
   rebuildSpatialIndex();
   if (manifest.elementOrder) {
     state.elementOrder = manifest.elementOrder;
+    invalidateZOrderCache();
   } else {
     rebuildElementOrder();
   }

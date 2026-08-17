@@ -57,6 +57,10 @@ import {
   handleAccessibilityPreviewDrop, getAccessibilityPreviewCursor,
 } from "./accessibility-preview.js";
 
+// --- PERFORMANCE: Throttle proximity/spacing guide computation during drag ---
+const GUIDE_COMPUTE_INTERVAL_MS = 60; // ms between expensive guide recalculations
+let _lastGuideComputeTime = 0;
+
 /**
  * Snap a split-line position to the nearest fraction (halves, thirds, quarters)
  * of the image dimension. Returns the snapped position if close enough, otherwise
@@ -2837,6 +2841,7 @@ function setupMouseHandlers() {
         expandSelectionToGroups();
         pushUndo();
         state.hasDragThresholdBeenMet = false;
+        _lastGuideComputeTime = 0; // ensure guides are computed on first drag frame
         state.dragOffsets = state.selectedElements.map((el) => {
           if (el.elementType === "image") {
             return { id: el.id, type: "image", x: el.x, y: el.y, startMouse: { ...worldPos } };
@@ -3432,9 +3437,18 @@ function setupMouseHandlers() {
             state.activeSpacingGuides = getSpacingGuides(groupBounds, excludeIds);
           }
         } else {
+          // PERFORMANCE: Proximity and spacing guide computation queries the spatial
+          // index and does O(n^2) gap comparisons over neighbors. Recomputing this on
+          // every mousemove is the main source of lag when dragging many elements.
+          // Throttle it to at most once every ~60ms; between recomputes we keep showing
+          // the previously computed guides (they remain visually accurate enough).
           state.activeSnapGuides = [];
-          state.activeProximityGuides = getProximityGuides(groupBounds, excludeIds);
-          state.activeSpacingGuides = getSpacingGuides(groupBounds, excludeIds);
+          const now = performance.now();
+          if (now - _lastGuideComputeTime >= GUIDE_COMPUTE_INTERVAL_MS) {
+            _lastGuideComputeTime = now;
+            state.activeProximityGuides = getProximityGuides(groupBounds, excludeIds);
+            state.activeSpacingGuides = getSpacingGuides(groupBounds, excludeIds);
+          }
         }
         updateConnectorsForElements(state.selectedElements.map((el) => el.id));
         const draggedIds = new Set(state.selectedElements.map((el) => el.id));

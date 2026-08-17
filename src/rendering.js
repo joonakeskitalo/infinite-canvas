@@ -4,7 +4,7 @@
  * Main render loop, shape drawing, measurement lines, and PNG export.
  */
 
-import { state, CONSTANTS, getDom, getElementsInZOrder } from "./state.js";
+import { state, CONSTANTS, getDom, getElementsInZOrder, spatialIndex } from "./state.js";
 import { getViewportBounds, isRectInViewport, worldToScreen, screenToWorld } from "./utils.js";
 import { applyFilterToImageData } from "./filter-kernels.js";
 import {
@@ -724,12 +724,27 @@ function _doRender(targetCtx, isExporting) {
   }
 
   // 1. Render all elements in z-order (images and drawings intermixed)
+  // PERFORMANCE: Use spatial index to pre-filter visible elements instead of
+  // checking viewport intersection for every element individually.
   const zOrderedElements = getElementsInZOrder();
+  let visibleSet = null;
+  if (_vp && zOrderedElements.length > 50) {
+    const vpRect = { minX: _vp.minX, minY: _vp.minY, maxX: _vp.maxX, maxY: _vp.maxY };
+    const visibleCandidates = spatialIndex.queryRect(vpRect);
+    visibleSet = new Set(visibleCandidates.map(el => el.id));
+    // Always include elements being dragged (their spatial index may be stale)
+    for (const el of state.selectedElements) visibleSet.add(el.id);
+    // Always include crop target
+    if (state.cropMode && state.cropTarget) visibleSet.add(state.cropTarget.id);
+  }
   zOrderedElements.forEach((el) => {
     if (el.elementType === "image") {
       const imgData = el;
-      if (_vp && !(state.cropMode && state.cropTarget && state.cropTarget.id === imgData.id) &&
-          !isRectInViewport(imgData.x, imgData.y, imgData.w, imgData.h, _vp)) return;
+      if (_vp && !(state.cropMode && state.cropTarget && state.cropTarget.id === imgData.id)) {
+        if (visibleSet) {
+          if (!visibleSet.has(imgData.id)) return;
+        } else if (!isRectInViewport(imgData.x, imgData.y, imgData.w, imgData.h, _vp)) return;
+      }
 
       targetCtx.save();
       targetCtx.globalAlpha = imgData.opacity != null ? imgData.opacity : 1;
@@ -789,8 +804,12 @@ function _doRender(targetCtx, isExporting) {
 
       let shapeBounds;
       if (_vp) {
-        shapeBounds = getShapeBounds(shape);
-        if (!isRectInViewport(shapeBounds.x, shapeBounds.y, shapeBounds.w, shapeBounds.h, _vp)) return;
+        if (visibleSet) {
+          if (!visibleSet.has(shape.id)) return;
+        } else {
+          shapeBounds = getShapeBounds(shape);
+          if (!isRectInViewport(shapeBounds.x, shapeBounds.y, shapeBounds.w, shapeBounds.h, _vp)) return;
+        }
       }
       drawShape(targetCtx, shape, isExporting);
       if (!isExporting && state.currentTool === "select" && !state.overlaysHidden) {

@@ -5,7 +5,7 @@
  * and layout operations.
  */
 
-import { state, CONSTANTS, getDom, spatialInsert, spatialUpdate } from "./state.js";
+import { state, CONSTANTS, getDom, spatialInsert, spatialUpdate, invalidateZOrderCache } from "./state.js";
 import { showToast, screenToWorld } from "./utils.js";
 import {
   getShapeBounds, cloneElement, translateElement,
@@ -91,6 +91,7 @@ export function bringToFront() {
   const remaining = state.elementOrder.filter(id => !selectedIds.has(id));
   const moved = state.elementOrder.filter(id => selectedIds.has(id));
   state.elementOrder = [...remaining, ...moved];
+  invalidateZOrderCache();
   render();
   scheduleSave();
   showToast("Brought to front");
@@ -103,6 +104,7 @@ export function sendToBack() {
   const remaining = state.elementOrder.filter(id => !selectedIds.has(id));
   const moved = state.elementOrder.filter(id => selectedIds.has(id));
   state.elementOrder = [...moved, ...remaining];
+  invalidateZOrderCache();
   render();
   scheduleSave();
   showToast("Sent to back");
@@ -122,6 +124,7 @@ export function bringForward() {
     }
   }
   state.elementOrder = order;
+  invalidateZOrderCache();
   render();
   scheduleSave();
   showToast("Moved forward");
@@ -141,6 +144,7 @@ export function sendBackward() {
     }
   }
   state.elementOrder = order;
+  invalidateZOrderCache();
   render();
   scheduleSave();
   showToast("Moved backward");
