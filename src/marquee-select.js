@@ -531,6 +531,7 @@ export function marqueeCopy() {
         const c = clipDrawingToRect(el, rect);
         if (c) {
           c.id = "draw_" + state.elementIdCounter++;
+          delete c.groupId; // Clipped elements should not retain original group membership
           translateElement(c, ox, oy);
           clones.push(c);
         }
@@ -944,6 +945,7 @@ export function marqueeDuplicate() {
         const c = clipDrawingToRect(el, rect);
         if (c) {
           c.id = "draw_" + state.elementIdCounter++;
+          delete c.groupId; // Clipped elements should not retain original group membership
           translateElement(c, ox + offset, oy + offset);
           state.drawings.push(c);
           spatialInsert(c);
