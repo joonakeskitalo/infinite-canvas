@@ -657,7 +657,7 @@ export function initEventHandlers() {
 
   container.addEventListener("wheel", (e) => {
     // Don't zoom/pan when cursor is over app UI elements (toolbar, menus, panels)
-    const uiRoot = e.target.closest("#toolbar, #toolbar-menu, #color-popup, #alignment-panel, #filter-preview-overlay, .toast");
+    const uiRoot = e.target.closest("#toolbar, #toolbar-menu, #color-popup, #alignment-panel, #filter-preview-overlay, #accessibility-preview-panel, .toast");
     if (uiRoot) return;
 
     e.preventDefault();
