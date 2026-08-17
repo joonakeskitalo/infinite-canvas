@@ -3459,19 +3459,10 @@ function setupMouseHandlers() {
             state.activeSpacingGuides = getSpacingGuides(groupBounds, excludeIds);
           }
         } else {
-          // PERFORMANCE: Proximity and spacing guide computation queries the spatial
-          // index and does O(n^2) gap comparisons over neighbors. Recomputing this on
-          // every mousemove is the main source of lag when dragging many elements.
-          // Throttle it to at most once every ~60ms; between recomputes we keep showing
-          // the previously computed guides (they remain visually accurate enough).
+          // No guides unless Shift is held — improves performance during drag
           state.activeSnapGuides = [];
-          const now = performance.now();
-          if (now - _lastGuideComputeTime >= GUIDE_COMPUTE_INTERVAL_MS) {
-            _lastGuideComputeTime = now;
-            const guideOpts = { excludeSplitLines: true };
-            state.activeProximityGuides = getProximityGuides(groupBounds, excludeIds, guideOpts);
-            state.activeSpacingGuides = getSpacingGuides(groupBounds, excludeIds, guideOpts);
-          }
+          state.activeProximityGuides = [];
+          state.activeSpacingGuides = [];
         }
         updateConnectorsForElements(_dragExcludeIds || state.selectedElements.map((el) => el.id));
         const draggedIds = _dragExcludeIdSet || new Set(state.selectedElements.map((el) => el.id));
