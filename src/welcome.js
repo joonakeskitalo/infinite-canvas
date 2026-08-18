@@ -80,9 +80,9 @@ const SHOWCASE_SCENES = [
       const card1X = 30;
       const card2X = 200;
       const card3X = 370;
-      const cardY = 115;
+      const cardY = 105;
       const cardW = 150;
-      const cardH = 80;
+      const cardH = 60;
 
       // Card 1
       ctx.fillStyle = "#fff";
@@ -98,18 +98,18 @@ const SHOWCASE_SCENES = [
       ctx.font = "bold 18px sans-serif";
       ctx.fillText("$12,400", card1X + 12, cardY + 50);
 
-      // Card 2
+      // Card 2 — intentionally misaligned (shifted right by 6px)
       ctx.fillStyle = "#fff";
-      roundRect(ctx, card2X, cardY, cardW, cardH, 5);
+      roundRect(ctx, card2X + 6, cardY, cardW, cardH, 5);
       ctx.fill();
       ctx.strokeStyle = "#e0e0e0";
       ctx.stroke();
       ctx.fillStyle = "#333";
       ctx.font = "bold 11px sans-serif";
-      ctx.fillText("Users", card2X + 12, cardY + 22);
+      ctx.fillText("Users", card2X + 6 + 12, cardY + 22);
       ctx.fillStyle = "#28a745";
       ctx.font = "bold 18px sans-serif";
-      ctx.fillText("1,024", card2X + 12, cardY + 50);
+      ctx.fillText("1,024", card2X + 6 + 12, cardY + 50);
 
       // Card 3
       ctx.fillStyle = "#fff";
@@ -124,35 +124,35 @@ const SHOWCASE_SCENES = [
       ctx.font = "bold 18px sans-serif";
       ctx.fillText("328", card3X + 12, cardY + 50);
 
-      // Button row
-      const btnY = 210;
+      // Button row — "Export" button intentionally misaligned (shifted right by 4px)
+      const btnY = 175;
       ctx.fillStyle = "#007acc";
-      roundRect(ctx, 30, btnY, 90, 28, 4);
+      roundRect(ctx, 34, btnY, 90, 26, 4);
       ctx.fill();
       ctx.fillStyle = "#fff";
       ctx.font = "12px sans-serif";
-      ctx.fillText("Export", 55, btnY + 18);
+      ctx.fillText("Export", 59, btnY + 17);
 
       ctx.fillStyle = "#fff";
       ctx.strokeStyle = "#007acc";
       ctx.lineWidth = 1.5;
-      roundRect(ctx, 135, btnY, 90, 28, 4);
+      roundRect(ctx, 135, btnY, 90, 26, 4);
       ctx.fill();
       ctx.stroke();
       ctx.fillStyle = "#007acc";
-      ctx.fillText("Settings", 155, btnY + 18);
+      ctx.fillText("Settings", 155, btnY + 17);
 
       // Guide line placements — vertical and horizontal
       // Each has: type (v/h), position, cursor target (where cursor clicks)
       const guides = [
-        { type: "v", pos: 30, cx: 30, cy: 120, placeAt: 30, moveDur: 25 },
-        { type: "h", pos: cardY, cx: 260, cy: cardY, placeAt: 90, moveDur: 30 },
-        { type: "v", pos: card2X, cx: card2X, cy: 155, placeAt: 160, moveDur: 30 },
-        { type: "h", pos: btnY, cx: 180, cy: btnY, placeAt: 230, moveDur: 25 },
-        { type: "v", pos: card3X, cx: card3X, cy: 120, placeAt: 290, moveDur: 30 },
+        { type: "v", pos: 30, cx: 30, cy: 100, placeAt: 20, moveDur: 25 },
+        { type: "h", pos: cardY, cx: 260, cy: cardY, placeAt: 70, moveDur: 25 },
+        { type: "v", pos: card2X + 6, cx: card2X + 6, cy: 130, placeAt: 120, moveDur: 25 },
+        { type: "h", pos: btnY, cx: 180, cy: btnY, placeAt: 170, moveDur: 25 },
+        { type: "v", pos: card3X, cx: card3X, cy: 100, placeAt: 220, moveDur: 25 },
       ];
 
-      const loopLen = 380;
+      const loopLen = 340;
       const lt = t % loopLen;
 
       // Draw placed guides
@@ -178,12 +178,12 @@ const SHOWCASE_SCENES = [
         ctx.restore();
       }
 
-      // Animate cursor moving between guide placements
-      // Find which segment the cursor is in
+      // Animate cursor moving between guide placements, then to the error
       let cursorX = guides[0].cx;
       let cursorY = guides[0].cy;
       let showCursor = false;
 
+      // Phase 1: placing guides (lt 0–320)
       for (let i = 0; i < guides.length; i++) {
         const g = guides[i];
         const moveStart = i === 0 ? 0 : guides[i - 1].placeAt + 15;
@@ -192,15 +192,12 @@ const SHOWCASE_SCENES = [
         if (lt >= moveStart && lt <= g.placeAt + 10) {
           showCursor = true;
           if (lt < moveEnd) {
-            // Moving toward this guide's position
             const prev = i === 0 ? { cx: W / 2, cy: H / 2 } : guides[i - 1];
             const progress = Math.min(1, (lt - moveStart) / g.moveDur);
-            // Ease out
             const ease = 1 - Math.pow(1 - progress, 2);
             cursorX = prev.cx + (g.cx - prev.cx) * ease;
             cursorY = prev.cy + (g.cy - prev.cy) * ease;
           } else {
-            // At the placement point
             cursorX = g.cx;
             cursorY = g.cy;
           }
@@ -208,8 +205,81 @@ const SHOWCASE_SCENES = [
         }
       }
 
+      // Phase 2: cursor circles around the intersection of guide x=30 and btnY
+      // to highlight the Export button alignment error
+      const err1Start = 250;
+      const lastGuide = guides[guides.length - 1];
+      const intersectX = 30; // vertical guide
+      const intersectY = btnY; // horizontal guide
+      const circleRadius = 14;
+
+      // Phase 3: cursor moves to card 2 error
+      const err2Start = 310;
+      const err2Target = { x: card2X + 3, y: cardY + 12 };
+
+      if (lt >= err1Start && lt < err2Start) {
+        showCursor = true;
+        if (lt < err1Start + 20) {
+          // Move cursor from last guide position to the intersection
+          const progress = Math.min(1, (lt - err1Start) / 20);
+          const ease = 1 - Math.pow(1 - progress, 2);
+          cursorX = lastGuide.cx + (intersectX - lastGuide.cx) * ease;
+          cursorY = lastGuide.cy + (intersectY - lastGuide.cy) * ease;
+        } else {
+          // Circle around the intersection point
+          const circleT = (lt - err1Start - 20) * 0.1;
+          cursorX = intersectX + Math.cos(circleT) * circleRadius;
+          cursorY = intersectY + Math.sin(circleT) * circleRadius;
+        }
+      } else if (lt >= err2Start) {
+        showCursor = true;
+        if (lt < err2Start + 20) {
+          const progress = Math.min(1, (lt - err2Start) / 20);
+          const ease = 1 - Math.pow(1 - progress, 2);
+          const fromX = intersectX + Math.cos((err2Start - err1Start - 20) * 0.1) * circleRadius;
+          const fromY = intersectY + Math.sin((err2Start - err1Start - 20) * 0.1) * circleRadius;
+          cursorX = fromX + (err2Target.x - fromX) * ease;
+          cursorY = fromY + (err2Target.y - fromY) * ease;
+        } else {
+          cursorX = err2Target.x;
+          cursorY = err2Target.y;
+        }
+      }
+
       if (showCursor) {
         drawCursor(ctx, cursorX + 6, cursorY + 6);
+      }
+
+      // Error 1: Export button is 4px off from the guide at x=30
+      if (lt > err1Start + 22) {
+        const errAlpha = Math.min(1, (lt - err1Start - 22) / 12);
+        ctx.save();
+        ctx.globalAlpha = errAlpha;
+        const gx = 30;
+        const ex = 34;
+        const ey = btnY + 4;
+        ctx.fillStyle = "rgba(220, 53, 69, 0.35)";
+        ctx.fillRect(gx, ey, ex - gx, 18);
+        ctx.fillStyle = "#dc3545";
+        ctx.font = "bold 9px sans-serif";
+        ctx.fillText("4px", gx - 1, ey - 4);
+        ctx.restore();
+      }
+
+      // Error 2: card 2 is 6px off from expected position
+      if (lt > err2Start + 20) {
+        const errAlpha = Math.min(1, (lt - err2Start - 20) / 12);
+        ctx.save();
+        ctx.globalAlpha = errAlpha;
+        const gx = card2X;
+        const ex = card2X + 6;
+        const ey = cardY + 4;
+        ctx.fillStyle = "rgba(220, 53, 69, 0.35)";
+        ctx.fillRect(gx, ey, ex - gx, cardH - 8);
+        ctx.fillStyle = "#dc3545";
+        ctx.font = "bold 9px sans-serif";
+        ctx.fillText("6px", gx + 7, ey - 4);
+        ctx.restore();
       }
     },
   },
@@ -218,67 +288,218 @@ const SHOWCASE_SCENES = [
     key: "K",
     icon: TOOL_ICONS.contrast,
     draw(ctx, W, H, t) {
-      const pairIdx = Math.floor(t / 100) % 4;
-      const pairs = [
-        { fg: "#1a1a1a", bg: "#ffffff", ratio: "21 : 1", pass: true },
-        { fg: "#777777", bg: "#ffffff", ratio: "4.5 : 1", pass: true },
-        { fg: "#aaaaaa", bg: "#ffffff", ratio: "2.3 : 1", pass: false },
-        { fg: "#ffffff", bg: "#007acc", ratio: "4.6 : 1", pass: true },
-      ];
-      const p = pairs[pairIdx];
+      ctx.fillStyle = "#f0f0f0";
+      ctx.fillRect(0, 0, W, H);
 
-      // Background
-      ctx.fillStyle = p.bg;
-      ctx.fillRect(20, 20, W - 40, H - 70);
-      ctx.strokeStyle = "#ddd";
+      const btnBg = "#9e9e9e";
+      const btnFg = "#1a1a1a";
+
+      // --- Left side: the button being tested ---
+      const btnX = 40, btnY = 80, btnW = 180, btnH = 44;
+
+      // Label above button
+      ctx.fillStyle = "#666";
+      ctx.font = "11px sans-serif";
+      ctx.fillText("Testing this button:", 40, 70);
+
+      // The grey button with black text
+      ctx.fillStyle = btnBg;
+      roundRect(ctx, btnX, btnY, btnW, btnH, 6);
+      ctx.fill();
+      ctx.fillStyle = btnFg;
+      ctx.font = "bold 15px sans-serif";
+      ctx.fillText("Place Order", btnX + 38, btnY + 28);
+
+      // Pick indicators on the button
+      const pick1 = { x: btnX + btnW - 30, y: btnY + btnH / 2 }; // bg pick
+      const pick2 = { x: btnX + 55, y: btnY + 22 }; // text pick
+
+      const lt = Math.min(t, 350); // clamp — don't loop, just hold final state
+
+      // Phase 1: cursor moves to bg (0–80)
+      // Phase 2: pick 1 shown (80+), cursor moves to text (100–180)
+      // Phase 3: pick 2 shown (180+), results appear
+
+      if (lt > 80) {
+        ctx.beginPath();
+        ctx.arc(pick1.x, pick1.y, 7, 0, Math.PI * 2);
+        ctx.strokeStyle = "#ff4444";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = btnBg;
+        ctx.beginPath();
+        ctx.arc(pick1.x, pick1.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      if (lt > 180) {
+        ctx.beginPath();
+        ctx.arc(pick2.x, pick2.y, 7, 0, Math.PI * 2);
+        ctx.strokeStyle = "#ff4444";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = btnFg;
+        ctx.beginPath();
+        ctx.arc(pick2.x, pick2.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Animated cursor
+      if (lt < 80) {
+        const progress = Math.min(1, lt / 70);
+        const ease = 1 - Math.pow(1 - progress, 2);
+        const cx = btnX + (pick1.x - btnX) * ease;
+        const cy = btnY + btnH + 20 + (pick1.y - (btnY + btnH + 20)) * ease;
+        drawCrosshairCursor(ctx, cx, cy);
+      } else if (lt >= 100 && lt < 180) {
+        const progress = Math.min(1, (lt - 100) / 70);
+        const ease = 1 - Math.pow(1 - progress, 2);
+        const cx = pick1.x + (pick2.x - pick1.x) * ease;
+        const cy = pick1.y + (pick2.y - pick1.y) * ease;
+        drawCrosshairCursor(ctx, cx, cy);
+      }
+
+      // --- Right side: contrast panel (progressive state) ---
+      const pw = 260, ph = 195;
+      const px = W - pw - 30;
+      const py = (H - ph) / 2;
+
+      // Panel background
+      ctx.fillStyle = "rgba(30, 30, 30, 0.97)";
+      roundRect(ctx, px, py, pw, ph, 10);
+      ctx.fill();
+      ctx.strokeStyle = "#444";
       ctx.lineWidth = 1;
-      ctx.strokeRect(20, 20, W - 40, H - 70);
-
-      // Text samples
-      ctx.fillStyle = p.fg;
-      ctx.font = "bold 22px sans-serif";
-      ctx.fillText("Heading Text", 40, 65);
-      ctx.font = "15px sans-serif";
-      ctx.fillText("Body text for readability check", 40, 95);
-      ctx.font = "12px sans-serif";
-      ctx.fillText("Small caption text", 40, 120);
-
-      // Color swatches at bottom
-      const swatchY = H - 40;
-      ctx.fillStyle = p.fg;
-      ctx.beginPath();
-      ctx.arc(50, swatchY, 14, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = "#ccc";
-      ctx.lineWidth = 1.5;
       ctx.stroke();
 
-      ctx.fillStyle = p.bg;
-      ctx.beginPath();
-      ctx.arc(85, swatchY, 14, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
+      // Panel title
+      ctx.fillStyle = "#eee";
+      ctx.font = "bold 11px sans-serif";
+      ctx.fillText("Contrast Checker", px + 14, py + 18);
 
-      // Ratio display
-      const badgeX = 130;
-      ctx.font = "bold 16px sans-serif";
-      ctx.fillStyle = p.pass ? "#28a745" : "#dc3545";
-      ctx.fillText(p.ratio, badgeX, swatchY + 5);
+      if (lt < 80) {
+        // State 1: waiting for first click
+        ctx.fillStyle = "#999";
+        ctx.font = "11px sans-serif";
+        ctx.fillText("Click the ", px + 14, py + 50);
+        ctx.fillStyle = "#4fc3f7";
+        ctx.font = "bold 11px sans-serif";
+        ctx.fillText("first", px + 74, py + 50);
+        ctx.fillStyle = "#999";
+        ctx.font = "11px sans-serif";
+        ctx.fillText(" color on the canvas", px + 101, py + 50);
+      } else if (lt < 180) {
+        // State 2: first color picked, waiting for second
+        const swY = py + 34;
+        ctx.fillStyle = btnBg;
+        roundRect(ctx, px + 14, swY, 18, 18, 4);
+        ctx.fill();
+        ctx.strokeStyle = "#555";
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+        ctx.fillStyle = "#ccc";
+        ctx.font = "9px monospace";
+        ctx.fillText("#9E9E9E", px + 36, swY + 12);
 
-      // Pass/Fail badge
-      const badgeText = p.pass ? "✓ PASS" : "✗ FAIL";
-      const textW = ctx.measureText(p.ratio).width;
-      ctx.font = "bold 13px sans-serif";
-      ctx.fillText(badgeText, badgeX + textW + 14, swatchY + 5);
+        ctx.fillStyle = "#777";
+        ctx.font = "9px sans-serif";
+        ctx.fillText("vs", px + 96, swY + 12);
 
-      // Animated crosshair cursor picking colors from the text area
-      const cursorProgress = (t % 100) / 100;
-      // Move cursor between the two click points on the content area
-      const cx1 = 60, cy1 = 60;   // first pick point (on heading text)
-      const cx2 = 60, cy2 = 100;  // second pick point (on body text)
-      const cx = cx1 + (cx2 - cx1) * cursorProgress;
-      const cy = cy1 + (cy2 - cy1) * cursorProgress;
-      drawCrosshairCursor(ctx, cx, cy);
+        // Placeholder swatch (checkerboard)
+        ctx.fillStyle = "#444";
+        roundRect(ctx, px + 110, swY, 18, 18, 4);
+        ctx.fill();
+        ctx.fillStyle = "#555";
+        ctx.fillRect(px + 110, swY, 9, 9);
+        ctx.fillRect(px + 119, swY + 9, 9, 9);
+        ctx.fillStyle = "#ccc";
+        ctx.font = "9px monospace";
+        ctx.fillText("?", px + 132, swY + 12);
+
+        ctx.fillStyle = "#999";
+        ctx.font = "11px sans-serif";
+        ctx.fillText("Click the ", px + 14, swY + 40);
+        ctx.fillStyle = "#4fc3f7";
+        ctx.font = "bold 11px sans-serif";
+        ctx.fillText("second", px + 74, swY + 40);
+        ctx.fillStyle = "#999";
+        ctx.font = "11px sans-serif";
+        ctx.fillText(" color", px + 115, swY + 40);
+      } else {
+        // State 3: both picked — show full results
+        const swY = py + 30;
+        ctx.fillStyle = btnBg;
+        roundRect(ctx, px + 14, swY, 18, 18, 4);
+        ctx.fill();
+        ctx.strokeStyle = "#555";
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+        ctx.fillStyle = "#ccc";
+        ctx.font = "9px monospace";
+        ctx.fillText("#9E9E9E", px + 36, swY + 12);
+
+        ctx.fillStyle = "#777";
+        ctx.font = "9px sans-serif";
+        ctx.fillText("vs", px + 96, swY + 12);
+
+        ctx.fillStyle = btnFg;
+        roundRect(ctx, px + 110, swY, 18, 18, 4);
+        ctx.fill();
+        ctx.strokeStyle = "#555";
+        ctx.stroke();
+        ctx.fillStyle = "#ccc";
+        ctx.font = "9px monospace";
+        ctx.fillText("#1A1A1A", px + 132, swY + 12);
+
+        // Ratio display
+        const ratioY = swY + 34;
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 18px sans-serif";
+        ctx.fillText("3.93 : 1", px + 14, ratioY);
+
+        // Separator
+        ctx.strokeStyle = "#444";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(px + 10, ratioY + 8);
+        ctx.lineTo(px + pw - 10, ratioY + 8);
+        ctx.stroke();
+
+        // WCAG rows
+        const rowStart = ratioY + 22;
+        const rows = [
+          { label: "Normal text AA (4.5:1)", pass: false },
+          { label: "Normal text AAA (7:1)", pass: false },
+          { label: "Large text AA (3:1)", pass: true },
+          { label: "UI components (3:1)", pass: true },
+        ];
+        ctx.font = "9px sans-serif";
+        for (let i = 0; i < rows.length; i++) {
+          const ry = rowStart + i * 16;
+          ctx.fillStyle = "#aaa";
+          ctx.fillText(rows[i].label, px + 14, ry);
+          const badgeX = px + pw - 46;
+          ctx.fillStyle = rows[i].pass ? "rgba(40,167,69,0.25)" : "rgba(220,53,69,0.25)";
+          roundRect(ctx, badgeX, ry - 9, 34, 13, 3);
+          ctx.fill();
+          ctx.fillStyle = rows[i].pass ? "#5cdb5c" : "#ff6b6b";
+          ctx.font = "bold 7px sans-serif";
+          ctx.fillText(rows[i].pass ? "PASS" : "FAIL", badgeX + 7, ry - 1);
+          ctx.font = "9px sans-serif";
+        }
+
+        // Preview box
+        const prevY = rowStart + rows.length * 16 + 6;
+        ctx.fillStyle = btnBg;
+        ctx.fillRect(px + 14, prevY, pw - 28, 16);
+        ctx.fillStyle = btnFg;
+        ctx.font = "9px sans-serif";
+        ctx.fillText("Sample text", px + 22, prevY + 12);
+        ctx.fillStyle = btnFg;
+        ctx.fillRect(px + pw - 60, prevY + 2, 36, 12);
+        ctx.fillStyle = btnBg;
+        ctx.font = "bold 7px sans-serif";
+        ctx.fillText("Button", px + pw - 54, prevY + 11);
+      }
     },
   },
   {
@@ -360,7 +581,7 @@ const SHOWCASE_SCENES = [
   },
   {
     title: "Annotation Tools",
-    key: "A",
+    key: "",
     icon: TOOL_ICONS.arrow,
     draw(ctx, W, H, t) {
       // Draw a mock UI screenshot
@@ -547,7 +768,7 @@ function roundRect(ctx, x, y, w, h, r) {
 let _animFrameId = null;
 let _currentScene = 0;
 let _sceneStartTime = 0;
-const SCENE_DURATION = 7000; // ms per scene
+const SCENE_DURATION = 10000; // ms per scene
 
 function buildAnimatedDemoContent() {
   const dots = SHOWCASE_SCENES.map((_, i) =>
@@ -557,13 +778,13 @@ function buildAnimatedDemoContent() {
   return `
     <div class="welcome-showcase">
       <div class="welcome-showcase-canvas-wrap">
-        <canvas class="welcome-showcase-canvas" width="700" height="280"></canvas>
+        <canvas class="welcome-showcase-canvas" width="690" height="220"></canvas>
       </div>
       <div class="welcome-showcase-footer">
         <div class="welcome-showcase-info">
           <span class="welcome-showcase-icon">${SHOWCASE_SCENES[0].icon}</span>
           <span class="welcome-showcase-title">${SHOWCASE_SCENES[0].title}</span>
-          <span class="welcome-tool-key">${SHOWCASE_SCENES[0].key}</span>
+          ${SHOWCASE_SCENES[0].key ? `<span class="welcome-tool-key">${SHOWCASE_SCENES[0].key}</span>` : ""}
         </div>
         <div class="welcome-showcase-dots">${dots}</div>
       </div>
@@ -581,7 +802,17 @@ function startAnimatedDemos(container) {
   _currentScene = 0;
   _sceneStartTime = performance.now();
 
+  let _lastFrameTime = 0;
+  const FRAME_INTERVAL = 33; // ~30fps
+
   function loop(now) {
+    // Throttle: only draw every 50ms
+    if (now - _lastFrameTime < FRAME_INTERVAL) {
+      _animFrameId = requestAnimationFrame(loop);
+      return;
+    }
+    _lastFrameTime = now;
+
     const elapsed = now - _sceneStartTime;
 
     // Auto-advance scene
@@ -620,7 +851,7 @@ function updateSceneUI(container) {
     info.innerHTML = `
       <span class="welcome-showcase-icon">${scene.icon}</span>
       <span class="welcome-showcase-title">${scene.title}</span>
-      <span class="welcome-tool-key">${scene.key}</span>
+      ${scene.key ? `<span class="welcome-tool-key">${scene.key}</span>` : ""}
     `;
   }
   const dots = container.querySelectorAll(".welcome-showcase-dot");
@@ -811,6 +1042,12 @@ function setupModalListeners() {
       btn.classList.add("active");
       const target = document.getElementById(btn.dataset.tab);
       if (target) target.classList.add("active");
+      // Pause animation when not on the tools tab
+      if (btn.dataset.tab === "welcome-tab-tools") {
+        startAnimatedDemos(document.getElementById("welcome-tab-tools"));
+      } else {
+        stopAnimatedDemos();
+      }
     });
   });
 
