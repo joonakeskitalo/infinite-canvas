@@ -50,14 +50,31 @@ export function startLaserStroke(worldPos) {
 
 /**
  * Extend the current laser stroke with a new point.
+ * Applies input smoothing by averaging with the previous point to reduce jitter.
  */
 export function extendLaserStroke(worldPos) {
   if (!state.laserActiveStroke) return;
-  state.laserActiveStroke.points.push(worldPos);
+  const pts = state.laserActiveStroke.points;
+  if (pts.length > 0) {
+    const prev = pts[pts.length - 1];
+    // Moving average: blend 60% new position, 40% previous for smoother input
+    const smoothed = {
+      x: worldPos.x * 0.6 + prev.x * 0.4,
+      y: worldPos.y * 0.6 + prev.y * 0.4,
+    };
+    // Skip points that are too close together
+    const dx = smoothed.x - prev.x;
+    const dy = smoothed.y - prev.y;
+    if (dx * dx + dy * dy < 1) return;
+    pts.push(smoothed);
+  } else {
+    pts.push(worldPos);
+  }
 }
 
 /**
  * Finish the current laser stroke and push it to the trails array.
+ * Applies Chaikin's corner-cutting algorithm for extra smoothness.
  */
 export function finishLaserStroke() {
   if (!state.laserActiveStroke) return;
@@ -66,11 +83,41 @@ export function finishLaserStroke() {
     const p = state.laserActiveStroke.points[0];
     addLaserDot(p.x, p.y);
   } else {
+    // Apply Chaikin smoothing (2 iterations) for a polished curve
+    state.laserActiveStroke.points = chaikinSmooth(state.laserActiveStroke.points, 2);
     state.laserActiveStroke.createdAt = performance.now();
     state.laserTrails.push(state.laserActiveStroke);
   }
   state.laserActiveStroke = null;
   startFadeLoop();
+}
+
+/**
+ * Chaikin's corner-cutting subdivision algorithm.
+ * Each iteration replaces each segment with two new points at 25% and 75%,
+ * producing progressively smoother curves.
+ */
+function chaikinSmooth(points, iterations) {
+  if (points.length < 3) return points;
+  let pts = points;
+  for (let iter = 0; iter < iterations; iter++) {
+    const smoothed = [pts[0]]; // Keep the first point
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i];
+      const p1 = pts[i + 1];
+      smoothed.push({
+        x: p0.x * 0.75 + p1.x * 0.25,
+        y: p0.y * 0.75 + p1.y * 0.25,
+      });
+      smoothed.push({
+        x: p0.x * 0.25 + p1.x * 0.75,
+        y: p0.y * 0.25 + p1.y * 0.75,
+      });
+    }
+    smoothed.push(pts[pts.length - 1]); // Keep the last point
+    pts = smoothed;
+  }
+  return pts;
 }
 
 /**
@@ -93,6 +140,28 @@ export function renderLaserTrails(ctx, zoom) {
   if (state.laserActiveStroke) {
     drawLaserMark(ctx, state.laserActiveStroke, 1, zoom);
   }
+}
+
+/**
+ * Draw a smooth path through points using quadratic bezier curves through midpoints.
+ * This produces natural, fluid lines from raw mouse input.
+ */
+function drawSmoothPath(ctx, points) {
+  if (points.length < 2) return;
+  ctx.moveTo(points[0].x, points[0].y);
+  if (points.length === 2) {
+    ctx.lineTo(points[1].x, points[1].y);
+    return;
+  }
+  // Use quadratic curves through midpoints for smooth interpolation
+  for (let i = 1; i < points.length - 1; i++) {
+    const midX = (points[i].x + points[i + 1].x) / 2;
+    const midY = (points[i].y + points[i + 1].y) / 2;
+    ctx.quadraticCurveTo(points[i].x, points[i].y, midX, midY);
+  }
+  // Curve to the last point
+  const last = points[points.length - 1];
+  ctx.lineTo(last.x, last.y);
 }
 
 /**
@@ -128,10 +197,7 @@ function drawLaserMark(ctx, mark, alpha, zoom) {
     ctx.strokeStyle = mark.color;
     ctx.lineWidth = lineWidth;
     ctx.beginPath();
-    ctx.moveTo(mark.points[0].x, mark.points[0].y);
-    for (let i = 1; i < mark.points.length; i++) {
-      ctx.lineTo(mark.points[i].x, mark.points[i].y);
-    }
+    drawSmoothPath(ctx, mark.points);
     ctx.stroke();
     // Brighter thin center line
     ctx.shadowBlur = 0;
@@ -139,10 +205,7 @@ function drawLaserMark(ctx, mark, alpha, zoom) {
     ctx.globalAlpha = alpha * 0.5;
     ctx.lineWidth = lineWidth * 0.3;
     ctx.beginPath();
-    ctx.moveTo(mark.points[0].x, mark.points[0].y);
-    for (let i = 1; i < mark.points.length; i++) {
-      ctx.lineTo(mark.points[i].x, mark.points[i].y);
-    }
+    drawSmoothPath(ctx, mark.points);
     ctx.stroke();
   }
 
