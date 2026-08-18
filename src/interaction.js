@@ -1664,6 +1664,78 @@ function setupKeyboardHandlers() {
       return;
     }
 
+    // Cmd+Arrow in pan mode: navigate to nearest image in that direction
+    if ((e.metaKey || e.ctrlKey) && !e.altKey &&
+        (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowRight") &&
+        (state.currentTool === "pan" || state.currentTool === "select" || state.currentTool === "marquee" || state.currentTool === "accessibility-preview")) {
+      e.preventDefault();
+      if (state.images.length === 0) { showToast("No images on canvas"); return; }
+      // Determine current reference point (center of selected image, or viewport center)
+      let refX, refY;
+      if (state.selectedElements.length === 1 && state.selectedElements[0].elementType === "image") {
+        const cur = state.selectedElements[0];
+        refX = cur.x + cur.w / 2;
+        refY = cur.y + cur.h / 2;
+      } else {
+        const canvas = document.getElementById("canvas");
+        refX = (canvas.width / 2 - state.transform.x) / state.transform.zoom;
+        refY = (canvas.height / 2 - state.transform.y) / state.transform.zoom;
+      }
+      const currentId = state.selectedElements.length === 1 ? state.selectedElements[0].id : null;
+      // Find the nearest image in the pressed direction
+      let best = null;
+      let bestScore = Infinity;
+      for (const img of state.images) {
+        if (img.id === currentId) continue;
+        const cx = img.x + img.w / 2;
+        const cy = img.y + img.h / 2;
+        const dx = cx - refX;
+        const dy = cy - refY;
+        let inDirection = false;
+        let primaryDist = 0;
+        let crossDist = 0;
+        if (e.key === "ArrowRight") { inDirection = dx > 1; primaryDist = dx; crossDist = Math.abs(dy); }
+        else if (e.key === "ArrowLeft") { inDirection = dx < -1; primaryDist = -dx; crossDist = Math.abs(dy); }
+        else if (e.key === "ArrowDown") { inDirection = dy > 1; primaryDist = dy; crossDist = Math.abs(dx); }
+        else if (e.key === "ArrowUp") { inDirection = dy < -1; primaryDist = -dy; crossDist = Math.abs(dx); }
+        if (!inDirection) continue;
+        // Score: prefer small primary distance, penalize cross-axis offset
+        const score = primaryDist + crossDist * 0.5;
+        if (score < bestScore) { bestScore = score; best = img; }
+      }
+      if (!best) {
+        // Wrap: use reading-order sort to find first/last in direction
+        const sorted = [...state.images].sort((a, b) => {
+          const aCy = a.y + a.h / 2;
+          const bCy = b.y + b.h / 2;
+          const rowThreshold = Math.min(a.h, b.h) * 0.5;
+          if (Math.abs(aCy - bCy) < rowThreshold) return a.x - b.x;
+          return aCy - bCy;
+        });
+        if (e.key === "ArrowRight" || e.key === "ArrowDown") best = sorted[0];
+        else best = sorted[sorted.length - 1];
+        if (best && best.id === currentId) {
+          // Only one image or already at boundary
+          showToast("No more images in that direction");
+          return;
+        }
+      }
+      if (best) {
+        best.elementType = "image";
+        state.selectedElements = [best];
+        const centerX = best.x + best.w / 2;
+        const centerY = best.y + best.h / 2;
+        const canvas = document.getElementById("canvas");
+        state.transform.x = -centerX * state.transform.zoom + canvas.width / 2;
+        state.transform.y = -centerY * state.transform.zoom + canvas.height / 2;
+        updateToolbarUI();
+        toggleAlignmentPanelVisibility();
+        updateZoomSliderValue();
+        render();
+      }
+      return;
+    }
+
     // Alt+Arrow alignment (with 2+ elements selected)
     if (e.altKey && !e.metaKey && !e.ctrlKey &&
         (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowRight") &&
