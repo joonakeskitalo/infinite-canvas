@@ -1192,7 +1192,7 @@ input[type="color"]::-webkit-color-swatch {
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(4px);
   z-index: 10000;
   display: flex;
