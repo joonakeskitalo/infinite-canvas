@@ -179,7 +179,7 @@ export const state = {
   laserActiveStroke: null,      // Current in-progress laser stroke (pen-like drawing)
   laserColor: "#ff0000",       // Laser color (red by default)
   laserWidth: 3,               // Laser stroke width
-  laserFadeDuration: 2000,     // Milliseconds before trails fully fade
+  laserFadeDuration: 4000,     // Milliseconds before trails fully fade
   laserAnimating: false,       // Whether the fade animation loop is active
 };
 
