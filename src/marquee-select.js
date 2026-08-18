@@ -828,7 +828,8 @@ export function marqueeCut() {
 
 /**
  * Clear the pixels within a world-space rectangle from an image element.
- * Replaces the affected area with transparency.
+ * Replaces the affected area with transparency, then trims the image element
+ * to the bounding box of remaining visible pixels.
  */
 function clearImageRect(imgEl, rect) {
   const srcImg = imgEl.img;
@@ -869,14 +870,65 @@ function clearImageRect(imgEl, rect) {
   fullCtx.drawImage(srcImg, 0, 0);
   fullCtx.clearRect(sx, sy, sw, sh);
 
-  // Use canvas directly to avoid flicker, then convert for persistence
-  imgEl.img = fullCanvas;
+  // Find bounding box of remaining non-transparent pixels
+  const imageData = fullCtx.getImageData(0, 0, natW, natH);
+  const trimBounds = findOpaqueBounds(imageData, natW, natH);
+
+  if (!trimBounds) {
+    // Entire image is now transparent — remove it
+    state.images = state.images.filter(img => img.id !== imgEl.id);
+    spatialRemove(imgEl);
+    return;
+  }
+
+  // Trim the canvas to the opaque bounding box
+  const { canvas: trimmedCanvas, ctx: trimmedCtx } = createOffscreen(trimBounds.w, trimBounds.h);
+  trimmedCtx.drawImage(fullCanvas, trimBounds.x, trimBounds.y, trimBounds.w, trimBounds.h, 0, 0, trimBounds.w, trimBounds.h);
+
+  // Update element world-space bounds to match trimmed region
+  const invScaleX = imgEl.w / natW;
+  const invScaleY = imgEl.h / natH;
+  imgEl.x = imgEl.x + trimBounds.x * invScaleX;
+  imgEl.y = imgEl.y + trimBounds.y * invScaleY;
+  imgEl.w = trimBounds.w * invScaleX;
+  imgEl.h = trimBounds.h * invScaleY;
+
+  // Clear any crop data since we've baked the image to new bounds
+  delete imgEl.crop;
+  delete imgEl.fullBounds;
+
+  imgEl.img = trimmedCanvas;
+  spatialUpdate(imgEl);
   render();
 
-  canvasToImage(fullCanvas, (newImg) => {
+  canvasToImage(trimmedCanvas, (newImg) => {
     imgEl.img = newImg;
     scheduleSave();
   });
+}
+
+/**
+ * Find the bounding box of non-transparent pixels in image data.
+ * Returns {x, y, w, h} in pixel coordinates, or null if fully transparent.
+ */
+function findOpaqueBounds(imageData, width, height) {
+  const data = imageData.data;
+  let minX = width, minY = height, maxX = -1, maxY = -1;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const alpha = data[(y * width + x) * 4 + 3];
+      if (alpha > 0) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+
+  if (maxX < 0) return null; // fully transparent
+  return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
 }
 
 /**
