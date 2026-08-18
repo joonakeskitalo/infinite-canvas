@@ -42,6 +42,44 @@ function blobToDataURL(blob) {
   });
 }
 
+/**
+ * Resolve the image source of an element to a data URL string.
+ * Handles Image elements (with data: or blob: src), OffscreenCanvas, and HTMLCanvasElement.
+ */
+async function resolveImageToDataURL(img) {
+  if (!img) return null;
+
+  // OffscreenCanvas — convert via blob
+  if (img instanceof OffscreenCanvas) {
+    const blob = await img.convertToBlob({ type: "image/png" });
+    return blobToDataURL(blob);
+  }
+
+  // HTMLCanvasElement
+  if (img instanceof HTMLCanvasElement) {
+    return img.toDataURL("image/png");
+  }
+
+  // Image element with a proper data URL — use directly
+  if (img.src && img.src.startsWith("data:")) {
+    return img.src;
+  }
+
+  // Image element with a blob: or other URL — draw to canvas to get a data URL
+  if (img.src) {
+    const w = img.naturalWidth || img.width;
+    const h = img.naturalHeight || img.height;
+    if (w === 0 || h === 0) return null;
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext("2d").drawImage(img, 0, 0);
+    return canvas.toDataURL("image/png");
+  }
+
+  return null;
+}
+
 async function buildZipBlob() {
   const zip = new JSZip();
   const imgFolder = zip.folder("images");
@@ -49,7 +87,8 @@ async function buildZipBlob() {
   const imageEntries = [];
   for (let i = 0; i < state.images.length; i++) {
     const el = state.images[i];
-    const src = el.img.src;
+    const src = await resolveImageToDataURL(el.img);
+    if (!src) continue; // Skip elements that can't be resolved
     const mime = src.match(/data:(.*?);/);
     const ext = mime ? mime[1].split("/")[1].replace("jpeg", "jpg") : "png";
     const filename = `${el.id}.${ext}`;
