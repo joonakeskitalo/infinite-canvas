@@ -27,6 +27,20 @@ export function toggleAlignmentPanelVisibility() {
   const dom = getDom();
   const scaleGroup = document.getElementById("scale-group");
   const alignmentGroup = document.getElementById("alignment-group");
+
+  // When overlays are hidden, never show the secondary toolbar
+  if (state.overlaysHidden) {
+    dom.alignmentPanel.style.display = "none";
+    alignmentGroup.style.display = "none";
+    scaleGroup.style.display = "none";
+    dom.textAlignGroup.style.display = "none";
+    const zOrderGroup = document.getElementById("z-order-group");
+    if (zOrderGroup) zOrderGroup.style.display = "none";
+    const textFormatGroup = document.getElementById("text-format-group");
+    if (textFormatGroup) textFormatGroup.style.display = "none";
+    return;
+  }
+
   const hasImages = state.selectedElements.some((el) => el.elementType === "image");
   const hasText = state.selectedElements.some((el) => el.elementType === "text" || el.type === "text");
 
