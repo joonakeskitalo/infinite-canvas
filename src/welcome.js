@@ -41,79 +41,176 @@ const SHOWCASE_SCENES = [
     key: "W",
     icon: TOOL_ICONS.guideLine,
     draw(ctx, W, H, t) {
-      // Show alignment checking: elements on canvas with a guide line
+      // Mock UI with text and buttons to check alignment against
       ctx.fillStyle = "#f5f5f5";
       ctx.fillRect(0, 0, W, H);
 
-      // Draw UI element cards at various positions
-      const elements = [
-        { x: 40, y: 40, w: 100, h: 55, color: "#007acc" },
-        { x: 40, y: 120, w: 140, h: 45, color: "#28a745" },
-        { x: 200, y: 50, w: 90, h: 70, color: "#6f42c1" },
-        { x: 340, y: 40, w: 100, h: 55, color: "#fd7e14" },
-        { x: 340, y: 120, w: 110, h: 45, color: "#dc3545" },
+      // Header area
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, W, 40);
+      ctx.strokeStyle = "#e0e0e0";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, 40);
+      ctx.lineTo(W, 40);
+      ctx.stroke();
+
+      // Logo / nav text
+      ctx.fillStyle = "#333";
+      ctx.font = "bold 13px sans-serif";
+      ctx.fillText("Dashboard", 30, 26);
+
+      // Navigation links in header
+      ctx.font = "12px sans-serif";
+      ctx.fillStyle = "#666";
+      ctx.fillText("Home", 160, 26);
+      ctx.fillText("Settings", 220, 26);
+      ctx.fillText("Profile", 300, 26);
+
+      // Left-aligned text block
+      const textX = 30;
+      ctx.fillStyle = "#1a1a1a";
+      ctx.font = "bold 16px sans-serif";
+      ctx.fillText("Welcome back, user", textX, 75);
+      ctx.font = "13px sans-serif";
+      ctx.fillStyle = "#666";
+      ctx.fillText("Here's your activity summary", textX, 97);
+
+      // Cards row
+      const card1X = 30;
+      const card2X = 200;
+      const card3X = 370;
+      const cardY = 115;
+      const cardW = 150;
+      const cardH = 80;
+
+      // Card 1
+      ctx.fillStyle = "#fff";
+      roundRect(ctx, card1X, cardY, cardW, cardH, 5);
+      ctx.fill();
+      ctx.strokeStyle = "#e0e0e0";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.fillStyle = "#333";
+      ctx.font = "bold 11px sans-serif";
+      ctx.fillText("Revenue", card1X + 12, cardY + 22);
+      ctx.fillStyle = "#007acc";
+      ctx.font = "bold 18px sans-serif";
+      ctx.fillText("$12,400", card1X + 12, cardY + 50);
+
+      // Card 2
+      ctx.fillStyle = "#fff";
+      roundRect(ctx, card2X, cardY, cardW, cardH, 5);
+      ctx.fill();
+      ctx.strokeStyle = "#e0e0e0";
+      ctx.stroke();
+      ctx.fillStyle = "#333";
+      ctx.font = "bold 11px sans-serif";
+      ctx.fillText("Users", card2X + 12, cardY + 22);
+      ctx.fillStyle = "#28a745";
+      ctx.font = "bold 18px sans-serif";
+      ctx.fillText("1,024", card2X + 12, cardY + 50);
+
+      // Card 3
+      ctx.fillStyle = "#fff";
+      roundRect(ctx, card3X, cardY, cardW, cardH, 5);
+      ctx.fill();
+      ctx.strokeStyle = "#e0e0e0";
+      ctx.stroke();
+      ctx.fillStyle = "#333";
+      ctx.font = "bold 11px sans-serif";
+      ctx.fillText("Orders", card3X + 12, cardY + 22);
+      ctx.fillStyle = "#fd7e14";
+      ctx.font = "bold 18px sans-serif";
+      ctx.fillText("328", card3X + 12, cardY + 50);
+
+      // Button row
+      const btnY = 210;
+      ctx.fillStyle = "#007acc";
+      roundRect(ctx, 30, btnY, 90, 28, 4);
+      ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.font = "12px sans-serif";
+      ctx.fillText("Export", 55, btnY + 18);
+
+      ctx.fillStyle = "#fff";
+      ctx.strokeStyle = "#007acc";
+      ctx.lineWidth = 1.5;
+      roundRect(ctx, 135, btnY, 90, 28, 4);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#007acc";
+      ctx.fillText("Settings", 155, btnY + 18);
+
+      // Guide line placements — vertical and horizontal
+      // Each has: type (v/h), position, cursor target (where cursor clicks)
+      const guides = [
+        { type: "v", pos: 30, cx: 30, cy: 120, placeAt: 30, moveDur: 25 },
+        { type: "h", pos: cardY, cx: 260, cy: cardY, placeAt: 90, moveDur: 30 },
+        { type: "v", pos: card2X, cx: card2X, cy: 155, placeAt: 160, moveDur: 30 },
+        { type: "h", pos: btnY, cx: 180, cy: btnY, placeAt: 230, moveDur: 25 },
+        { type: "v", pos: card3X, cx: card3X, cy: 120, placeAt: 290, moveDur: 30 },
       ];
 
-      for (const el of elements) {
-        ctx.fillStyle = el.color;
-        ctx.globalAlpha = 0.15;
-        roundRect(ctx, el.x, el.y, el.w, el.h, 4);
-        ctx.fill();
-        ctx.globalAlpha = 1;
-        ctx.strokeStyle = el.color;
+      const loopLen = 380;
+      const lt = t % loopLen;
+
+      // Draw placed guides
+      for (const g of guides) {
+        if (lt < g.placeAt) continue;
+        const age = lt - g.placeAt;
+        const alpha = Math.min(1, age / 12);
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.setLineDash([6, 4]);
+        ctx.strokeStyle = "#ff4444";
         ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        if (g.type === "v") {
+          ctx.moveTo(g.pos, 0);
+          ctx.lineTo(g.pos, H);
+        } else {
+          ctx.moveTo(0, g.pos);
+          ctx.lineTo(W, g.pos);
+        }
         ctx.stroke();
-        // Content lines inside
-        ctx.fillStyle = el.color;
-        ctx.globalAlpha = 0.4;
-        ctx.fillRect(el.x + 8, el.y + 10, el.w * 0.6, 6);
-        ctx.fillRect(el.x + 8, el.y + 22, el.w * 0.4, 5);
-        ctx.globalAlpha = 1;
+        ctx.setLineDash([]);
+        ctx.restore();
       }
 
-      // Animated vertical guide line sweeping to check alignment
-      const lineX = 40 + (W - 80) * (0.5 + 0.5 * Math.sin(t * 0.015));
+      // Animate cursor moving between guide placements
+      // Find which segment the cursor is in
+      let cursorX = guides[0].cx;
+      let cursorY = guides[0].cy;
+      let showCursor = false;
 
-      // Guide line
-      ctx.setLineDash([6, 4]);
-      ctx.strokeStyle = "#ff4444";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(lineX, 0);
-      ctx.lineTo(lineX, H);
-      ctx.stroke();
-      ctx.setLineDash([]);
+      for (let i = 0; i < guides.length; i++) {
+        const g = guides[i];
+        const moveStart = i === 0 ? 0 : guides[i - 1].placeAt + 15;
+        const moveEnd = g.placeAt;
 
-      // Highlight aligned edges: show green tick marks where elements align with the line
-      for (const el of elements) {
-        const leftEdge = el.x;
-        const rightEdge = el.x + el.w;
-        const threshold = 5;
-        if (Math.abs(lineX - leftEdge) < threshold || Math.abs(lineX - rightEdge) < threshold) {
-          const alignX = Math.abs(lineX - leftEdge) < threshold ? leftEdge : rightEdge;
-          // Green alignment indicator
-          ctx.beginPath();
-          ctx.arc(alignX, el.y + el.h / 2, 5, 0, Math.PI * 2);
-          ctx.fillStyle = "#28a745";
-          ctx.fill();
-          // Small check mark
-          ctx.strokeStyle = "#fff";
-          ctx.lineWidth = 1.5;
-          ctx.beginPath();
-          ctx.moveTo(alignX - 2, el.y + el.h / 2);
-          ctx.lineTo(alignX, el.y + el.h / 2 + 2);
-          ctx.lineTo(alignX + 3, el.y + el.h / 2 - 2);
-          ctx.stroke();
+        if (lt >= moveStart && lt <= g.placeAt + 10) {
+          showCursor = true;
+          if (lt < moveEnd) {
+            // Moving toward this guide's position
+            const prev = i === 0 ? { cx: W / 2, cy: H / 2 } : guides[i - 1];
+            const progress = Math.min(1, (lt - moveStart) / g.moveDur);
+            // Ease out
+            const ease = 1 - Math.pow(1 - progress, 2);
+            cursorX = prev.cx + (g.cx - prev.cx) * ease;
+            cursorY = prev.cy + (g.cy - prev.cy) * ease;
+          } else {
+            // At the placement point
+            cursorX = g.cx;
+            cursorY = g.cy;
+          }
+          break;
         }
       }
 
-      // Cursor dragging the guide line
-      drawCursor(ctx, lineX + 8, H / 2 + 5);
-
-      // Label
-      ctx.fillStyle = "#666";
-      ctx.font = "10px sans-serif";
-      ctx.fillText("Check alignment", lineX + 12, 16);
+      if (showCursor) {
+        drawCursor(ctx, cursorX + 6, cursorY + 6);
+      }
     },
   },
   {
@@ -450,7 +547,7 @@ function roundRect(ctx, x, y, w, h, r) {
 let _animFrameId = null;
 let _currentScene = 0;
 let _sceneStartTime = 0;
-const SCENE_DURATION = 4000; // ms per scene
+const SCENE_DURATION = 7000; // ms per scene
 
 function buildAnimatedDemoContent() {
   const dots = SHOWCASE_SCENES.map((_, i) =>
@@ -460,7 +557,7 @@ function buildAnimatedDemoContent() {
   return `
     <div class="welcome-showcase">
       <div class="welcome-showcase-canvas-wrap">
-        <canvas class="welcome-showcase-canvas" width="580" height="240"></canvas>
+        <canvas class="welcome-showcase-canvas" width="700" height="280"></canvas>
       </div>
       <div class="welcome-showcase-footer">
         <div class="welcome-showcase-info">
@@ -495,7 +592,7 @@ function startAnimatedDemos(container) {
     }
 
     // Frame counter relative to scene start
-    const sceneT = (now - _sceneStartTime) / 16.67; // ~60fps normalized ticks
+    const sceneT = (now - _sceneStartTime) / 28; // slowed tick rate
 
     ctx.clearRect(0, 0, W, H);
     SHOWCASE_SCENES[_currentScene].draw(ctx, W, H, sceneT);
