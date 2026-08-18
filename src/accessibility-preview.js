@@ -154,7 +154,7 @@ function rasterizeWorldRect(rect) {
       }
       ctx.restore();
     } else {
-      drawShape(ctx, el, true);
+      drawShape(ctx, el, true, scale);
     }
   }
 

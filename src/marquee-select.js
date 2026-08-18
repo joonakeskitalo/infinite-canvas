@@ -487,7 +487,7 @@ function rasterizeMarqueeSelection() {
       }
       offCtx.restore();
     } else {
-      drawShape(offCtx, el, true);
+      drawShape(offCtx, el, true, scale);
     }
   }
 
@@ -728,7 +728,7 @@ export function marqueeExportPNG(scaleFactor = 1.0, { download = false } = {}) {
       }
       exportCtx.restore();
     } else {
-      drawShape(exportCtx, el, true);
+      drawShape(exportCtx, el, true, effectiveScale);
     }
   }
 

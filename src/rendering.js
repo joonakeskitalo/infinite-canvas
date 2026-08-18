@@ -325,10 +325,22 @@ export function drawContrastLine(targetCtx, shape, isExporting) {
   targetCtx.restore();
 }
 
-export function drawShape(targetCtx, shape, isExporting) {
+export function drawShape(targetCtx, shape, isExporting, exportScale) {
   let calculatedWidth = shape.width;
   if (shape.type !== "text") {
-    calculatedWidth = isExporting ? shape.width * 2 : shape.width / state.transform.zoom;
+    if (isExporting) {
+      if (shape.isSplitLine) {
+        // Split lines are rendered as constant-pixel-width hairlines on canvas
+        // (shape.width CSS pixels regardless of zoom). In the export, compensate for
+        // the export scale so the line stays the same pixel width in the output image.
+        const scale = exportScale || 1;
+        calculatedWidth = shape.width / scale;
+      } else {
+        calculatedWidth = shape.width * 2;
+      }
+    } else {
+      calculatedWidth = shape.width / state.transform.zoom;
+    }
   }
 
   targetCtx.save();
@@ -347,10 +359,32 @@ export function drawShape(targetCtx, shape, isExporting) {
       targetCtx.lineTo(shape.points[i].x, shape.points[i].y);
     targetCtx.stroke();
   } else if (shape.type === "line") {
-    targetCtx.beginPath();
-    targetCtx.moveTo(shape.start.x, shape.start.y);
-    targetCtx.lineTo(shape.end.x, shape.end.y);
-    targetCtx.stroke();
+    if (isExporting && shape.isSplitLine && exportScale) {
+      // Snap split line coordinates to pixel grid for crisp 1px rendering.
+      // A line with odd-pixel width needs a 0.5px offset to align to the pixel grid.
+      const s = exportScale;
+      const offset = (Math.round(calculatedWidth * s) % 2 === 1) ? 0.5 / s : 0;
+      const isVertical = shape.start.x === shape.end.x;
+      const isHorizontal = shape.start.y === shape.end.y;
+      let sx = shape.start.x, sy = shape.start.y, ex = shape.end.x, ey = shape.end.y;
+      if (isVertical) {
+        sx = Math.round(sx * s) / s + offset;
+        ex = sx;
+      } else if (isHorizontal) {
+        sy = Math.round(sy * s) / s + offset;
+        ey = sy;
+      }
+      targetCtx.lineCap = "butt";
+      targetCtx.beginPath();
+      targetCtx.moveTo(sx, sy);
+      targetCtx.lineTo(ex, ey);
+      targetCtx.stroke();
+    } else {
+      targetCtx.beginPath();
+      targetCtx.moveTo(shape.start.x, shape.start.y);
+      targetCtx.lineTo(shape.end.x, shape.end.y);
+      targetCtx.stroke();
+    }
   } else if (shape.type === "arrow") {
     const dx = shape.end.x - shape.start.x;
     const dy = shape.end.y - shape.start.y;
@@ -848,7 +882,7 @@ function _doRender(targetCtx, isExporting) {
         const isSelected = !isExporting && state.currentTool === "select" && !state.overlaysHidden &&
           _selectedIdSet && _selectedIdSet.has(shape.id);
         if (!isSelected) {
-          const lineWidth = isExporting ? shape.width * 2 : shape.width / transform.zoom;
+          const lineWidth = isExporting ? shape.width : shape.width / transform.zoom;
           const opacity = shape.opacity != null ? shape.opacity : 1;
           // Check if current batch matches; if not, flush and start new batch
           if (_splitBatch && (_splitBatch.color !== shape.color || _splitBatch.width !== lineWidth || _splitBatch.opacity !== opacity)) {
@@ -1572,7 +1606,7 @@ async function executeImageExport(scaleFactor = 1.0, { download = false, format 
       }
       finalCtx.restore();
     } else {
-      drawShape(finalCtx, el, true);
+      drawShape(finalCtx, el, true, effectiveScale);
     }
   });
   finalCtx.restore();
