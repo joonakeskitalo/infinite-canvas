@@ -2830,11 +2830,11 @@ function setupMouseHandlers() {
         const luminance = (pixelData[0] * 299 + pixelData[1] * 587 + pixelData[2] * 114) / 1000;
         const textColor = luminance > 128 ? "#000000" : "#FFFFFF";
 
-        const size = state.currentFontSize
+        const size = 16;
 
         pushUndo();
         // Offset start so the pin tip aligns with the click (pick) position
-        const bgPadding = size * 0.4;
+        const bgPadding = size * 0.41;
         const tipSize = bgPadding * 0.6;
         const textEl = {
           id: "text_" + state.elementIdCounter++,
