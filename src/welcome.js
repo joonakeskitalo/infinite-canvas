@@ -262,7 +262,7 @@ const SHOWCASE_SCENES = [
     },
   },
   {
-    title: "Arrow Tool",
+    title: "Annotation Tools",
     key: "A",
     icon: TOOL_ICONS.arrow,
     draw(ctx, W, H, t) {
@@ -315,11 +315,10 @@ const SHOWCASE_SCENES = [
       // Animated arrows drawn by cursor
       const arrows = [
         { from: [W - 40, 170], to: [W * 0.6 + 80, 70], dur: 50, delay: 0 },
-        { from: [25, 150], to: [40, 83], dur: 50, delay: 60 },
-        { from: [W / 2, H - 10], to: [W / 2, 155], dur: 50, delay: 120 },
+        { from: [25, 195], to: [40, 83], dur: 50, delay: 60 },
       ];
 
-      const loopLen = 220;
+      const loopLen = 240;
       const lt = t % loopLen;
 
       for (const a of arrows) {
@@ -355,6 +354,38 @@ const SHOWCASE_SCENES = [
         // Show cursor at drawing tip
         if (progress < 1) {
           drawCursor(ctx, cx + 2, cy + 2);
+        }
+      }
+
+      // Text note annotation — appears after arrows finish
+      const noteDelay = 130;
+      const noteText = "Fix button alignment";
+      if (lt > noteDelay) {
+        const noteChars = Math.min(noteText.length, Math.floor((lt - noteDelay) / 2.5));
+        const noteX = W * 0.6 + 90;
+        const noteY = 56;
+
+        // Note background
+        if (noteChars > 0) {
+          const textWidth = ctx.measureText(noteText.slice(0, noteChars)).width;
+          ctx.fillStyle = "#fff8d6";
+          ctx.strokeStyle = "#e6c619";
+          ctx.lineWidth = 1;
+          roundRect(ctx, noteX - 6, noteY - 13, textWidth + 12, 20, 3);
+          ctx.fill();
+          ctx.stroke();
+
+          // Note text
+          ctx.fillStyle = "#333";
+          ctx.font = "11px sans-serif";
+          ctx.fillText(noteText.slice(0, noteChars), noteX, noteY);
+
+          // Blinking cursor while typing
+          if (noteChars < noteText.length && Math.floor(t / 18) % 2 === 0) {
+            const cursorX = noteX + ctx.measureText(noteText.slice(0, noteChars)).width + 1;
+            ctx.fillStyle = "#007acc";
+            ctx.fillRect(cursorX, noteY - 11, 1.5, 14);
+          }
         }
       }
     },
