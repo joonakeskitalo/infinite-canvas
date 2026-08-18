@@ -2918,7 +2918,8 @@ function setupMouseHandlers() {
       textEditor.style.fontFamily = state.currentFontFamily;
       textEditor.style.lineHeight = "1.2";
       textEditor.style.background = "transparent";
-      setTimeout(() => { textEditor.focus(); autoResizeTextEditor(); if (window._textFormatBar) { window._textFormatBar.show(); } }, 20);
+      autoResizeTextEditor();
+      setTimeout(() => { textEditor.focus(); if (window._textFormatBar) { window._textFormatBar.show(); } }, 20);
       return;
     }
 
@@ -2937,7 +2938,8 @@ function setupMouseHandlers() {
       textEditor.style.lineHeight = "1.2";
       textEditor.style.background = "#f5e642";
       textEditor.style.border = "1px dashed #c4b800";
-      setTimeout(() => { textEditor.focus(); autoResizeTextEditor(); if (window._textFormatBar) { window._textFormatBar.show(); } }, 20);
+      autoResizeTextEditor();
+      setTimeout(() => { textEditor.focus(); if (window._textFormatBar) { window._textFormatBar.show(); } }, 20);
       return;
     }
 
@@ -4181,6 +4183,7 @@ function setupMouseHandlers() {
       state.drawings.splice(i, 1);
       state.selectedElements = [];
 
+      autoResizeTextEditor();
       setTimeout(() => {
         textEditor.focus();
         // Select all text for easy replacement
@@ -4189,7 +4192,6 @@ function setupMouseHandlers() {
         const sel = window.getSelection();
         sel.removeAllRanges();
         sel.addRange(range);
-        autoResizeTextEditor();
         if (window._textFormatBar) { window._textFormatBar.show(); }
       }, 20);
       render();
