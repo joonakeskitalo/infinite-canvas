@@ -125,6 +125,16 @@ export function initEventHandlers() {
         return;
       }
       state.currentTool = targetBtn.dataset.tool;
+      // If overlays are hidden and user selects a non-pan tool, restore UI visibility
+      if (state.overlaysHidden && state.currentTool !== "pan") {
+        state.overlaysHidden = false;
+        state._preOverlayTool = null;
+        const toolbar = document.getElementById("toolbar");
+        const zoomOverlay = document.getElementById("zoom-overlay");
+        if (state._rulersWereVisible) { state._rulersWereVisible = false; setRulersVisible(true); }
+        toolbar.style.display = "";
+        zoomOverlay.style.display = "";
+      }
       if (state.currentTool !== "select" && state.currentTool !== "eyedropper") state.selectedElements = [];
       if (state.currentTool !== "select") { state.swapHoveredElement = null; state.isSwapDragging = false; state.swapSourceElement = null; state.swapDragWorldPos = null; state.swapTargetElement = null; }
       if (state.currentTool !== "measure") { state.measureHoverGuides = []; state.activeMeasureLine = null; }
@@ -1794,10 +1804,23 @@ function setupKeyboardHandlers() {
         toolbar.style.display = "none";
         alignmentPanel.style.display = "none";
         zoomOverlay.style.display = "none";
+        // Auto-switch to hand tool so the user can only pan while overlays are hidden
+        state._preOverlayTool = state.currentTool;
+        state.currentTool = "pan";
+        state.selectedElements = [];
+        updateToolbarUI();
+        updateCursor();
       } else {
         if (state._rulersWereVisible) { state._rulersWereVisible = false; setRulersVisible(true); }
         toolbar.style.display = "";
         zoomOverlay.style.display = "";
+        // Restore previous tool if one was saved
+        if (state._preOverlayTool) {
+          state.currentTool = state._preOverlayTool;
+          state._preOverlayTool = null;
+          updateToolbarUI();
+          updateCursor();
+        }
         toggleAlignmentPanelVisibility();
       }
       showToast(state.overlaysHidden ? "Overlays & drawings hidden" : "Overlays & drawings visible");
