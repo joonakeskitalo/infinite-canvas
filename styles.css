@@ -1481,6 +1481,7 @@ input[type="color"]::-webkit-color-swatch {
   border-radius: 8px;
   overflow: hidden;
   background: #fff;
+  margin-bottom: 16px;
 }
 
 .welcome-showcase-canvas-wrap {

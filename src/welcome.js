@@ -676,17 +676,15 @@ function showWelcomeModal() {
   overlay.style.display = "flex";
 
   // Populate tab content
-  const tryitPanel = document.getElementById("welcome-tab-tryit");
   const toolsPanel = document.getElementById("welcome-tab-tools");
   const shortcutsPanel = document.getElementById("welcome-tab-shortcuts");
   const tipsPanel = document.getElementById("welcome-tab-tips");
 
-  if (tryitPanel && !tryitPanel.dataset.inited) {
-    tryitPanel.innerHTML = buildAnimatedDemoContent();
-    tryitPanel.dataset.inited = "1";
+  if (toolsPanel && !toolsPanel.dataset.inited) {
+    toolsPanel.innerHTML = buildAnimatedDemoContent() + buildToolsContent();
+    toolsPanel.dataset.inited = "1";
   }
-  startAnimatedDemos(tryitPanel);
-  if (toolsPanel) toolsPanel.innerHTML = buildToolsContent();
+  startAnimatedDemos(toolsPanel);
   if (shortcutsPanel) shortcutsPanel.innerHTML = buildShortcutsContent();
   if (tipsPanel) tipsPanel.innerHTML = buildTipsContent();
 
