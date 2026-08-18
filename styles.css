@@ -1211,18 +1211,6 @@ input[type="color"]::-webkit-color-swatch {
   max-height: 94vh;
   overflow-y: auto;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
-  animation: welcome-fade-in 0.25s ease-out;
-}
-
-@keyframes welcome-fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(12px) scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
 }
 
 .welcome-close-btn {
