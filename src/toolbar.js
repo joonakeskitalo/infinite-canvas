@@ -244,6 +244,7 @@ export function updateCursor() {
   else if (state.currentTool === "eraser") container.style.cursor = "pointer";
   else if (state.currentTool === "text") container.style.cursor = "text";
   else if (state.currentTool === "text-element") container.style.cursor = "text";
+  else if (state.currentTool === "laser") container.style.cursor = "url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\"><circle cx=\"12\" cy=\"12\" r=\"5\" fill=\"red\" opacity=\"0.9\"/><circle cx=\"12\" cy=\"12\" r=\"2\" fill=\"white\" opacity=\"0.8\"/></svg>') 12 12, crosshair";
   else if (state.currentTool === "eyedropper") container.style.cursor = "crosshair";
   else if (state.currentTool === "marquee") container.style.cursor = "crosshair";
   else if (state.currentTool === "contrast") container.style.cursor = "crosshair";

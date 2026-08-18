@@ -173,6 +173,14 @@ export const state = {
   stampMarqueeActive: false,    // true while drawing the stamp marquee rectangle
   stampMarqueeStart: null,      // {x, y} world-coords where rectangle drawing started
   stampMarqueeRect: null,       // {x, y, w, h} world-coords of the selection rectangle
+
+  // Laser pointer tool
+  laserTrails: [],              // Array of {type:"stroke"|"dot", points?:[{x,y}], x?,y?, color, width, createdAt, opacity}
+  laserActiveStroke: null,      // Current in-progress laser stroke (pen-like drawing)
+  laserColor: "#ff0000",       // Laser color (red by default)
+  laserWidth: 3,               // Laser stroke width
+  laserFadeDuration: 2000,     // Milliseconds before trails fully fade
+  laserAnimating: false,       // Whether the fade animation loop is active
 };
 
 // Spatial index lives outside state object to avoid polluting its hidden class

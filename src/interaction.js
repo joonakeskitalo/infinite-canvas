@@ -50,6 +50,9 @@ import {
   marqueeExportPNG,
 } from "./marquee-select.js";
 import {
+  addLaserDot, startLaserStroke, extendLaserStroke, finishLaserStroke,
+} from "./laser-pointer.js";
+import {
   accessibilityPreviewStart, accessibilityPreviewMove, accessibilityPreviewEnd,
   renderAccessibilityPreviewSelection, isAccessibilityPreviewSelecting,
   isAccessibilityPreviewInteracting, isAccessibilityPreviewModalOpen,
@@ -1928,6 +1931,7 @@ function setupKeyboardHandlers() {
     if (key === "h") targetTool = "pan";
     if (key === "v") targetTool = "select";
     if (key === "b") targetTool = "pen";
+    if (key === "p") targetTool = "laser";
     if (key === "l") targetTool = "line";
     if (key === "a" && !e.shiftKey) targetTool = "arrow";
     if (key === "c") targetTool = "connector";
@@ -2310,7 +2314,7 @@ function setupKeyboardHandlers() {
 
 
     // Number keys 1-3 set stroke width on selected drawing elements or when a drawing tool is active
-    const isDrawingTool = state.currentTool === "pen" || state.currentTool === "line" || state.currentTool === "arrow" || state.currentTool === "rect-border" || state.currentTool === "rect-fill" || state.currentTool === "measure" || state.currentTool === "split-line";
+    const isDrawingTool = state.currentTool === "pen" || state.currentTool === "laser" || state.currentTool === "line" || state.currentTool === "arrow" || state.currentTool === "rect-border" || state.currentTool === "rect-fill" || state.currentTool === "measure" || state.currentTool === "split-line";
     if ((key === "1" || key === "2" || key === "3") && (isDrawingTool || (state.currentTool === "select" && state.selectedElements.length > 0 && state.selectedElements.some((el) => el.elementType === "drawing" && el.type !== "text")))) {
       e.preventDefault();
       const widthMap = { "1": 2, "2": 4, "3": 10 };
@@ -3100,6 +3104,13 @@ function setupMouseHandlers() {
       return;
     }
 
+    // Laser pointer tool
+    if (state.currentTool === "laser") {
+      startLaserStroke(worldPos);
+      render();
+      return;
+    }
+
     // Drawing tools
     if (state.currentTool === "pen") {
       state.activeShape = {
@@ -3705,6 +3716,9 @@ function setupMouseHandlers() {
 
       state.activeContrastLine.end = { ...worldPos };
       render();
+    } else if (state.laserActiveStroke) {
+      extendLaserStroke(worldPos);
+      render();
     } else if (state.activeConnector) {
       // Don't update connector until user has dragged beyond minimum distance
       const screenDx = e.clientX - state.startX;
@@ -4069,6 +4083,11 @@ function setupMouseHandlers() {
       }
       state.activeConnector = null;
       state.connectorHoverTarget = null;
+      render();
+    }
+
+    if (state.laserActiveStroke) {
+      finishLaserStroke();
       render();
     }
 

@@ -14,6 +14,7 @@ import {
 import { getFullImageBounds } from "./crop.js";
 import { renderMarquee, renderMarqueeSelecting } from "./marquee-select.js";
 import { renderAccessibilityPreviewSelection, isAccessibilityPreviewSelecting } from "./accessibility-preview.js";
+import { renderLaserTrails, hasLaserVisuals } from "./laser-pointer.js";
 
 // --- PERFORMANCE: requestAnimationFrame batching ---
 let _renderScheduled = false;
@@ -1054,6 +1055,11 @@ function _doRender(targetCtx, isExporting) {
   // Live preview layer
   if (!isExporting && state.activeShape) {
     drawShape(targetCtx, state.activeShape, false);
+  }
+
+  // Laser pointer trails (ephemeral, not persisted)
+  if (!isExporting && hasLaserVisuals()) {
+    renderLaserTrails(targetCtx, transform.zoom);
   }
 
   // Live preview for connector arrow being drawn
