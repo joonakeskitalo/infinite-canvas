@@ -893,7 +893,13 @@ export function initEventHandlers() {
     if (textEditor.style.display === "block") {
       applyFontSizeToSelection(newSize);
     } else {
-      applyFontSizeToSelectedElements(newSize);
+      const textEls = state.selectedElements.filter((el) => el.elementType === "text");
+      if (textEls.length > 0) {
+        applyFontSizeToSelectedElements(newSize);
+      } else {
+        state.currentFontSize = newSize;
+        fmtFontSizeInput.value = newSize;
+      }
     }
   });
 
@@ -905,7 +911,13 @@ export function initEventHandlers() {
     if (textEditor.style.display === "block") {
       applyFontSizeToSelection(newSize);
     } else {
-      applyFontSizeToSelectedElements(newSize);
+      const textEls = state.selectedElements.filter((el) => el.elementType === "text");
+      if (textEls.length > 0) {
+        applyFontSizeToSelectedElements(newSize);
+      } else {
+        state.currentFontSize = newSize;
+        fmtFontSizeInput.value = newSize;
+      }
     }
   });
 
@@ -916,7 +928,12 @@ export function initEventHandlers() {
       applyFontSizeToSelection(size);
       textEditor.focus();
     } else {
-      applyFontSizeToSelectedElements(size);
+      const textEls = state.selectedElements.filter((el) => el.elementType === "text");
+      if (textEls.length > 0) {
+        applyFontSizeToSelectedElements(size);
+      } else {
+        state.currentFontSize = size;
+      }
     }
   });
 
@@ -1621,13 +1638,22 @@ function setupKeyboardHandlers() {
       }
       e.preventDefault();
       const step = 16;
-      const newSize = Math.max(4, state.currentFontSize + (isIncrease ? step : -step));
+      // Use the selected text element's font size as base if available
+      const selectedTextEl = state.selectedElements.find((el) => el.elementType === "text");
+      const baseSize = selectedTextEl ? selectedTextEl.fontSize : state.currentFontSize;
+      const newSize = Math.max(4, baseSize + (isIncrease ? step : -step));
       state.currentFontSize = newSize;
+      fmtFontSizeInput.value = newSize;
       if (textEditor.style.display === "block") { textEditor.style.fontSize = `${newSize * state.transform.zoom}px`; }
       // Apply to selected text elements
       if (state.selectedElements.length > 0) {
+        const hasTextEls = state.selectedElements.some((el) => el.elementType === "text");
+        if (hasTextEls) pushUndo();
         state.selectedElements.forEach((el) => {
           if (el.elementType === "text") {
+            if (el.segments && el.segments.length > 0) {
+              el.segments.forEach((s) => { s.fontSize = newSize; });
+            }
             if (el.textWidth) { const scale = newSize / el.fontSize; el.textWidth = el.textWidth * scale; }
             el.fontSize = newSize; el.w = null; el.h = null;
           }
