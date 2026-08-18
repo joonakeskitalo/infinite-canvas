@@ -802,9 +802,19 @@ export function marqueeCut() {
       }
     }
 
-    // For images: clear only the pixels within the marquee rect
+    // For images: remove entirely if fully within marquee, otherwise clear only the overlapping pixels
+    const imageIdsToRemove = new Set();
     for (const img of imagesToCrop) {
-      clearImageRect(img, rect);
+      const imgRect = { x: img.x, y: img.y, w: img.w, h: img.h };
+      if (rectContains(rect, imgRect)) {
+        imageIdsToRemove.add(img.id);
+        spatialRemove(img);
+      } else {
+        clearImageRect(img, rect);
+      }
+    }
+    if (imageIdsToRemove.size > 0) {
+      state.images = state.images.filter(img => !imageIdsToRemove.has(img.id));
     }
 
     state.marqueeCut = true;
