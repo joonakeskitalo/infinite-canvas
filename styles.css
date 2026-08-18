@@ -1206,7 +1206,7 @@ input[type="color"]::-webkit-color-swatch {
   border: 1px solid #ddd;
   border-radius: 12px;
   padding: 32px 36px 24px;
-  max-width: 560px;
+  max-width: 680px;
   width: 90vw;
   max-height: 85vh;
   overflow-y: auto;
@@ -1299,7 +1299,8 @@ input[type="color"]::-webkit-color-swatch {
 }
 
 .welcome-tab-content {
-  min-height: 260px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .welcome-tab-panel {
@@ -1470,6 +1471,94 @@ input[type="color"]::-webkit-color-swatch {
 
 .welcome-get-started-btn:active {
   background: #005f99;
+}
+
+/* Interactive demos ("Try It" tab) */
+.welcome-showcase {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.welcome-showcase-canvas-wrap {
+  position: relative;
+  width: 100%;
+  height: 240px;
+  overflow: hidden;
+  background: #fafafa;
+}
+
+.welcome-showcase-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.welcome-showcase-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-top: 1px solid #e8e8e8;
+  background: #f7f7f7;
+}
+
+.welcome-showcase-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.welcome-showcase-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: #555;
+}
+
+.welcome-showcase-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.welcome-showcase-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+}
+
+.welcome-showcase-dots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.welcome-showcase-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: none;
+  background: #ccc;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.welcome-showcase-dot:hover {
+  background: #999;
+  transform: scale(1.3);
+}
+
+.welcome-showcase-dot.active {
+  background: #007acc;
+  transform: scale(1.3);
 }
 
 
