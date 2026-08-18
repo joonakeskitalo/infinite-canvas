@@ -1735,6 +1735,52 @@ function setupKeyboardHandlers() {
       return;
     }
 
+    // Tab / Shift+Tab: navigate to next/previous image in reading order (left-to-right, top-to-bottom)
+    if (e.key === "Tab") {
+      e.preventDefault();
+      if (state.images.length === 0) { showToast("No images on canvas"); return; }
+      // Sort images in reading order: top-to-bottom first, then left-to-right for same row
+      // Two images are considered on the same "row" if their vertical centers are within
+      // half the average height of each other.
+      const sorted = [...state.images].sort((a, b) => {
+        const aCy = a.y + a.h / 2;
+        const bCy = b.y + b.h / 2;
+        const rowThreshold = Math.min(a.h, b.h) * 0.5;
+        if (Math.abs(aCy - bCy) < rowThreshold) {
+          // Same row — sort left to right
+          return a.x - b.x;
+        }
+        return aCy - bCy;
+      });
+      // Find current image in sorted list
+      const currentId = state.selectedElements.length === 1 && state.selectedElements[0].elementType === "image"
+        ? state.selectedElements[0].id : null;
+      let currentIdx = currentId ? sorted.findIndex((img) => img.id === currentId) : -1;
+      // Navigate forward (Tab) or backward (Shift+Tab)
+      let nextIdx;
+      if (e.shiftKey) {
+        nextIdx = currentIdx <= 0 ? sorted.length - 1 : currentIdx - 1;
+      } else {
+        nextIdx = currentIdx >= sorted.length - 1 ? 0 : currentIdx + 1;
+      }
+      const nextImg = sorted[nextIdx];
+      // Select the image
+      nextImg.elementType = "image";
+      state.selectedElements = [nextImg];
+      state.currentTool = "select";
+      // Center viewport on the image
+      const centerX = nextImg.x + nextImg.w / 2;
+      const centerY = nextImg.y + nextImg.h / 2;
+      const canvas = document.getElementById("canvas");
+      state.transform.x = -centerX * state.transform.zoom + canvas.width / 2;
+      state.transform.y = -centerY * state.transform.zoom + canvas.height / 2;
+      updateToolbarUI();
+      toggleAlignmentPanelVisibility();
+      updateZoomSliderValue();
+      render();
+      return;
+    }
+
     let targetTool = null;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (key === "r" && e.shiftKey) { setRulersVisible(!state.rulersVisible); return; }
