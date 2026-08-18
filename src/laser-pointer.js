@@ -1,15 +1,15 @@
 /**
  * Laser Pointer Tool
  *
- * Provides a temporary visual laser pointer that renders dots (click)
- * and freeform pen strokes (drag) which fade away after a short duration.
+ * Provides a visual laser pointer that renders dots (click) and freeform
+ * pen strokes (drag). Lines persist on screen until the user presses Escape
+ * or switches to a different tool, at which point all laser marks are cleared.
  * None of these marks are persisted or added to undo history.
  */
 
 import { state } from "./state.js";
 
 let _renderFn = null;
-let _animFrameId = null;
 
 /**
  * Wire up the render function dependency.
@@ -28,10 +28,8 @@ export function addLaserDot(worldX, worldY) {
     y: worldY,
     color: state.laserColor,
     width: state.laserWidth,
-    createdAt: performance.now(),
-    opacity: 1,
   });
-  startFadeLoop();
+  if (_renderFn) _renderFn();
 }
 
 /**
@@ -43,8 +41,6 @@ export function startLaserStroke(worldPos) {
     points: [worldPos],
     color: state.laserColor,
     width: state.laserWidth,
-    createdAt: performance.now(),
-    opacity: 1,
   };
 }
 
@@ -85,11 +81,20 @@ export function finishLaserStroke() {
   } else {
     // Apply Chaikin smoothing (2 iterations) for a polished curve
     state.laserActiveStroke.points = chaikinSmooth(state.laserActiveStroke.points, 2);
-    state.laserActiveStroke.createdAt = performance.now();
     state.laserTrails.push(state.laserActiveStroke);
   }
   state.laserActiveStroke = null;
-  startFadeLoop();
+  if (_renderFn) _renderFn();
+}
+
+/**
+ * Clear all laser trails and the active stroke.
+ * Called on Escape or when switching away from the laser tool.
+ */
+export function clearLaserTrails() {
+  state.laserTrails = [];
+  state.laserActiveStroke = null;
+  if (_renderFn) _renderFn();
 }
 
 /**
@@ -125,15 +130,9 @@ function chaikinSmooth(points, iterations) {
  * Should be called within the world-space transform (after translate/scale).
  */
 export function renderLaserTrails(ctx, zoom) {
-  const now = performance.now();
-  const fadeDuration = state.laserFadeDuration;
-
-  // Draw completed trails
+  // Draw completed trails at full opacity
   for (const trail of state.laserTrails) {
-    const elapsed = now - trail.createdAt;
-    const alpha = Math.max(0, 1 - elapsed / fadeDuration);
-    if (alpha <= 0) continue;
-    drawLaserMark(ctx, trail, alpha, zoom);
+    drawLaserMark(ctx, trail, 1, zoom);
   }
 
   // Draw active stroke
@@ -210,41 +209,6 @@ function drawLaserMark(ctx, mark, alpha, zoom) {
   }
 
   ctx.restore();
-}
-
-/**
- * Start the fade animation loop if not already running.
- */
-function startFadeLoop() {
-  if (state.laserAnimating) return;
-  state.laserAnimating = true;
-  fadeLoop();
-}
-
-/**
- * Animation loop that re-renders while trails exist and removes expired ones.
- */
-function fadeLoop() {
-  const now = performance.now();
-  const fadeDuration = state.laserFadeDuration;
-
-  // Remove fully faded trails
-  state.laserTrails = state.laserTrails.filter(
-    (trail) => now - trail.createdAt < fadeDuration
-  );
-
-  // If nothing left to animate, stop
-  if (state.laserTrails.length === 0 && !state.laserActiveStroke) {
-    state.laserAnimating = false;
-    _animFrameId = null;
-    // One final render to clear the last frame
-    if (_renderFn) _renderFn();
-    return;
-  }
-
-  // Re-render and continue loop
-  if (_renderFn) _renderFn();
-  _animFrameId = requestAnimationFrame(fadeLoop);
 }
 
 /**

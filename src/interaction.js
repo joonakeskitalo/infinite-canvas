@@ -50,7 +50,7 @@ import {
   marqueeExportPNG,
 } from "./marquee-select.js";
 import {
-  addLaserDot, startLaserStroke, extendLaserStroke, finishLaserStroke,
+  addLaserDot, startLaserStroke, extendLaserStroke, finishLaserStroke, clearLaserTrails,
 } from "./laser-pointer.js";
 import {
   accessibilityPreviewStart, accessibilityPreviewMove, accessibilityPreviewEnd,
@@ -143,6 +143,7 @@ export function initEventHandlers() {
       if (state.currentTool !== "measure") { state.measureHoverGuides = []; state.activeMeasureLine = null; }
       if (state.currentTool !== "marquee" && state.marqueeMode) { marqueeCommit(); }
       if (state.currentTool !== "split-line") { state.splitLineHoveredImage = null; state.splitLineWorldPos = null; }
+      if (state.currentTool !== "laser") { clearLaserTrails(); }
       if (state.currentTool === "accessibility-preview") { activateAccessibilityPreview(); }
       else { deactivateAccessibilityPreview(); }
       if (state.currentTool === "contrast") { state.contrastClickCount = 0; state.contrastColor1 = null; state.contrastColor2 = null; state.contrastWorldPos1 = null; state.activeContrastLine = null; showContrastWaiting(1); }
@@ -1587,6 +1588,11 @@ function setupKeyboardHandlers() {
     // Escape
     if (e.key === "Escape") {
       e.preventDefault();
+      if (state.currentTool === "laser") {
+        clearLaserTrails();
+        render();
+        return;
+      }
       if (isAccessibilityPreviewModalOpen()) {
         deactivateAccessibilityPreview();
         state.currentTool = "select";
