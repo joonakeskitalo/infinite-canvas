@@ -61,7 +61,7 @@ export function extendLaserStroke(worldPos) {
     // Skip points that are too close together
     const dx = smoothed.x - prev.x;
     const dy = smoothed.y - prev.y;
-    if (dx * dx + dy * dy < 1) return;
+    if (dx * dx + dy * dy < 4) return;
     pts.push(smoothed);
   } else {
     pts.push(worldPos);
@@ -79,8 +79,8 @@ export function finishLaserStroke() {
     const p = state.laserActiveStroke.points[0];
     addLaserDot(p.x, p.y);
   } else {
-    // Apply Chaikin smoothing (2 iterations) for a polished curve
-    state.laserActiveStroke.points = chaikinSmooth(state.laserActiveStroke.points, 2);
+    // Apply Chaikin smoothing (1 iteration) for a polished curve
+    state.laserActiveStroke.points = chaikinSmooth(state.laserActiveStroke.points, 1);
     state.laserTrails.push(state.laserActiveStroke);
   }
   state.laserActiveStroke = null;
@@ -95,6 +95,43 @@ export function clearLaserTrails() {
   state.laserTrails = [];
   state.laserActiveStroke = null;
   if (_renderFn) _renderFn();
+}
+
+/**
+ * Commit all laser trails as permanent pen drawings on the canvas.
+ * Returns the committed elements (for undo/spatial index management by the caller).
+ */
+export function commitLaserTrails() {
+  if (state.laserTrails.length === 0) return [];
+  const committed = [];
+  for (const trail of state.laserTrails) {
+    if (trail.type === "stroke" && trail.points.length >= 2) {
+      committed.push({
+        id: "draw_" + state.elementIdCounter++,
+        elementType: "drawing",
+        type: "pen",
+        color: trail.color,
+        width: trail.width,
+        opacity: 1,
+        points: trail.points.map((p) => ({ x: p.x, y: p.y })),
+      });
+    } else if (trail.type === "dot") {
+      // Commit dot as a tiny pen stroke (single-point circles aren't a shape type)
+      committed.push({
+        id: "draw_" + state.elementIdCounter++,
+        elementType: "drawing",
+        type: "pen",
+        color: trail.color,
+        width: trail.width * 3,
+        opacity: 1,
+        points: [{ x: trail.x, y: trail.y }, { x: trail.x + 0.1, y: trail.y + 0.1 }],
+      });
+    }
+  }
+  state.laserTrails = [];
+  state.laserActiveStroke = null;
+  if (_renderFn) _renderFn();
+  return committed;
 }
 
 /**
@@ -130,14 +167,14 @@ function chaikinSmooth(points, iterations) {
  * Should be called within the world-space transform (after translate/scale).
  */
 export function renderLaserTrails(ctx, zoom) {
-  // Draw completed trails at full opacity
+  // Draw completed trails at 50% opacity (uncommitted preview)
   for (const trail of state.laserTrails) {
-    drawLaserMark(ctx, trail, 1, zoom);
+    drawLaserMark(ctx, trail, 0.5, zoom);
   }
 
-  // Draw active stroke
+  // Draw active stroke at 50% opacity
   if (state.laserActiveStroke) {
-    drawLaserMark(ctx, state.laserActiveStroke, 1, zoom);
+    drawLaserMark(ctx, state.laserActiveStroke, 0.5, zoom);
   }
 }
 
@@ -174,35 +211,14 @@ function drawLaserMark(ctx, mark, alpha, zoom) {
 
   if (mark.type === "dot") {
     const radius = Math.max(mark.width * 1.5, 6) / zoom;
-    // Glow effect
-    ctx.shadowColor = mark.color;
-    ctx.shadowBlur = 12 / zoom;
     ctx.fillStyle = mark.color;
     ctx.beginPath();
     ctx.arc(mark.x, mark.y, radius, 0, Math.PI * 2);
     ctx.fill();
-    // Bright center
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = "#ffffff";
-    ctx.globalAlpha = alpha * 0.7;
-    ctx.beginPath();
-    ctx.arc(mark.x, mark.y, radius * 0.4, 0, Math.PI * 2);
-    ctx.fill();
   } else if (mark.type === "stroke" && mark.points.length >= 2) {
     const lineWidth = mark.width / zoom;
-    // Glow effect
-    ctx.shadowColor = mark.color;
-    ctx.shadowBlur = 8 / zoom;
     ctx.strokeStyle = mark.color;
     ctx.lineWidth = lineWidth;
-    ctx.beginPath();
-    drawSmoothPath(ctx, mark.points);
-    ctx.stroke();
-    // Brighter thin center line
-    ctx.shadowBlur = 0;
-    ctx.strokeStyle = "#ffffff";
-    ctx.globalAlpha = alpha * 0.5;
-    ctx.lineWidth = lineWidth * 0.3;
     ctx.beginPath();
     drawSmoothPath(ctx, mark.points);
     ctx.stroke();

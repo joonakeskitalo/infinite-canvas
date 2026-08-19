@@ -50,7 +50,7 @@ import {
   marqueeExportPNG,
 } from "./marquee-select.js";
 import {
-  addLaserDot, startLaserStroke, extendLaserStroke, finishLaserStroke, clearLaserTrails,
+  addLaserDot, startLaserStroke, extendLaserStroke, finishLaserStroke, clearLaserTrails, commitLaserTrails,
 } from "./laser-pointer.js";
 import {
   accessibilityPreviewStart, accessibilityPreviewMove, accessibilityPreviewEnd,
@@ -1583,6 +1583,22 @@ function setupKeyboardHandlers() {
       if (e.key === "Escape") { e.preventDefault(); exitMarqueeMode(); return; }
       if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); marqueeCut(); return; }
       // Don't intercept other keys in marquee mode so Cmd+C/X still work from the meta handler
+    }
+
+    // Enter — commit laser trails as permanent drawings
+    if (e.key === "Enter" && state.currentTool === "laser") {
+      e.preventDefault();
+      const elements = commitLaserTrails();
+      if (elements.length > 0) {
+        pushUndo();
+        for (const el of elements) {
+          state.drawings.push(el);
+          spatialInsert(el);
+        }
+        scheduleSave();
+      }
+      render();
+      return;
     }
 
     // Escape
