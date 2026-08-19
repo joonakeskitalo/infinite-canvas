@@ -26,7 +26,7 @@ export function addLaserDot(worldX, worldY) {
     type: "dot",
     x: worldX,
     y: worldY,
-    color: state.laserColor,
+    color: state.drawColor,
     width: state.laserWidth,
   });
   if (_renderFn) _renderFn();
@@ -39,7 +39,7 @@ export function startLaserStroke(worldPos) {
   state.laserActiveStroke = {
     type: "stroke",
     points: [worldPos],
-    color: state.laserColor,
+    color: state.drawColor,
     width: state.laserWidth,
   };
 }
