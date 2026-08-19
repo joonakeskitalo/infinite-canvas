@@ -166,6 +166,7 @@ export function initEventHandlers() {
     else { state.drawColor = e.target.value; }
     applyColorToSelectedElements(e.target.value);
     updateColorSwatch();
+    if (state.currentTool === "laser") updateCursor();
   });
 
   // --- Color swatch popup ---
@@ -213,6 +214,7 @@ export function initEventHandlers() {
         colorPicker.value = color;
         applyColorToSelectedElements(color);
         updateColorSwatch();
+        if (state.currentTool === "laser") updateCursor();
         colorPopup.classList.remove("open");
       }
     });
@@ -2224,6 +2226,7 @@ function setupKeyboardHandlers() {
           if (el.elementType === "text" || el.elementType === "drawing") { el.color = newColor; }
         });
       }
+      if (state.currentTool === "laser") updateCursor();
       render();
       showToast(`Color: ${newColor}`);
       return;
@@ -2244,6 +2247,7 @@ function setupKeyboardHandlers() {
         });
         render();
       }
+      if (state.currentTool === "laser") updateCursor();
       showToast(`Color: ${newColor}`);
       return;
     }
