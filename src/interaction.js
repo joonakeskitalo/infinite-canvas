@@ -2445,7 +2445,7 @@ function setupKeyboardHandlers() {
       return;
     }
     if (e.key.toLowerCase() === "v") { return; } // Let native paste fire
-    if (e.key.toLowerCase() === "a") { e.preventDefault(); selectAllElements(); return; }
+    if (e.key.toLowerCase() === "a") { e.preventDefault(); if (state.currentTool === "laser") clearLaserTrails(); selectAllElements(); return; }
     if (e.key.toLowerCase() === "e" && !e.shiftKey && !e.altKey) {
       e.preventDefault();
       if (state.marqueeMode) { marqueeExportPNG(1.0); return; }
