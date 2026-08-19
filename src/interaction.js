@@ -143,7 +143,6 @@ export function initEventHandlers() {
       if (state.currentTool !== "measure") { state.measureHoverGuides = []; state.activeMeasureLine = null; }
       if (state.currentTool !== "marquee" && state.marqueeMode) { marqueeCommit(); }
       if (state.currentTool !== "split-line") { state.splitLineHoveredImage = null; state.splitLineWorldPos = null; }
-      if (state.currentTool !== "laser") { clearLaserTrails(); }
       if (state.currentTool === "accessibility-preview") { activateAccessibilityPreview(); }
       else { deactivateAccessibilityPreview(); }
       if (state.currentTool === "contrast") { state.contrastClickCount = 0; state.contrastColor1 = null; state.contrastColor2 = null; state.contrastWorldPos1 = null; state.activeContrastLine = null; showContrastWaiting(1); }
@@ -2445,7 +2444,7 @@ function setupKeyboardHandlers() {
       return;
     }
     if (e.key.toLowerCase() === "v") { return; } // Let native paste fire
-    if (e.key.toLowerCase() === "a") { e.preventDefault(); if (state.currentTool === "laser") clearLaserTrails(); selectAllElements(); return; }
+    if (e.key.toLowerCase() === "a") { e.preventDefault(); selectAllElements(); return; }
     if (e.key.toLowerCase() === "e" && !e.shiftKey && !e.altKey) {
       e.preventDefault();
       if (state.marqueeMode) { marqueeExportPNG(1.0); return; }
