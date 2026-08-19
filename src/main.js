@@ -18,6 +18,7 @@ import { initFilterPreviewMode } from "./filter-preview-mode.js";
 import { initWelcomeModal } from "./welcome.js";
 import { initCustomColors, setCustomColorsToast } from "./custom-colors.js";
 import { setLaserRenderFn } from "./laser-pointer.js";
+import { setBezierPenDeps } from "./bezier-pen.js";
 
 // --- Wire up forward dependencies to break circular imports ---
 setHistoryDeps({
@@ -39,6 +40,7 @@ setPersistenceDeps({
 
 setRenderFn(render);
 setLaserRenderFn(render);
+setBezierPenDeps({ render, scheduleSave, toggleAlignmentPanelVisibility });
 
 // --- Hook rulers into the render cycle ---
 setPostRenderHook(() => {

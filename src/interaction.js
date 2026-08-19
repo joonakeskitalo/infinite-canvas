@@ -59,6 +59,11 @@ import {
   activateAccessibilityPreview, deactivateAccessibilityPreview,
   handleAccessibilityPreviewDrop, getAccessibilityPreviewCursor,
 } from "./accessibility-preview.js";
+import {
+  bezierPenMouseDown, bezierPenMouseMove, bezierPenMouseUp,
+  bezierPenDoubleClick, bezierPenKeyDown, finalizeBezierPenIfNeeded,
+  enterBezierEdit,
+} from "./bezier-pen.js";
 
 // --- PERFORMANCE: Throttle proximity/spacing guide computation during drag ---
 const GUIDE_COMPUTE_INTERVAL_MS = 60; // ms between expensive guide recalculations
@@ -121,6 +126,7 @@ export function initEventHandlers() {
       if (!targetBtn.dataset.tool) return;
       if (textEditor.style.display === "block") bakeText();
       if (state.cropMode) exitCropMode(false);
+      finalizeBezierPenIfNeeded();
       // Toggle split-line orientation when clicking the tool icon while already active
       if (targetBtn.dataset.tool === "split-line" && state.currentTool === "split-line") {
         state.splitLineOrientation = state.splitLineOrientation === "vertical" ? "horizontal" : "vertical";
@@ -247,6 +253,80 @@ export function initEventHandlers() {
     document.body.style.backgroundColor = state.bgColor;
     render();
     scheduleSave();
+  });
+
+  // --- Bézier fill color control ---
+  const bezierFillGroup = document.getElementById("bezier-fill-group");
+  const bezierFillSwatchBtn = document.getElementById("bezier-fill-swatch-btn");
+  const bezierFillSwatchInner = document.getElementById("bezier-fill-swatch-inner");
+  const bezierFillPicker = document.getElementById("bezier-fill-picker");
+
+  function updateBezierFillSwatch() {
+    if (state.bezierFillColor) {
+      bezierFillSwatchInner.style.background = state.bezierFillColor;
+      bezierFillSwatchInner.style.border = "none";
+    } else {
+      bezierFillSwatchInner.style.background = "transparent";
+      bezierFillSwatchInner.style.border = "2px dashed #999";
+    }
+  }
+
+  function updateBezierFillVisibility() {
+    const show = state.currentTool === "bezier-pen" ||
+      (state.currentTool === "select" && state.selectedElements.some((el) => el.type === "bezier-path"));
+    bezierFillGroup.style.display = show ? "" : "none";
+  }
+
+  bezierFillSwatchBtn.addEventListener("click", () => {
+    // Toggle fill on/off
+    if (state.bezierFillColor) {
+      state.bezierFillColor = null;
+    } else {
+      state.bezierFillColor = bezierFillPicker.value;
+    }
+    updateBezierFillSwatch();
+    // Apply to selected bezier paths
+    if (state.selectedElements.length > 0) {
+      let changed = false;
+      state.selectedElements.forEach((el) => {
+        if (el.type === "bezier-path") { changed = true; }
+      });
+      if (changed) {
+        pushUndo();
+        state.selectedElements.forEach((el) => {
+          if (el.type === "bezier-path") { el.fillColor = state.bezierFillColor; }
+        });
+        render(); scheduleSave();
+      }
+    }
+    // Apply to in-progress path
+    if (state.bezierPath) {
+      state.bezierPath.fillColor = state.bezierFillColor;
+      render();
+    }
+  });
+
+  bezierFillSwatchBtn.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    bezierFillPicker.click();
+  });
+
+  bezierFillPicker.addEventListener("input", (e) => {
+    state.bezierFillColor = e.target.value;
+    updateBezierFillSwatch();
+    // Apply to selected bezier paths
+    if (state.selectedElements.length > 0) {
+      let changed = false;
+      state.selectedElements.forEach((el) => {
+        if (el.type === "bezier-path") { el.fillColor = state.bezierFillColor; changed = true; }
+      });
+      if (changed) { render(); scheduleSave(); }
+    }
+    if (state.bezierPath) {
+      state.bezierPath.fillColor = state.bezierFillColor;
+      render();
+    }
   });
 
   // --- Line width buttons ---
@@ -1586,6 +1666,14 @@ function setupKeyboardHandlers() {
       // Don't intercept other keys in marquee mode so Cmd+C/X still work from the meta handler
     }
 
+    // Enter — finish bézier path
+    if (e.key === "Enter" && state.currentTool === "bezier-pen") {
+      if (bezierPenKeyDown(e)) {
+        e.preventDefault();
+        return;
+      }
+    }
+
     // Enter — commit laser trails as permanent drawings
     if (e.key === "Enter" && state.currentTool === "laser") {
       e.preventDefault();
@@ -1605,6 +1693,10 @@ function setupKeyboardHandlers() {
     // Escape
     if (e.key === "Escape") {
       e.preventDefault();
+      // Bézier pen tool handles Escape/Enter/Backspace
+      if (state.currentTool === "bezier-pen" && bezierPenKeyDown(e)) {
+        return;
+      }
       if (state.currentTool === "laser") {
         clearLaserTrails();
         render();
@@ -1692,6 +1784,11 @@ function setupKeyboardHandlers() {
     if (e.key === "+" || e.key === "=" || e.key === "-" || e.key === "_") { e.preventDefault(); const zoomIn = e.key === "+" || e.key === "="; applyZoom(state.transform.zoom * (zoomIn ? 1.1 : 1/1.1), state.lastMousePos.x, state.lastMousePos.y); return; }
 
     if (e.key === "Delete" || e.key === "Backspace") {
+      // Bézier pen tool handles Delete/Backspace for point deletion
+      if (state.currentTool === "bezier-pen" && bezierPenKeyDown(e)) {
+        e.preventDefault();
+        return;
+      }
       if (state.currentTool === "select" && state.selectedElements.length > 0) {
         const unlocked = state.selectedElements.filter((el) => !el.locked);
         if (unlocked.length === 0) { showToast("Cannot delete locked element(s)"); return; }
@@ -1954,6 +2051,7 @@ function setupKeyboardHandlers() {
     if (key === "h") targetTool = "pan";
     if (key === "v") targetTool = "select";
     if (key === "b") targetTool = "pen";
+    if (key === "q") targetTool = "bezier-pen";
     if (key === "p") targetTool = "laser";
     if (key === "l") targetTool = "line";
     if (key === "a" && !e.shiftKey) targetTool = "arrow";
@@ -3077,6 +3175,8 @@ function setupMouseHandlers() {
             return { id: el.id, type: "image", x: el.x, y: el.y, startMouse: { ...worldPos } };
           } else if (el.type === "pen") {
             return { id: el.id, type: "points", points: el.points.map((p) => ({ ...p })), startMouse: { ...worldPos } };
+          } else if (el.type === "bezier-path") {
+            return { id: el.id, type: "bezier-points", points: el.points.map((p) => ({ x: p.x, y: p.y, cx1: p.cx1, cy1: p.cy1, cx2: p.cx2, cy2: p.cy2 })), startMouse: { ...worldPos } };
           } else {
             return { id: el.id, type: "shape", start: { ...el.start }, end: el.end ? { ...el.end } : null, startMouse: { ...worldPos } };
           }
@@ -3136,6 +3236,12 @@ function setupMouseHandlers() {
       return;
     }
 
+    // Bézier pen tool
+    if (state.currentTool === "bezier-pen") {
+      bezierPenMouseDown(e, worldPos);
+      return;
+    }
+
     // Drawing tools
     if (state.currentTool === "pen") {
       state.activeShape = {
@@ -3166,6 +3272,13 @@ function setupMouseHandlers() {
       const worldPos = screenToWorld(e.clientX, e.clientY);
       const edge = getCropEdgeAtPoint(worldPos);
       container.style.cursor = edge ? getCropCursor(edge) : "default";
+      return;
+    }
+
+    // Bézier pen tool needs mousemove even when not interacting (hover feedback)
+    if (state.currentTool === "bezier-pen" && !state.isInteracting) {
+      const worldPos = screenToWorld(e.clientX, e.clientY);
+      bezierPenMouseMove(e, worldPos);
       return;
     }
 
@@ -3600,6 +3713,7 @@ function setupMouseHandlers() {
           const curDy = worldPos.y - offset.startMouse.y;
           if (offset.type === "image") { el.x = offset.x + curDx; el.y = offset.y + curDy; }
           else if (offset.type === "points") { el.points = offset.points.map((p) => ({ x: p.x + curDx, y: p.y + curDy })); }
+          else if (offset.type === "bezier-points") { el.points = offset.points.map((p) => ({ x: p.x + curDx, y: p.y + curDy, cx1: p.cx1 + curDx, cy1: p.cy1 + curDy, cx2: p.cx2 + curDx, cy2: p.cy2 + curDy })); }
           else { el.start = { x: offset.start.x + curDx, y: offset.start.y + curDy }; if (el.end && offset.end) el.end = { x: offset.end.x + curDx, y: offset.end.y + curDy }; }
         });
 
@@ -3744,6 +3858,8 @@ function setupMouseHandlers() {
     } else if (state.laserActiveStroke) {
       extendLaserStroke(worldPos);
       render();
+    } else if (state.currentTool === "bezier-pen" && (state.bezierDragging || state.bezierPath)) {
+      bezierPenMouseMove(e, worldPos);
     } else if (state.activeConnector) {
       // Don't update connector until user has dragged beyond minimum distance
       const screenDx = e.clientX - state.startX;
@@ -3795,6 +3911,15 @@ function setupMouseHandlers() {
       state.cropDragEdge = null;
       state.cropDragStart = null;
       render(); return;
+    }
+
+    // Bézier pen tool mouseup
+    if (state.currentTool === "bezier-pen") {
+      const worldPos = screenToWorld(e.clientX, e.clientY);
+      bezierPenMouseUp(e, worldPos);
+      // Don't fall through to the drawing tools commit logic
+      render();
+      return;
     }
 
     if (state.currentTool === "stamp" && state.stampMarqueeActive) {
@@ -4150,6 +4275,13 @@ function setupMouseHandlers() {
 
   // Double-click for text editing
   container.addEventListener("dblclick", (e) => {
+    // Bézier pen tool: double-click finishes path
+    if (state.currentTool === "bezier-pen") {
+      const worldPos = screenToWorld(e.clientX, e.clientY);
+      bezierPenDoubleClick(e, worldPos);
+      return;
+    }
+
     if (state.currentTool !== "select") return;
     const worldPos = screenToWorld(e.clientX, e.clientY);
 
@@ -4182,6 +4314,18 @@ function setupMouseHandlers() {
         scheduleSave();
         return;
       }
+    }
+
+    // Check if double-clicking on a bezier-path to enter edit mode
+    for (let i = state.drawings.length - 1; i >= 0; i--) {
+      const shape = state.drawings[i];
+      if (shape.type !== "bezier-path") continue;
+      if (!isPointHittingShape(worldPos, shape)) continue;
+      enterBezierEdit(shape);
+      state.currentTool = "bezier-pen";
+      updateToolbarUI();
+      updateCursor();
+      return;
     }
 
     // Check if double-clicking on an image to enter crop mode

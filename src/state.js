@@ -174,6 +174,14 @@ export const state = {
   stampMarqueeStart: null,      // {x, y} world-coords where rectangle drawing started
   stampMarqueeRect: null,       // {x, y, w, h} world-coords of the selection rectangle
 
+  // Bézier pen tool
+  bezierPath: null,             // In-progress path: {id, points: [{x,y,cx1,cy1,cx2,cy2}], closed}
+  bezierDragging: false,        // True when dragging to create control handles
+  bezierHoverPoint: -1,         // Index of hovered anchor point (-1 = none)
+  bezierSelectedPoint: -1,      // Index of selected anchor point for editing
+  bezierEditingPath: null,      // Reference to a committed path being edited
+  bezierFillColor: null,        // Fill color for new bezier paths (null = no fill)
+
   // Laser pointer tool
   laserTrails: [],              // Array of {type:"stroke"|"dot", points?:[{x,y}], x?,y?, color, width}
   laserActiveStroke: null,      // Current in-progress laser stroke (pen-like drawing)
@@ -203,6 +211,24 @@ export function getElementSpatialBounds(el) {
       if (p.y < minY) minY = p.y;
       if (p.x > maxX) maxX = p.x;
       if (p.y > maxY) maxY = p.y;
+    }
+    return { minX, minY, maxX, maxY };
+  }
+  if (el.type === "bezier-path") {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const p of el.points) {
+      if (p.x < minX) minX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y > maxY) maxY = p.y;
+      if (p.cx1 < minX) minX = p.cx1;
+      if (p.cy1 < minY) minY = p.cy1;
+      if (p.cx1 > maxX) maxX = p.cx1;
+      if (p.cy1 > maxY) maxY = p.cy1;
+      if (p.cx2 < minX) minX = p.cx2;
+      if (p.cy2 < minY) minY = p.cy2;
+      if (p.cx2 > maxX) maxX = p.cx2;
+      if (p.cy2 > maxY) maxY = p.cy2;
     }
     return { minX, minY, maxX, maxY };
   }

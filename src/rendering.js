@@ -15,6 +15,7 @@ import { getFullImageBounds } from "./crop.js";
 import { renderMarquee, renderMarqueeSelecting } from "./marquee-select.js";
 import { renderAccessibilityPreviewSelection, isAccessibilityPreviewSelecting } from "./accessibility-preview.js";
 import { renderLaserTrails, hasLaserVisuals } from "./laser-pointer.js";
+import { drawBezierPath, renderBezierPreview, renderBezierEditOverlay } from "./bezier-pen.js";
 
 // --- PERFORMANCE: requestAnimationFrame batching ---
 let _renderScheduled = false;
@@ -359,6 +360,9 @@ export function drawShape(targetCtx, shape, isExporting, exportScale) {
     for (let i = 1; i < shape.points.length; i++)
       targetCtx.lineTo(shape.points[i].x, shape.points[i].y);
     targetCtx.stroke();
+  } else if (shape.type === "bezier-path") {
+    if (shape.points.length < 2) { targetCtx.restore(); return; }
+    drawBezierPath(targetCtx, shape, isExporting, state.transform.zoom);
   } else if (shape.type === "line") {
     if (isExporting && shape.isSplitLine && exportScale) {
       // Snap split line coordinates to pixel grid for crisp 1px rendering.
@@ -1055,6 +1059,14 @@ function _doRender(targetCtx, isExporting) {
   // Live preview layer
   if (!isExporting && state.activeShape) {
     drawShape(targetCtx, state.activeShape, false);
+  }
+
+  // Bézier pen tool: in-progress path preview and edit overlay
+  if (!isExporting && state.bezierPath) {
+    renderBezierPreview(targetCtx, transform.zoom);
+  }
+  if (!isExporting && state.bezierEditingPath) {
+    renderBezierEditOverlay(targetCtx, transform.zoom);
   }
 
   // Laser pointer trails (ephemeral, not persisted)

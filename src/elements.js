@@ -7,6 +7,7 @@
 
 import { state, CONSTANTS, getDom, spatialIndex } from "./state.js";
 import { getPtToSegmentDist } from "./utils.js";
+import { isPointHittingBezierPath, getBezierPathBounds } from "./bezier-pen.js";
 
 const _textMeasureCache = new WeakMap();
 
@@ -57,6 +58,9 @@ export function getShapeBounds(shape) {
       if (p.x > maxX) maxX = p.x;
       if (p.y > maxY) maxY = p.y;
     });
+  } else if (shape.type === "bezier-path") {
+    const b = getBezierPathBounds(shape);
+    return b;
   } else if (shape.type === "text") {
     if (!shape.w || !shape.h) {
       ctx.save();
@@ -143,6 +147,8 @@ export function isPointHittingShape(p, shape) {
       if (getPtToSegmentDist(p, shape.points[i], shape.points[i + 1]) < threshold)
         return true;
     }
+  } else if (shape.type === "bezier-path") {
+    return isPointHittingBezierPath(p, shape, threshold);
   } else if (shape.type === "line" || shape.type === "arrow" || shape.type === "measure" || shape.type === "connector" || shape.type === "contrast-line") {
     return getPtToSegmentDist(p, shape.start, shape.end) < threshold;
   } else if (shape.type === "rect-border" || shape.type === "rect-fill") {
@@ -283,6 +289,15 @@ export function translateElement(el, shiftX, shiftY) {
       p.x += shiftX;
       p.y += shiftY;
     });
+  } else if (el.type === "bezier-path") {
+    el.points.forEach((p) => {
+      p.x += shiftX;
+      p.y += shiftY;
+      p.cx1 += shiftX;
+      p.cy1 += shiftY;
+      p.cx2 += shiftX;
+      p.cy2 += shiftY;
+    });
   } else {
     el.start.x += shiftX;
     el.start.y += shiftY;
@@ -320,6 +335,10 @@ export function cloneElement(el) {
   if (el.locked) clone.locked = true;
   if (el.type === "pen") {
     clone.points = el.points.map((p) => ({ x: p.x, y: p.y }));
+  } else if (el.type === "bezier-path") {
+    clone.points = el.points.map((p) => ({ x: p.x, y: p.y, cx1: p.cx1, cy1: p.cy1, cx2: p.cx2, cy2: p.cy2 }));
+    clone.closed = el.closed;
+    clone.fillColor = el.fillColor || null;
   } else if (el.type === "text") {
     clone.text = el.text;
     clone.fontSize = el.fontSize;
@@ -365,6 +384,10 @@ export function serializeElement(el) {
   };
   if (el.type === "pen") {
     clone.points = el.points.map((p) => ({ x: p.x, y: p.y }));
+  } else if (el.type === "bezier-path") {
+    clone.points = el.points.map((p) => ({ x: p.x, y: p.y, cx1: p.cx1, cy1: p.cy1, cx2: p.cx2, cy2: p.cy2 }));
+    clone.closed = el.closed;
+    clone.fillColor = el.fillColor || null;
   } else if (el.type === "text") {
     clone.text = el.text;
     clone.fontSize = el.fontSize;

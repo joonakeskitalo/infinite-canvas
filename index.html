@@ -187,6 +187,32 @@
       </button>
       <button
         class="tool-btn"
+        id="tool-bezier-pen"
+        data-tool="bezier-pen"
+        title="Vector Pen Tool [Q] — Click to place anchor points, drag to create curves"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M3 20c4-2 7-12 18-14" />
+          <rect x="1" y="18" width="4" height="4" rx="1" fill="currentColor" />
+          <rect x="19" y="4" width="4" height="4" rx="1" fill="currentColor" />
+          <line x1="3" y1="20" x2="7" y2="14" opacity="0.5" />
+          <line x1="21" y1="6" x2="17" y2="10" opacity="0.5" />
+          <circle cx="7" cy="14" r="1.5" fill="currentColor" opacity="0.5" />
+          <circle cx="17" cy="10" r="1.5" fill="currentColor" opacity="0.5" />
+        </svg>
+      </button>
+      <button
+        class="tool-btn"
         id="tool-laser"
         data-tool="laser"
         title="Laser Pointer [P] — Click for dots, drag for freeform strokes (fade away)"
@@ -447,6 +473,27 @@
           type="color"
           id="color-picker"
           value="#ff4444"
+          class="hidden-color-input"
+        />
+      </div>
+
+      <div
+        class="color-picker-inline"
+        id="bezier-fill-group"
+        title="Bézier Path Fill Color (click to toggle, right-click for picker)"
+        style="display: none"
+      >
+        <button class="color-swatch-btn" id="bezier-fill-swatch-btn" title="Toggle fill on/off">
+          <div
+            class="color-swatch-inner"
+            id="bezier-fill-swatch-inner"
+            style="background: transparent; border: 2px dashed #999"
+          ></div>
+        </button>
+        <input
+          type="color"
+          id="bezier-fill-picker"
+          value="#4488ff"
           class="hidden-color-input"
         />
       </div>
