@@ -217,6 +217,8 @@ function drawLaserMark(ctx, mark, alpha, zoom) {
     ctx.fill();
   } else if (mark.type === "stroke" && mark.points.length >= 2) {
     const lineWidth = mark.width / zoom;
+    // Dashed line to distinguish from regular pen strokes
+    ctx.setLineDash([lineWidth * 4, lineWidth * 2]);
     ctx.strokeStyle = mark.color;
     ctx.lineWidth = lineWidth;
     ctx.beginPath();
