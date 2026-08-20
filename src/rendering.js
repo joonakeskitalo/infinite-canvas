@@ -1533,15 +1533,15 @@ function _doRender(targetCtx, isExporting) {
   }
 }
 
-export async function executePNGExport(scaleFactor = 1.0, { download = false } = {}) {
-  return executeImageExport(scaleFactor, { download, format: "png" });
+export async function executePNGExport(scaleFactor = 1.0, { download = false, padding } = {}) {
+  return executeImageExport(scaleFactor, { download, format: "png", padding });
 }
 
 export async function executeJPEGExport(scaleFactor = 1.0, { download = false, quality = 0.92 } = {}) {
   return executeImageExport(scaleFactor, { download, format: "jpeg", quality });
 }
 
-async function executeImageExport(scaleFactor = 1.0, { download = false, format = "png", quality = 0.92 } = {}) {
+async function executeImageExport(scaleFactor = 1.0, { download = false, format = "png", quality = 0.92, padding: customPadding } = {}) {
   const { showToast } = await import("./utils.js");
   const exportingSelection = state.selectedElements.length > 0;
   const formatLabel = format === "jpeg" ? "JPEG" : "PNG";
@@ -1572,7 +1572,7 @@ async function executeImageExport(scaleFactor = 1.0, { download = false, format 
         if (b.y + b.h > maxY) maxY = b.y + b.h;
       }
     });
-    const padding = 50;
+    const padding = customPadding != null ? customPadding : 50;
     bounds = { minX: minX - padding, minY: minY - padding, maxX: maxX + padding, maxY: maxY + padding };
     // Filter z-ordered elements to only those selected
     const selectedIds = new Set(state.selectedElements.map(e => e.id));
