@@ -2526,6 +2526,15 @@ function setupKeyboardHandlers() {
       }
     }
 
+    if (e.key.toLowerCase() === "c" && e.shiftKey) {
+      e.preventDefault();
+      if (state.marqueeMode) {
+        marqueeExportPNG(0.5, { padding: 0 });
+      } else if (state.selectedElements.length > 0) {
+        executePNGExport(0.5, { padding: 0 });
+      }
+      return;
+    }
     if (e.key.toLowerCase() === "c") {
       if (state.marqueeMode) { e.preventDefault(); marqueeCopy(); return; }
       if (state.selectedElements.length > 0) { e.preventDefault(); copySelectionToClipboard(); }
