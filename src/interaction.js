@@ -1761,7 +1761,8 @@ function setupKeyboardHandlers() {
       const baseSize = selectedTextEl ? selectedTextEl.fontSize : state.currentFontSize;
       const newSize = Math.max(4, baseSize + (isIncrease ? step : -step));
       state.currentFontSize = newSize;
-      fmtFontSizeInput.value = newSize;
+      const fmtFontSizeEl = document.getElementById("fmt-font-size");
+      if (fmtFontSizeEl) fmtFontSizeEl.value = newSize;
       if (textEditor.style.display === "block") { textEditor.style.fontSize = `${newSize * state.transform.zoom}px`; }
       // Apply to selected text elements
       if (state.selectedElements.length > 0) {
