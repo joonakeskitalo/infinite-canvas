@@ -627,7 +627,7 @@ function cropImageToRect(imgEl, rect) {
  * @param {number} scaleFactor - Export scale (1.0 = full, 0.5 = half).
  * @param {{download?: boolean}} options - If download is true, triggers a file download instead of clipboard copy.
  */
-export function marqueeExportPNG(scaleFactor = 1.0, { download = false } = {}) {
+export function marqueeExportPNG(scaleFactor = 1.0, { download = false, padding: customPadding } = {}) {
   if (!state.marqueeMode || !state.marqueeRect) {
     showToast("No marquee selection active");
     return;
@@ -664,7 +664,7 @@ export function marqueeExportPNG(scaleFactor = 1.0, { download = false } = {}) {
     if (clippedMaxY > maxY) maxY = clippedMaxY;
   }
 
-  const padding = 50;
+  const padding = customPadding != null ? customPadding : 50;
   const bounds = { minX: minX - padding, minY: minY - padding, maxX: maxX + padding, maxY: maxY + padding };
 
   // Compute export dimensions with scale limits

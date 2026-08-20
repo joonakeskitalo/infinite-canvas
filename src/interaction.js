@@ -2012,6 +2012,17 @@ function setupKeyboardHandlers() {
       return;
     }
 
+    // Shift+C: export selection as PNG to clipboard (no padding)
+    if (e.code === "KeyC" && e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      if (state.marqueeMode) {
+        marqueeExportPNG(1.0, { padding: 0 });
+      } else if (state.selectedElements.length > 0) {
+        executePNGExport(1.0, { padding: 0 });
+      }
+      return;
+    }
+
     let targetTool = null;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (key === "r" && e.shiftKey) { setRulersVisible(!state.rulersVisible); return; }
@@ -2055,7 +2066,7 @@ function setupKeyboardHandlers() {
     if (key === "p") targetTool = "laser";
     if (key === "l") targetTool = "line";
     if (key === "a" && !e.shiftKey) targetTool = "arrow";
-    if (key === "c") targetTool = "connector";
+    if (key === "c" && !e.shiftKey) targetTool = "connector";
     if (key === "r") targetTool = "rect-border";
     if (key === "f") targetTool = "rect-fill";
     if (key === "t") targetTool = "text";
@@ -2515,10 +2526,6 @@ function setupKeyboardHandlers() {
       }
     }
 
-    if (e.key.toLowerCase() === "c" && e.shiftKey) {
-      if (state.selectedElements.length > 0) { e.preventDefault(); executePNGExport(1.0, { padding: 0 }); }
-      return;
-    }
     if (e.key.toLowerCase() === "c") {
       if (state.marqueeMode) { e.preventDefault(); marqueeCopy(); return; }
       if (state.selectedElements.length > 0) { e.preventDefault(); copySelectionToClipboard(); }
