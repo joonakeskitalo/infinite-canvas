@@ -8,6 +8,7 @@ import { state, CONSTANTS, getDom } from "./state.js";
 import { buildAlignmentUnits } from "./selection.js";
 import { getShapeBounds } from "./elements.js";
 import { showToast } from "./utils.js";
+import { getCustomColors } from "./custom-colors.js";
 
 export function updateToolbarUI() {
   const buttons = document.querySelectorAll(".tool-btn");
@@ -106,8 +107,46 @@ export function toggleAlignmentPanelVisibility() {
     dom.alignmentPanel.style.display = "flex";
     alignmentGroup.style.display = "none";
   } else {
-    dom.alignmentPanel.style.display = "none";
+    // Show secondary toolbar for drawing tools that use line thickness
+    const lineTools = ["pen", "bezier-pen", "line", "arrow", "connector", "rect-border"];
+    if (lineTools.includes(state.currentTool)) {
+      dom.alignmentPanel.style.display = "flex";
+    } else {
+      dom.alignmentPanel.style.display = "none";
+    }
     alignmentGroup.style.display = "none";
+  }
+
+  // Show line-width controls for relevant tools
+  const lineWidthGroup = document.getElementById("line-width-group");
+  if (lineWidthGroup) {
+    const lineWidthTools = ["pen", "bezier-pen", "line", "arrow", "connector", "rect-border", "split-line"];
+    const hasStrokeElement = state.currentTool === "select" && state.selectedElements.length > 0 &&
+      state.selectedElements.some((el) => el.type === "line" || el.type === "arrow" || el.type === "connector" || el.type === "rect-border" || el.type === "drawing" || el.type === "bezier-path");
+    if (lineWidthTools.includes(state.currentTool) || hasStrokeElement) {
+      lineWidthGroup.style.display = "flex";
+      if (dom.alignmentPanel.style.display !== "flex") {
+        dom.alignmentPanel.style.display = "flex";
+      }
+    } else {
+      lineWidthGroup.style.display = "none";
+    }
+  }
+
+  // Show color picker for tools that draw with color
+  const colorPickerGroup = document.getElementById("color-picker-group");
+  if (colorPickerGroup) {
+    const colorTools = ["pen", "bezier-pen", "line", "arrow", "connector", "rect-border", "rect-fill", "text", "text-element", "split-line", "eyedropper"];
+    const hasColorElement = state.currentTool === "select" && state.selectedElements.length > 0 &&
+      state.selectedElements.some((el) => el.elementType !== "image");
+    if (colorTools.includes(state.currentTool) || hasColorElement) {
+      colorPickerGroup.style.display = "";
+      if (dom.alignmentPanel.style.display !== "flex") {
+        dom.alignmentPanel.style.display = "flex";
+      }
+    } else {
+      colorPickerGroup.style.display = "none";
+    }
   }
 
   // Show crop copy/paste controls when images are selected
@@ -156,7 +195,7 @@ export function toggleAlignmentPanelVisibility() {
   // Sync format button active states with selected text elements
   if (showTextControls && window._textFormatBar) window._textFormatBar.updateState();
 
-  // Show color info display when eyedropper/color picker tool is active
+  // Show color info display (RGB, HSL, color name) for eyedropper tool
   const colorInfoGroup = document.getElementById("color-info-group");
   if (colorInfoGroup) {
     if (state.currentTool === "eyedropper") {
@@ -173,11 +212,12 @@ export function toggleAlignmentPanelVisibility() {
  * Called whenever the active draw color changes or tool switches.
  */
 let _colorInfoClickBound = false;
+let _hexLabelClickBound = false;
 
 function initColorInfoClick() {
   if (_colorInfoClickBound) return;
   _colorInfoClickBound = true;
-  const ids = ["color-info-hex", "color-info-rgb", "color-info-hsl"];
+  const ids = ["color-info-rgb", "color-info-hsl"];
   ids.forEach((id) => {
     const el = document.getElementById(id);
     if (el) {
@@ -192,6 +232,47 @@ function initColorInfoClick() {
   });
 }
 
+export function initHexLabelClick() {
+  if (_hexLabelClickBound) return;
+  _hexLabelClickBound = true;
+  const hexLabel = document.getElementById("color-hex-label");
+  if (hexLabel) {
+    hexLabel.addEventListener("click", () => {
+      const text = hexLabel.textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        showToast(`Copied: ${text}`);
+      });
+    });
+  }
+  const nameLabel = document.getElementById("color-name-label");
+  if (nameLabel) {
+    nameLabel.addEventListener("click", () => {
+      const text = nameLabel.textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        showToast(`Copied: ${text}`);
+      });
+    });
+  }
+}
+
+/**
+ * Update the color name label in the color-picker-group based on custom colors.
+ */
+export function updateColorNameLabel() {
+  const hex = state.currentTool === "text" ? state.textDrawColor : state.drawColor;
+  const nameLabel = document.getElementById("color-name-label");
+  if (!nameLabel) return;
+  const normalizedHex = hex.toLowerCase();
+  const customColors = getCustomColors();
+  const match = customColors.find((c) => c.hex.toLowerCase() === normalizedHex);
+  if (match && match.label && match.label.toLowerCase() !== match.hex.toLowerCase()) {
+    nameLabel.textContent = match.label;
+    nameLabel.style.display = "";
+  } else {
+    nameLabel.style.display = "none";
+  }
+}
+
 export function updateColorInfo() {
   const hex = state.currentTool === "text" ? state.textDrawColor : state.drawColor;
   const colorInfoGroup = document.getElementById("color-info-group");
@@ -199,13 +280,8 @@ export function updateColorInfo() {
 
   initColorInfoClick();
 
-  const swatch = document.getElementById("color-info-swatch");
-  const hexEl = document.getElementById("color-info-hex");
   const rgbEl = document.getElementById("color-info-rgb");
   const hslEl = document.getElementById("color-info-hsl");
-
-  if (swatch) swatch.style.background = hex;
-  if (hexEl) hexEl.textContent = hex.toUpperCase();
 
   // Parse hex to RGB
   const r = parseInt(hex.slice(1, 3), 16);

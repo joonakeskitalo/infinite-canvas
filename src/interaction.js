@@ -36,7 +36,7 @@ import {
   updateToolbarUI, toggleAlignmentPanelVisibility,
   updateCursor, applyZoom, updateZoomSliderValue,
   syncFontSizeFromSelection, syncOpacityFromSelection,
-  updateSpacingInputs, updateGroupButtons, updateColorInfo,
+  updateSpacingInputs, updateGroupButtons, updateColorInfo, initHexLabelClick, updateColorNameLabel,
 } from "./toolbar.js";
 import { setRulersVisible, resizeRulers } from "./rulers.js";
 import { FILTER_OPTIONS, FILTER_LABELS } from "./color-filter.js";
@@ -161,7 +161,11 @@ export function initEventHandlers() {
       // Update swatch color when switching tools
       const swatchInner = document.getElementById("color-swatch-inner");
       if (swatchInner) {
-        swatchInner.style.background = state.currentTool === "text" ? state.textDrawColor : state.drawColor;
+        const swatchColor = state.currentTool === "text" ? state.textDrawColor : state.drawColor;
+        swatchInner.style.background = swatchColor;
+        const hexLbl = document.getElementById("color-hex-label");
+        if (hexLbl) hexLbl.textContent = swatchColor.toUpperCase();
+        updateColorNameLabel();
       }
     });
   });
@@ -202,10 +206,15 @@ export function initEventHandlers() {
     }
   });
 
+  initHexLabelClick();
+
   function updateColorSwatch() {
     const swatch = document.getElementById("color-swatch-inner");
     const color = state.currentTool === "text" ? state.textDrawColor : state.drawColor;
     swatch.style.background = color;
+    const hexLabel = document.getElementById("color-hex-label");
+    if (hexLabel) hexLabel.textContent = color.toUpperCase();
+    updateColorNameLabel();
     updateColorInfo();
   }
 
@@ -2387,6 +2396,9 @@ function setupKeyboardHandlers() {
       colorPicker.value = newColor;
       const swatchEl = document.getElementById("color-swatch-inner");
       if (swatchEl) swatchEl.style.background = newColor;
+      const hexLbl1 = document.getElementById("color-hex-label");
+      if (hexLbl1) hexLbl1.textContent = newColor.toUpperCase();
+      updateColorNameLabel();
       if (state.selectedElements.length > 0) {
         state.selectedElements.forEach((el) => {
           if (el.elementType === "text" || el.elementType === "drawing") { el.color = newColor; }
@@ -2407,6 +2419,9 @@ function setupKeyboardHandlers() {
       colorPicker.value = newColor;
       const swatchEl = document.getElementById("color-swatch-inner");
       if (swatchEl) swatchEl.style.background = newColor;
+      const hexLbl2 = document.getElementById("color-hex-label");
+      if (hexLbl2) hexLbl2.textContent = newColor.toUpperCase();
+      updateColorNameLabel();
       if (state.selectedElements.length > 0) {
         state.selectedElements.forEach((el) => {
           if (el.elementType === "text" || el.elementType === "drawing") { el.color = newColor; }
@@ -3123,6 +3138,9 @@ function setupMouseHandlers() {
       state.drawColor = hex;
       dom.colorPicker.value = hex;
       document.getElementById("color-swatch-inner").style.background = hex;
+      const hexLbl = document.getElementById("color-hex-label");
+      if (hexLbl) hexLbl.textContent = hex.toUpperCase();
+      updateColorNameLabel();
       updateColorInfo();
 
       if (e.shiftKey || state.eyedropperInsertMode) {

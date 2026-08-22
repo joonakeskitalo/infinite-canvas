@@ -282,6 +282,12 @@ input[type="color"]::-webkit-color-swatch {
   flex-shrink: 0;
 }
 
+#color-picker-group {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
 .color-swatch-btn {
   width: 24px;
   height: 24px;
