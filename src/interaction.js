@@ -380,6 +380,44 @@ export function initEventHandlers() {
     });
   }
 
+  // --- Note background color ---
+  const noteBgSwatchBtn = document.getElementById("note-bg-swatch-btn");
+  const noteBgPicker = document.getElementById("note-bg-picker");
+  if (noteBgSwatchBtn && noteBgPicker) {
+    noteBgSwatchBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      noteBgPicker.click();
+    });
+    noteBgSwatchBtn.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      noteBgPicker.click();
+    });
+    noteBgPicker.addEventListener("input", (e) => {
+      const color = e.target.value;
+      state.currentNoteBgColor = color;
+      const swatch = document.getElementById("note-bg-swatch-inner");
+      if (swatch) swatch.style.background = color;
+      // Update selected note elements
+      if (state.selectedElements.length > 0) {
+        let changed = false;
+        state.selectedElements.forEach((el) => {
+          if ((el.elementType === "text" || el.type === "text") && el.bgColor) {
+            el.bgColor = color;
+            changed = true;
+          }
+        });
+        if (changed) render();
+      }
+      // Update active text editor if open
+      const te = dom.textEditor;
+      if (te && te.style.display === "block" && te.dataset.bgColor) {
+        te.dataset.bgColor = color;
+        te.style.background = color;
+      }
+    });
+  }
+
   // --- Filter select ---
   filterSelect.addEventListener("change", (e) => {
     state.currentFilter = e.target.value;
@@ -3250,14 +3288,14 @@ function setupMouseHandlers() {
       setTextEditorContent("");
       textEditor.style.display = "block";
       textEditor.style.color = "#333333";
-      textEditor.dataset.bgColor = "#f5e642";
+      textEditor.dataset.bgColor = state.currentNoteBgColor;
       const screenPos = worldToScreen(worldPos.x, worldPos.y);
       textEditor.style.left = `${screenPos.x}px`;
       textEditor.style.top = `${screenPos.y - state.currentFontSize * state.transform.zoom * 0.2}px`;
       textEditor.style.fontSize = `${state.currentFontSize * state.transform.zoom}px`;
       textEditor.style.fontFamily = state.currentFontFamily;
       textEditor.style.lineHeight = "1.2";
-      textEditor.style.background = "#f5e642";
+      textEditor.style.background = state.currentNoteBgColor;
       textEditor.style.border = "1px dashed #c4b800";
       autoResizeTextEditor();
       setTimeout(() => { textEditor.focus(); if (window._textFormatBar) { window._textFormatBar.show(); } }, 20);

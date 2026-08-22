@@ -35,6 +35,7 @@ export const state = {
   currentTextAlign: "left",
   currentLineWidth: 4,
   currentLineDash: "solid", // "solid", "dashed", "dotted", "dash-dot"
+  currentNoteBgColor: "#f5e642", // text-element (note) background color
 
   // Interaction state
   isInteracting: false,

@@ -163,6 +163,32 @@ export function toggleAlignmentPanelVisibility() {
     }
   }
 
+  // Show note background color control for text-element tool or selected notes
+  const noteBgGroup = document.getElementById("note-bg-group");
+  if (noteBgGroup) {
+    const hasNoteElement = state.currentTool === "select" && state.selectedElements.length > 0 &&
+      state.selectedElements.some((el) => (el.elementType === "text" || el.type === "text") && el.bgColor);
+    if (state.currentTool === "text-element" || hasNoteElement) {
+      noteBgGroup.style.display = "";
+      if (dom.alignmentPanel.style.display !== "flex") {
+        dom.alignmentPanel.style.display = "flex";
+      }
+      // Sync swatch with selected note or current state
+      const swatch = document.getElementById("note-bg-swatch-inner");
+      const picker = document.getElementById("note-bg-picker");
+      if (hasNoteElement) {
+        const noteEl = state.selectedElements.find((el) => (el.elementType === "text" || el.type === "text") && el.bgColor);
+        if (noteEl && swatch) swatch.style.background = noteEl.bgColor;
+        if (noteEl && picker) picker.value = noteEl.bgColor;
+      } else {
+        if (swatch) swatch.style.background = state.currentNoteBgColor;
+        if (picker) picker.value = state.currentNoteBgColor;
+      }
+    } else {
+      noteBgGroup.style.display = "none";
+    }
+  }
+
   // Show crop copy/paste controls when images are selected
   const cropCopyGroup = document.getElementById("crop-copy-group");
   if (cropCopyGroup) {
@@ -199,6 +225,7 @@ export function toggleAlignmentPanelVisibility() {
   syncFontFamilyFromSelection();
   syncOpacityFromSelection();
   syncLineWidthFromSelection();
+  syncColorFromSelection();
   syncDimensionsFromSelection();
   updateGroupButtons();
 
@@ -386,6 +413,26 @@ export function syncLineDashFromSelection() {
     select.value = dash;
   } else {
     select.value = state.currentLineDash;
+  }
+}
+
+export function syncColorFromSelection() {
+  if (state.currentTool !== "select" || state.selectedElements.length === 0) return;
+  const el = state.selectedElements[0];
+  if (!el.color) return;
+  const swatch = document.getElementById("color-swatch-inner");
+  const hexLabel = document.getElementById("color-hex-label");
+  const picker = document.getElementById("color-picker");
+  if (el.elementType === "text" || el.type === "text") {
+    state.textDrawColor = el.color;
+    if (swatch) swatch.style.background = el.color;
+    if (hexLabel) hexLabel.textContent = el.color.toUpperCase();
+    if (picker) picker.value = el.color;
+  } else if (el.elementType === "drawing") {
+    state.drawColor = el.color;
+    if (swatch) swatch.style.background = el.color;
+    if (hexLabel) hexLabel.textContent = el.color.toUpperCase();
+    if (picker) picker.value = el.color;
   }
 }
 
