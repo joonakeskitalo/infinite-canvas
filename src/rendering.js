@@ -376,6 +376,10 @@ export function drawShape(targetCtx, shape, isExporting, exportScale) {
   if (shape.dash && shape.dash !== "solid" && !shape.isSplitLine) {
     if (shape.dash === "dashed") {
       targetCtx.setLineDash([calculatedWidth * 4, calculatedWidth * 3]);
+    } else if (shape.dash === "dotted") {
+      targetCtx.setLineDash([calculatedWidth * 1, calculatedWidth * 2]);
+    } else if (shape.dash === "dash-dot") {
+      targetCtx.setLineDash([calculatedWidth * 4, calculatedWidth * 2, calculatedWidth * 1, calculatedWidth * 2]);
     }
   }
 

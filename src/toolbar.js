@@ -133,6 +133,20 @@ export function toggleAlignmentPanelVisibility() {
     }
   }
 
+  // Show line dash/style controls for relevant tools
+  const lineDashGroup = document.getElementById("line-dash-group");
+  if (lineDashGroup) {
+    const lineDashTools = ["pen", "bezier-pen", "line", "arrow", "connector", "rect-border"];
+    const hasStrokeEl = state.currentTool === "select" && state.selectedElements.length > 0 &&
+      state.selectedElements.some((el) => el.type === "line" || el.type === "arrow" || el.type === "connector" || el.type === "rect-border" || el.type === "drawing" || el.type === "bezier-path");
+    if (lineDashTools.includes(state.currentTool) || hasStrokeEl) {
+      lineDashGroup.style.display = "flex";
+      syncLineDashFromSelection();
+    } else {
+      lineDashGroup.style.display = "none";
+    }
+  }
+
   // Show color picker for tools that draw with color
   const colorPickerGroup = document.getElementById("color-picker-group");
   if (colorPickerGroup) {
@@ -360,6 +374,18 @@ export function syncLineWidthFromSelection() {
       if (parseInt(b.dataset.width, 10) === width) b.classList.add("active");
       else b.classList.remove("active");
     });
+  }
+}
+
+export function syncLineDashFromSelection() {
+  const select = document.getElementById("line-dash-select");
+  if (!select) return;
+  if (state.selectedElements.length === 1 && state.selectedElements[0].elementType === "drawing" && state.selectedElements[0].type !== "text") {
+    const dash = state.selectedElements[0].dash || "solid";
+    state.currentLineDash = dash;
+    select.value = dash;
+  } else {
+    select.value = state.currentLineDash;
   }
 }
 

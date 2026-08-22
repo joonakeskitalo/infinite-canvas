@@ -360,6 +360,26 @@ export function initEventHandlers() {
     });
   });
 
+  // --- Line dash/style select ---
+  const lineDashSelect = document.getElementById("line-dash-select");
+  if (lineDashSelect) {
+    lineDashSelect.value = state.currentLineDash;
+    lineDashSelect.addEventListener("change", (e) => {
+      state.currentLineDash = e.target.value;
+      if (state.selectedElements.length > 0) {
+        let changed = false;
+        state.selectedElements.forEach((el) => {
+          if (el.elementType === "drawing" && el.type !== "text") {
+            el.dash = state.currentLineDash;
+            changed = true;
+          }
+        });
+        if (changed) render();
+      }
+      lineDashSelect.blur();
+    });
+  }
+
   // --- Filter select ---
   filterSelect.addEventListener("change", (e) => {
     state.currentFilter = e.target.value;
@@ -2163,8 +2183,12 @@ function setupKeyboardHandlers() {
     // , key: toggle dashed/solid line for general drawing tools
     if (key === ",") {
       e.preventDefault();
-      state.currentLineDash = state.currentLineDash === "solid" ? "dashed" : "solid";
-      showToast(state.currentLineDash === "dashed" ? "Dashed line" : "Solid line");
+      const dashOptions = ["solid", "dashed", "dotted", "dash-dot"];
+      const idx = dashOptions.indexOf(state.currentLineDash);
+      state.currentLineDash = dashOptions[(idx + 1) % dashOptions.length];
+      const labels = { solid: "Solid line", dashed: "Dashed line", dotted: "Dotted line", "dash-dot": "Dash-dot line" };
+      showToast(labels[state.currentLineDash]);
+      updateToolbarUI();
       return;
     }
 

@@ -616,6 +616,32 @@
         </button>
       </div>
       <div
+        class="control-group"
+        id="line-dash-group"
+        style="display: none; align-items: center; gap: 4px"
+        title="Line Style"
+      >
+        <select
+          id="line-dash-select"
+          title="Line style. Use , key to cycle."
+          style="
+            background: #2d2d2d;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 2px 4px;
+            font-size: 11px;
+            outline: none;
+            cursor: pointer;
+          "
+        >
+          <option value="solid">Solid</option>
+          <option value="dashed">Dashed</option>
+          <option value="dotted">Dotted</option>
+          <option value="dash-dot">Dash-Dot</option>
+        </select>
+      </div>
+      <div
         class="color-picker-inline"
         id="bezier-fill-group"
         title="Bézier Path Fill Color (click to toggle, right-click for picker)"
