@@ -1388,6 +1388,11 @@ function dismissTextEditor() {
   textEditor.style.display = "none";
   textEditor.style.background = "transparent";
   textEditor.style.border = "1px dashed #007acc";
+  textEditor.style.outline = "none";
+  textEditor.style.padding = "2px";
+  textEditor.style.boxSizing = "content-box";
+  textEditor.style.whiteSpace = "pre-wrap";
+  textEditor.style.wordBreak = "break-word";
   textEditor.dataset.bgColor = "";
   textEditor.textContent = "";
   state.activeTextCoord = null;
@@ -1552,7 +1557,7 @@ function autoResizeTextEditor() {
   });
 
   ctx.save();
-  ctx.font = `bold ${maxInlineFontSize}px ${state.currentFontFamily || "sans-serif"}`;
+  ctx.font = `${maxInlineFontSize}px ${state.currentFontFamily || "sans-serif"}`;
   const text = getTextEditorContent();
   const lines = text.split("\n");
   let maxWidth = 0;
@@ -1561,19 +1566,45 @@ function autoResizeTextEditor() {
     if (w > maxWidth) maxWidth = w;
   });
   ctx.restore();
+
+  const isNote = !!textEditor.dataset.bgColor;
+  const borderWidth = 1; // 1px border on each side
+
   // Width: fit content + cursor padding; add extra buffer to prevent premature
   // line wrapping at low zoom where sub-pixel rounding causes measureText to
   // underestimate the space the browser needs for the contenteditable text.
   const minWidth = maxInlineFontSize * 1.5;
-  textEditor.style.width = Math.max(minWidth, maxWidth + maxInlineFontSize * 0.8) + "px";
-  // Height: auto-fit based on line count. Account for padding (2px each side)
-  // and border (1px each side) = 6px total vertical chrome, plus a proportional
-  // buffer to handle browser line-height differences at small font sizes.
-  const lineHeight = maxInlineFontSize * 1.2;
-  const minHeight = lineHeight;
-  const verticalChrome = 6; // 2px padding top + 2px padding bottom + 1px border top + 1px border bottom
-  const buffer = Math.max(4, lineHeight * 0.3);
-  textEditor.style.height = Math.max(minHeight, lines.length * lineHeight + verticalChrome + buffer) + "px";
+  if (isNote) {
+    // Use border-box so that width/height include padding, matching the canvas note background size.
+    // Note uses outline instead of border so border doesn't affect box size.
+    const notePadding = parseFloat(textEditor.style.padding) || 0;
+    textEditor.style.boxSizing = "border-box";
+    // Total width matches canvas: textWidth + 2*padding
+    const totalWidth = maxWidth + notePadding * 2;
+    textEditor.style.width = Math.max(minWidth + notePadding * 2, totalWidth) + "px";
+    // Total height matches canvas: textHeight + 2*padding
+    // Keep one trailing empty line (user pressed Enter) but strip extra browser
+    // placeholder lines. This makes the background grow on Enter.
+    let effectiveLineCount = lines.length;
+    // Strip at most one extra trailing empty line (browser cursor placeholder)
+    if (effectiveLineCount > 1 && lines[effectiveLineCount - 1] === "" && lines[effectiveLineCount - 2] === "") {
+      effectiveLineCount--;
+    }
+    const lineHeight = maxInlineFontSize * 1.2;
+    const textHeight = lineHeight * (effectiveLineCount - 1) + maxInlineFontSize;
+    const totalHeight = textHeight + notePadding * 2;
+    textEditor.style.height = Math.max(lineHeight + notePadding * 2, totalHeight) + "px";
+  } else {
+    textEditor.style.boxSizing = "content-box";
+    const widthBuffer = maxInlineFontSize * 0.8;
+    textEditor.style.width = Math.max(minWidth, maxWidth + widthBuffer) + "px";
+    // Height: auto-fit based on line count.
+    const lineHeight = maxInlineFontSize * 1.2;
+    const minHeight = lineHeight;
+    const verticalChrome = 6; // padding + border vertical space
+    const buffer = Math.max(4, lineHeight * 0.3);
+    textEditor.style.height = Math.max(minHeight, lines.length * lineHeight + verticalChrome + buffer) + "px";
+  }
 }
 
 // HEIF/HEIC file extensions that may not have a recognized MIME type
@@ -3373,13 +3404,19 @@ function setupMouseHandlers() {
       textEditor.style.color = "#333333";
       textEditor.dataset.bgColor = state.currentNoteBgColor;
       const screenPos = worldToScreen(worldPos.x, worldPos.y);
-      textEditor.style.left = `${screenPos.x}px`;
-      textEditor.style.top = `${screenPos.y - state.currentFontSize * state.transform.zoom * 0.2}px`;
-      textEditor.style.fontSize = `${state.currentFontSize * state.transform.zoom}px`;
+      const screenFontSize = state.currentFontSize * state.transform.zoom;
+      const notePadding = state.currentFontSize * 0.4 * state.transform.zoom;
+      textEditor.style.left = `${screenPos.x - notePadding}px`;
+      textEditor.style.top = `${screenPos.y - notePadding}px`;
+      textEditor.style.fontSize = `${screenFontSize}px`;
       textEditor.style.fontFamily = state.currentFontFamily;
       textEditor.style.lineHeight = "1.2";
+      textEditor.style.padding = `${notePadding}px`;
+      textEditor.style.whiteSpace = "pre";
+      textEditor.style.wordBreak = "normal";
       textEditor.style.background = state.currentNoteBgColor;
-      textEditor.style.border = "1px dashed #c4b800";
+      textEditor.style.border = "none";
+      textEditor.style.outline = "1px dashed #c4b800";
       autoResizeTextEditor();
       setTimeout(() => { textEditor.focus(); if (window._textFormatBar) { window._textFormatBar.show(); } }, 20);
       return;
@@ -4691,19 +4728,31 @@ function setupMouseHandlers() {
         setTextEditorContent(editingText.text, editingText.segments);
         textEditor.style.display = "block";
         textEditor.style.color = editingText.color;
+        const screenPos = worldToScreen(state.activeTextCoord.x, state.activeTextCoord.y);
+        const screenFontSize = state.currentFontSize * state.transform.zoom;
         if (editingText.bgColor) {
           textEditor.dataset.bgColor = editingText.bgColor;
           textEditor.style.background = editingText.bgColor;
-          textEditor.style.border = "1px dashed #c4b800";
+          textEditor.style.border = "none";
+          textEditor.style.outline = "1px dashed #c4b800";
+          const notePadding = state.currentFontSize * 0.4 * state.transform.zoom;
+          textEditor.style.padding = `${notePadding}px`;
+          textEditor.style.whiteSpace = "pre";
+          textEditor.style.wordBreak = "normal";
+          textEditor.style.left = `${screenPos.x - notePadding}px`;
+          textEditor.style.top = `${screenPos.y - notePadding}px`;
         } else {
           textEditor.dataset.bgColor = "";
           textEditor.style.background = "transparent";
           textEditor.style.border = "1px dashed #007acc";
+          textEditor.style.outline = "none";
+          textEditor.style.padding = "2px";
+          textEditor.style.whiteSpace = "pre-wrap";
+          textEditor.style.wordBreak = "break-word";
+          textEditor.style.left = `${screenPos.x}px`;
+          textEditor.style.top = `${screenPos.y - screenFontSize * 0.2}px`;
         }
-        const screenPos = worldToScreen(state.activeTextCoord.x, state.activeTextCoord.y);
-        textEditor.style.left = `${screenPos.x}px`;
-        textEditor.style.top = `${screenPos.y - state.currentFontSize * state.transform.zoom * 0.2}px`;
-        textEditor.style.fontSize = `${state.currentFontSize * state.transform.zoom}px`;
+        textEditor.style.fontSize = `${screenFontSize}px`;
         textEditor.style.fontFamily = editingText.fontFamily || state.currentFontFamily;
         textEditor.style.lineHeight = "1.2";
 
