@@ -4646,105 +4646,88 @@ function setupMouseHandlers() {
     if (state.currentTool !== "select") return;
     const worldPos = screenToWorld(e.clientX, e.clientY);
 
-    // Double-click on a locked element to unlock it
-    for (let i = state.drawings.length - 1; i >= 0; i--) {
-      if (!state.drawings[i].locked) continue;
-      if (isPointHittingShape(worldPos, state.drawings[i])) {
-        pushUndo();
-        state.drawings[i].locked = false;
-        state.selectedElements = [state.drawings[i]];
-        if (state.drawings[i].type !== "text") state.drawings[i].elementType = "drawing";
-        toggleAlignmentPanelVisibility();
-        render();
-        showToast("Unlocked element");
-        scheduleSave();
-        return;
+    // Double-click on a locked element to unlock it (only if it's the topmost element at this point)
+    // Use z-order to find the topmost element — only unlock if that element is locked
+    const topmostEl = getElementAtWorldPos(worldPos, null);
+    if (topmostEl && topmostEl.locked) {
+      pushUndo();
+      topmostEl.locked = false;
+      if (topmostEl.elementType === "image") {
+        state.selectedElements = [topmostEl];
+      } else {
+        state.selectedElements = [topmostEl];
+        if (topmostEl.type !== "text") topmostEl.elementType = "drawing";
       }
-    }
-    for (let i = state.images.length - 1; i >= 0; i--) {
-      const img = state.images[i];
-      if (!img.locked) continue;
-      if (worldPos.x >= img.x && worldPos.x <= img.x + img.w && worldPos.y >= img.y && worldPos.y <= img.y + img.h) {
-        pushUndo();
-        img.locked = false;
-        img.elementType = "image";
-        state.selectedElements = [img];
-        toggleAlignmentPanelVisibility();
-        render();
-        showToast("Unlocked element");
-        scheduleSave();
-        return;
-      }
-    }
-
-    // Check if double-clicking on a bezier-path to enter edit mode
-    for (let i = state.drawings.length - 1; i >= 0; i--) {
-      const shape = state.drawings[i];
-      if (shape.type !== "bezier-path") continue;
-      if (!isPointHittingShape(worldPos, shape)) continue;
-      enterBezierEdit(shape);
-      state.currentTool = "bezier-pen";
-      updateToolbarUI();
-      updateCursor();
+      toggleAlignmentPanelVisibility();
+      render();
+      showToast("Unlocked element");
+      scheduleSave();
       return;
     }
 
-    // Check if double-clicking on an image to enter crop mode
-    for (let i = state.images.length - 1; i >= 0; i--) {
-      const img = state.images[i];
-      if (worldPos.x >= img.x && worldPos.x <= img.x + img.w && worldPos.y >= img.y && worldPos.y <= img.y + img.h) {
-        enterCropMode(img);
+    // Use unified z-order hit testing for double-click actions (reuse topmostEl from above)
+    if (topmostEl && !topmostEl.locked) {
+      const hitEl = topmostEl;
+      // Bezier-path: enter edit mode
+      if (hitEl.type === "bezier-path") {
+        enterBezierEdit(hitEl);
+        state.currentTool = "bezier-pen";
+        updateToolbarUI();
+        updateCursor();
         return;
       }
-    }
 
-    // Check if double-clicking on a text element to edit it
-    for (let i = state.drawings.length - 1; i >= 0; i--) {
-      const shape = state.drawings[i];
-      if (shape.type !== "text") continue;
-      if (!isPointHittingShape(worldPos, shape)) continue;
-
-      const editingText = shape;
-      state.activeTextCoord = { x: editingText.start.x, y: editingText.start.y };
-      state.currentFontSize = editingText.fontSize;
-      setTextEditorContent(editingText.text, editingText.segments);
-      textEditor.style.display = "block";
-      textEditor.style.color = editingText.color;
-      if (editingText.bgColor) {
-        textEditor.dataset.bgColor = editingText.bgColor;
-        textEditor.style.background = editingText.bgColor;
-        textEditor.style.border = "1px dashed #c4b800";
-      } else {
-        textEditor.dataset.bgColor = "";
-        textEditor.style.background = "transparent";
-        textEditor.style.border = "1px dashed #007acc";
+      // Image: enter crop mode
+      if (hitEl.elementType === "image") {
+        enterCropMode(hitEl);
+        return;
       }
-      const screenPos = worldToScreen(state.activeTextCoord.x, state.activeTextCoord.y);
-      textEditor.style.left = `${screenPos.x}px`;
-      textEditor.style.top = `${screenPos.y - state.currentFontSize * state.transform.zoom * 0.2}px`;
-      textEditor.style.fontSize = `${state.currentFontSize * state.transform.zoom}px`;
-      textEditor.style.fontFamily = editingText.fontFamily || state.currentFontFamily;
-      textEditor.style.lineHeight = "1.2";
 
-      // Remove the original text element so it can be re-baked
-      pushUndo();
-      spatialRemove(state.drawings[i]);
-      state.drawings.splice(i, 1);
-      state.selectedElements = [];
+      // Text: enter text editing mode
+      if (hitEl.type === "text") {
+        const editingText = hitEl;
+        state.activeTextCoord = { x: editingText.start.x, y: editingText.start.y };
+        state.currentFontSize = editingText.fontSize;
+        setTextEditorContent(editingText.text, editingText.segments);
+        textEditor.style.display = "block";
+        textEditor.style.color = editingText.color;
+        if (editingText.bgColor) {
+          textEditor.dataset.bgColor = editingText.bgColor;
+          textEditor.style.background = editingText.bgColor;
+          textEditor.style.border = "1px dashed #c4b800";
+        } else {
+          textEditor.dataset.bgColor = "";
+          textEditor.style.background = "transparent";
+          textEditor.style.border = "1px dashed #007acc";
+        }
+        const screenPos = worldToScreen(state.activeTextCoord.x, state.activeTextCoord.y);
+        textEditor.style.left = `${screenPos.x}px`;
+        textEditor.style.top = `${screenPos.y - state.currentFontSize * state.transform.zoom * 0.2}px`;
+        textEditor.style.fontSize = `${state.currentFontSize * state.transform.zoom}px`;
+        textEditor.style.fontFamily = editingText.fontFamily || state.currentFontFamily;
+        textEditor.style.lineHeight = "1.2";
 
-      autoResizeTextEditor();
-      setTimeout(() => {
-        textEditor.focus();
-        // Select all text for easy replacement
-        const range = document.createRange();
-        range.selectNodeContents(textEditor);
-        const sel = window.getSelection();
-        sel.removeAllRanges();
-        sel.addRange(range);
-        if (window._textFormatBar) { window._textFormatBar.show(); }
-      }, 20);
-      render();
-      break;
+        // Remove the original text element so it can be re-baked
+        const idx = state.drawings.indexOf(editingText);
+        pushUndo();
+        spatialRemove(editingText);
+        if (idx !== -1) state.drawings.splice(idx, 1);
+        state.selectedElements = [];
+
+        autoResizeTextEditor();
+        setTimeout(() => {
+          textEditor.focus();
+          // Select all text for easy replacement
+          const range = document.createRange();
+          range.selectNodeContents(textEditor);
+          const sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(range);
+          if (window._textFormatBar) { window._textFormatBar.show(); }
+        }, 20);
+        render();
+        return;
+      }
     }
   });
 }
