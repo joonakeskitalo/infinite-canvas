@@ -20,6 +20,7 @@ import { initCustomColors, setCustomColorsToast } from "./custom-colors.js";
 import { initColorHistory } from "./color-history.js";
 import { setLaserRenderFn } from "./laser-pointer.js";
 import { setBezierPenDeps } from "./bezier-pen.js";
+import { initMarqueeColors, setMarqueeColorsDeps } from "./marquee-colors.js";
 
 // --- Wire up forward dependencies to break circular imports ---
 setHistoryDeps({
@@ -83,3 +84,13 @@ initWelcomeModal();
 setCustomColorsToast(showToast);
 initCustomColors();
 initColorHistory();
+initMarqueeColors();
+setMarqueeColorsDeps({
+  onColorSelect: (hex) => {
+    state.drawColor = hex;
+    const picker = document.getElementById("color-picker");
+    if (picker) picker.value = hex;
+    const inner = document.getElementById("color-swatch-inner");
+    if (inner) inner.style.background = hex;
+  },
+});

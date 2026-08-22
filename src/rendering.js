@@ -1220,6 +1220,28 @@ function _doRender(targetCtx, isExporting) {
       renderAccessibilityPreviewSelection(targetCtx, transform);
     }
 
+    // Eyedropper marquee selection rectangle (drag to analyze colors, persists after drag)
+    if (state.eyedropperMarqueeRect && (state.eyedropperMarqueeActive || state.currentTool === "eyedropper")) {
+      const rect = state.eyedropperMarqueeRect;
+      if (rect.w > 1 || rect.h > 1) {
+        const zoom = transform.zoom;
+        targetCtx.save();
+        targetCtx.fillStyle = "rgba(100, 200, 255, 0.12)";
+        targetCtx.fillRect(rect.x, rect.y, rect.w, rect.h);
+        targetCtx.strokeStyle = "#fff";
+        targetCtx.lineWidth = 1.5 / zoom;
+        targetCtx.setLineDash([]);
+        targetCtx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+        targetCtx.strokeStyle = "#4fc3f7";
+        targetCtx.lineWidth = 1.5 / zoom;
+        const dashLen = 5 / zoom;
+        targetCtx.setLineDash([dashLen, dashLen]);
+        targetCtx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+        targetCtx.setLineDash([]);
+        targetCtx.restore();
+      }
+    }
+
     // Stamp marquee selection rectangle (while dragging to select area)
     if (state.stampMarqueeActive && state.stampMarqueeRect) {
       const rect = state.stampMarqueeRect;

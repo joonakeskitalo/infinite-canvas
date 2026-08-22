@@ -2301,6 +2301,100 @@ input[type="color"]::-webkit-color-swatch {
   margin-top: 4px;
 }
 
+/* --- Marquee Color Analysis Panel --- */
+#marquee-colors-panel {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  background: rgba(30, 30, 30, 0.97);
+  backdrop-filter: blur(10px);
+  border: 1px solid #444;
+  border-radius: 10px;
+  padding: 14px 18px;
+  min-width: 240px;
+  max-width: 360px;
+  max-height: 320px;
+  z-index: 200;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  color: #ddd;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.marquee-colors-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.marquee-colors-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #eee;
+}
+
+.marquee-colors-count {
+  font-size: 10px;
+  color: #888;
+  font-weight: 500;
+}
+
+.marquee-colors-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  overflow-y: auto;
+  max-height: 220px;
+  padding: 2px 0;
+}
+
+.marquee-color-swatch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px 3px 4px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.marquee-color-swatch:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.marquee-color-block {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
+}
+
+.marquee-color-label {
+  font-size: 10px;
+  font-family: "SF Mono", "Fira Code", monospace;
+  color: #ccc;
+}
+
+.marquee-color-pct {
+  font-size: 9px;
+  color: #777;
+  min-width: 32px;
+  text-align: right;
+}
+
+.marquee-colors-hint {
+  font-size: 10px;
+  color: #666;
+  text-align: center;
+  padding-top: 2px;
+  border-top: 1px solid #333;
+}
+
 /* --- Accessibility Preview Panel --- */
 
 .accessibility-preview-panel {

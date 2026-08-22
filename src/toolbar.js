@@ -9,6 +9,7 @@ import { buildAlignmentUnits } from "./selection.js";
 import { getShapeBounds } from "./elements.js";
 import { showToast } from "./utils.js";
 import { getCustomColors } from "./custom-colors.js";
+import { hideMarqueeColors } from "./marquee-colors.js";
 
 export function updateToolbarUI() {
   const buttons = document.querySelectorAll(".tool-btn");
@@ -21,6 +22,13 @@ export function updateToolbarUI() {
   if (state.currentTool !== "contrast") {
     const contrastPanel = document.getElementById("contrast-checker-panel");
     if (contrastPanel) contrastPanel.style.display = "none";
+  }
+  // Hide marquee colors panel and clear selection when not in eyedropper tool
+  if (state.currentTool !== "eyedropper") {
+    hideMarqueeColors();
+    state.eyedropperMarqueeRect = null;
+    state.eyedropperMarqueeStart = null;
+    state.eyedropperMarqueeActive = false;
   }
   // Show/hide bezier fill control
   const bezierFillGroup = document.getElementById("bezier-fill-group");

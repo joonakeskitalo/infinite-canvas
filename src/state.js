@@ -108,6 +108,11 @@ export const state = {
   // Eyedropper insert mode (shift-click behavior without holding shift)
   eyedropperInsertMode: false,
 
+  // Eyedropper marquee (drag-to-select area for color analysis)
+  eyedropperMarqueeActive: false,  // true while dragging to define the area
+  eyedropperMarqueeStart: null,    // {x, y} world-coords where drag started
+  eyedropperMarqueeRect: null,     // {x, y, w, h} world-coords of the selection rectangle
+
   // Split-line tool
   splitLineOrientation: "vertical", // "vertical" or "horizontal"
   splitLineLength: 100, // percentage of image dimension (10-200), 100 = full span, >100 extends beyond image

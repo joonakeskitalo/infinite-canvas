@@ -65,6 +65,7 @@ import {
   bezierPenDoubleClick, bezierPenKeyDown, finalizeBezierPenIfNeeded,
   enterBezierEdit,
 } from "./bezier-pen.js";
+import { analyzeMarqueeColors, hideMarqueeColors } from "./marquee-colors.js";
 
 // --- PERFORMANCE: Throttle proximity/spacing guide computation during drag ---
 const GUIDE_COMPUTE_INTERVAL_MS = 60; // ms between expensive guide recalculations
@@ -90,6 +91,135 @@ function snapSplitLinePos(pos, origin, size) {
     }
   }
   return pos;
+}
+
+/**
+ * Eyedropper: single-click color pick behavior.
+ */
+function eyedropperPickColor(e, worldPos) {
+  const dom = getDom();
+  const { canvas, ctx } = dom;
+  hideMarqueeColors();
+  const pixelData = ctx.getImageData(e.clientX - canvas.getBoundingClientRect().left, e.clientY - canvas.getBoundingClientRect().top, 1, 1).data;
+  const hex = "#" + ((1 << 24) + (pixelData[0] << 16) + (pixelData[1] << 8) + pixelData[2]).toString(16).slice(1);
+  const hexUpper = hex.toUpperCase();
+
+  // Always set as current draw color
+  state.drawColor = hex;
+  dom.colorPicker.value = hex;
+  document.getElementById("color-swatch-inner").style.background = hex;
+  const hexLbl = document.getElementById("color-hex-label");
+  if (hexLbl) hexLbl.textContent = hex.toUpperCase();
+  updateColorNameLabel();
+  updateColorInfo();
+
+  if (e.shiftKey || state.eyedropperInsertMode) {
+    // Shift+click: insert the hex code (and label if custom color) as a text element on the canvas
+    const customMatch = getCustomColors().find((c) => c.hex === hex.toLowerCase());
+    const insertText = customMatch ? `${hexUpper} ${customMatch.label}` : hexUpper;
+
+    // Determine contrasting text color based on luminance
+    const luminance = (pixelData[0] * 299 + pixelData[1] * 587 + pixelData[2] * 114) / 1000;
+    const textColor = luminance > 128 ? "#000000" : "#FFFFFF";
+
+    const size = 16;
+
+    pushUndo();
+    const bgPadding = size * 0.41;
+    const tipSize = bgPadding * 0.6;
+    const textEl = {
+      id: "text_" + state.elementIdCounter++,
+      elementType: "text",
+      type: "text",
+      text: insertText,
+      color: textColor,
+      bgColor: hex,
+      bgBorder: textColor,
+      fontSize: size,
+      fontFamily: state.currentFontFamily,
+      start: { x: worldPos.x + bgPadding + tipSize, y: worldPos.y + bgPadding + tipSize },
+    };
+    state.drawings.push(textEl);
+    spatialInsert(textEl);
+    scheduleSave();
+    render();
+    showToast(`Inserted ${insertText} as text`);
+  } else {
+    // Normal click: pick color and apply to selected elements if any have changeable colors
+    const customMatchPick = getCustomColors().find((c) => c.hex === hex.toLowerCase());
+    showColorToast(hexUpper, customMatchPick ? customMatchPick.label : null);
+    pushColorToHistory(hex);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(hexUpper).catch(() => {});
+    }
+    // Apply picked color to selected elements that support color changes
+    if (state.selectedElements.length > 0) {
+      let changed = false;
+      state.selectedElements.forEach((el) => {
+        if (el.elementType === "text" || el.elementType === "drawing") {
+          el.color = hex;
+          changed = true;
+        }
+      });
+      if (changed) {
+        render();
+        scheduleSave();
+      }
+    }
+  }
+}
+
+/**
+ * Eyedropper: drag-area color analysis.
+ * Rasterizes the selected world-rect from the main canvas and analyzes colors.
+ */
+function eyedropperAnalyzeArea(rect) {
+  const dom = getDom();
+  const { canvas, ctx } = dom;
+
+  // Convert world-space rect to screen-space pixels
+  const topLeft = worldToScreen(rect.x, rect.y);
+  const bottomRight = worldToScreen(rect.x + rect.w, rect.y + rect.h);
+  const sx = Math.round(topLeft.x);
+  const sy = Math.round(topLeft.y);
+  const sw = Math.round(bottomRight.x - topLeft.x);
+  const sh = Math.round(bottomRight.y - topLeft.y);
+
+  if (sw < 1 || sh < 1) return;
+
+  // Temporarily hide the marquee rect so it doesn't get included in the pixel read
+  const savedRect = state.eyedropperMarqueeRect;
+  state.eyedropperMarqueeRect = null;
+  renderSync();
+  state.eyedropperMarqueeRect = savedRect;
+
+  // Read pixel data from the rendered canvas
+  const canvasRect = canvas.getBoundingClientRect();
+  const readX = Math.max(0, sx - canvasRect.left);
+  const readY = Math.max(0, sy - canvasRect.top);
+  const readW = Math.min(sw, canvas.width - readX);
+  const readH = Math.min(sh, canvas.height - readY);
+
+  if (readW < 1 || readH < 1) return;
+
+  // Create an offscreen canvas with the selection area pixels
+  let offscreen, offCtx;
+  if (typeof OffscreenCanvas !== "undefined") {
+    offscreen = new OffscreenCanvas(readW, readH);
+    offCtx = offscreen.getContext("2d");
+  } else {
+    offscreen = document.createElement("canvas");
+    offscreen.width = readW;
+    offscreen.height = readH;
+    offCtx = offscreen.getContext("2d");
+  }
+
+  const imageData = ctx.getImageData(readX, readY, readW, readH);
+  offCtx.putImageData(imageData, 0, 0);
+
+  // Store as the marqueePixelCanvas for analyzeMarqueeColors to read
+  state.marqueePixelCanvas = offscreen;
+  analyzeMarqueeColors();
 }
 
 export function initEventHandlers() {
@@ -3206,77 +3336,11 @@ function setupMouseHandlers() {
     }
 
     if (state.currentTool === "eyedropper") {
-      state.isInteracting = false;
-      // Pick the color from the canvas pixel at the click position
-      const pixelData = ctx.getImageData(e.clientX - canvas.getBoundingClientRect().left, e.clientY - canvas.getBoundingClientRect().top, 1, 1).data;
-      const hex = "#" + ((1 << 24) + (pixelData[0] << 16) + (pixelData[1] << 8) + pixelData[2]).toString(16).slice(1);
-      const hexUpper = hex.toUpperCase();
-
-      // Always set as current draw color
-      state.drawColor = hex;
-      dom.colorPicker.value = hex;
-      document.getElementById("color-swatch-inner").style.background = hex;
-      const hexLbl = document.getElementById("color-hex-label");
-      if (hexLbl) hexLbl.textContent = hex.toUpperCase();
-      updateColorNameLabel();
-      updateColorInfo();
-
-      if (e.shiftKey || state.eyedropperInsertMode) {
-        // Shift+click: insert the hex code (and label if custom color) as a text element on the canvas
-        // Look up label from custom colors
-        const customMatch = getCustomColors().find((c) => c.hex === hex.toLowerCase());
-        const insertText = customMatch ? `${hexUpper} ${customMatch.label}` : hexUpper;
-
-        // Determine contrasting text color based on luminance
-        const luminance = (pixelData[0] * 299 + pixelData[1] * 587 + pixelData[2] * 114) / 1000;
-        const textColor = luminance > 128 ? "#000000" : "#FFFFFF";
-
-        const size = 16;
-
-        pushUndo();
-        // Offset start so the pin tip aligns with the click (pick) position
-        const bgPadding = size * 0.41;
-        const tipSize = bgPadding * 0.6;
-        const textEl = {
-          id: "text_" + state.elementIdCounter++,
-          elementType: "text",
-          type: "text",
-          text: insertText,
-          color: textColor,
-          bgColor: hex,
-          bgBorder: textColor,
-          fontSize: size,
-          fontFamily: state.currentFontFamily,
-          start: { x: worldPos.x + bgPadding + tipSize, y: worldPos.y + bgPadding + tipSize },
-        };
-        state.drawings.push(textEl);
-        spatialInsert(textEl);
-        scheduleSave();
-        render();
-        showToast(`Inserted ${insertText} as text`);
-      } else {
-        // Normal click: pick color and apply to selected elements if any have changeable colors
-        const customMatchPick = getCustomColors().find((c) => c.hex === hex.toLowerCase());
-        showColorToast(hexUpper, customMatchPick ? customMatchPick.label : null);
-        pushColorToHistory(hex);
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(hexUpper).catch(() => {});
-        }
-        // Apply picked color to selected elements that support color changes
-        if (state.selectedElements.length > 0) {
-          let changed = false;
-          state.selectedElements.forEach((el) => {
-            if (el.elementType === "text" || el.elementType === "drawing") {
-              el.color = hex;
-              changed = true;
-            }
-          });
-          if (changed) {
-            render();
-            scheduleSave();
-          }
-        }
-      }
+      // Start tracking for potential drag (marquee color analysis)
+      // Actual color pick happens on mouseup if no drag occurred
+      state.eyedropperMarqueeActive = true;
+      state.eyedropperMarqueeStart = { x: worldPos.x, y: worldPos.y };
+      state.eyedropperMarqueeRect = { x: worldPos.x, y: worldPos.y, w: 0, h: 0 };
       return;
     }
 
@@ -3539,6 +3603,24 @@ function setupMouseHandlers() {
     let dx = e.clientX - state.startX;
     let dy = e.clientY - state.startY;
     let worldPos = screenToWorld(e.clientX, e.clientY);
+
+    // Eyedropper marquee drag (color analysis area selection)
+    if (state.eyedropperMarqueeActive && state.eyedropperMarqueeStart) {
+      const screenDx = e.clientX - state.startX;
+      const screenDy = e.clientY - state.startY;
+      if (Math.sqrt(screenDx * screenDx + screenDy * screenDy) < CONSTANTS.MIN_DRAW_DISTANCE) return;
+
+      const startX = state.eyedropperMarqueeStart.x;
+      const startY = state.eyedropperMarqueeStart.y;
+      state.eyedropperMarqueeRect = {
+        x: Math.min(startX, worldPos.x),
+        y: Math.min(startY, worldPos.y),
+        w: Math.abs(worldPos.x - startX),
+        h: Math.abs(worldPos.y - startY),
+      };
+      render();
+      return;
+    }
 
     // Crop drag handling
     if (state.cropMode && state.cropDragEdge && state.cropDragStart && state.cropTarget) {
@@ -4169,6 +4251,32 @@ function setupMouseHandlers() {
       const worldPos = screenToWorld(e.clientX, e.clientY);
       bezierPenMouseUp(e, worldPos);
       // Don't fall through to the drawing tools commit logic
+      render();
+      return;
+    }
+
+    // Eyedropper tool mouseup: either single-click pick or drag-select color analysis
+    if (state.currentTool === "eyedropper" && state.eyedropperMarqueeActive) {
+      state.eyedropperMarqueeActive = false;
+      const rect = state.eyedropperMarqueeRect;
+      const worldPos = screenToWorld(e.clientX, e.clientY);
+
+      // Check if this was a drag or just a click
+      const screenDx = e.clientX - state.startX;
+      const screenDy = e.clientY - state.startY;
+      const wasDrag = Math.sqrt(screenDx * screenDx + screenDy * screenDy) >= CONSTANTS.MIN_DRAW_DISTANCE;
+
+      if (wasDrag && rect && rect.w > 2 && rect.h > 2) {
+        // Drag completed — analyze colors in the selected area, keep rect visible
+        eyedropperAnalyzeArea(rect, e);
+        state.eyedropperMarqueeStart = null;
+      } else {
+        // Single click — normal color pick behavior, clear any previous rect
+        state.eyedropperMarqueeRect = null;
+        state.eyedropperMarqueeStart = null;
+        eyedropperPickColor(e, worldPos);
+      }
+
       render();
       return;
     }
