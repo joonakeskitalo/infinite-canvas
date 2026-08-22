@@ -2160,8 +2160,8 @@ function setupKeyboardHandlers() {
       return;
     }
 
-    // ; key: cycle split line dash pattern when split-line tool is active
-    if (key === ";" && state.currentTool === "split-line") {
+    // , key: cycle split line dash pattern when split-line tool is active
+    if (key === "," && state.currentTool === "split-line") {
       e.preventDefault();
       const patterns = ["solid", "dashed", "dotted", "dash-dot"];
       const idx = patterns.indexOf(state.splitLineDash);
