@@ -97,6 +97,7 @@ export const state = {
   cropRect: null,
   cropDragEdge: null,
   cropDragStart: null,
+  cropClipboard: null, // Stored crop settings {x, y, w, h} for copy/paste between images
 
   // Connector arrow
   activeConnector: null,

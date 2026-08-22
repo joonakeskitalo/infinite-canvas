@@ -67,6 +67,8 @@ export function toggleAlignmentPanelVisibility() {
     if (zOrderGroup) zOrderGroup.style.display = "none";
     const textFormatGroup = document.getElementById("text-format-group");
     if (textFormatGroup) textFormatGroup.style.display = "none";
+    const cropCopyGroupHidden = document.getElementById("crop-copy-group");
+    if (cropCopyGroupHidden) cropCopyGroupHidden.style.display = "none";
     return;
   }
 
@@ -97,6 +99,22 @@ export function toggleAlignmentPanelVisibility() {
     if (scaleSep) scaleSep.style.display = alignmentGroup.style.display === "flex" ? "block" : "none";
   } else {
     scaleGroup.style.display = "none";
+  }
+
+  // Show crop copy/paste controls when images are selected
+  const cropCopyGroup = document.getElementById("crop-copy-group");
+  if (cropCopyGroup) {
+    const hasCroppedImage = state.selectedElements.some((el) => el.elementType === "image" && el.crop);
+    const hasCropClipboard = !!state.cropClipboard;
+    if (state.currentTool === "select" && state.selectedElements.length > 0 && hasImages && (hasCroppedImage || hasCropClipboard)) {
+      cropCopyGroup.style.display = "flex";
+      const copyBtn = document.getElementById("crop-copy-btn");
+      const pasteBtn = document.getElementById("crop-paste-btn");
+      if (copyBtn) copyBtn.disabled = !hasCroppedImage;
+      if (pasteBtn) pasteBtn.disabled = !hasCropClipboard;
+    } else {
+      cropCopyGroup.style.display = "none";
+    }
   }
 
   // Show text alignment controls when text tool is active or a text element is selected

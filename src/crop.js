@@ -135,3 +135,68 @@ export function getCropCursor(edge) {
     default: return "crosshair";
   }
 }
+
+/**
+ * Copy the crop settings from the currently selected image element.
+ * Returns true if crop was copied successfully.
+ */
+export function copyCropSettings() {
+  if (state.selectedElements.length !== 1) {
+    showToast("Select a single cropped image to copy its crop");
+    return false;
+  }
+  const el = state.selectedElements[0];
+  if (el.elementType !== "image") {
+    showToast("Crop copy only works on images");
+    return false;
+  }
+  if (!el.crop) {
+    showToast("Selected image has no crop to copy");
+    return false;
+  }
+  state.cropClipboard = { x: el.crop.x, y: el.crop.y, w: el.crop.w, h: el.crop.h };
+  showToast("Crop settings copied");
+  return true;
+}
+
+/**
+ * Paste previously copied crop settings onto the currently selected image(s).
+ * Returns true if crop was pasted successfully.
+ */
+export function pasteCropSettings() {
+  if (!state.cropClipboard) {
+    showToast("No crop settings to paste — copy a crop first");
+    return false;
+  }
+  const imageElements = state.selectedElements.filter((el) => el.elementType === "image");
+  if (imageElements.length === 0) {
+    showToast("Select one or more images to paste crop onto");
+    return false;
+  }
+
+  pushUndo();
+
+  for (const el of imageElements) {
+    const full = getFullImageBounds(el);
+    const crop = state.cropClipboard;
+
+    // Store full bounds if not already stored
+    if (!el.fullBounds) {
+      el.fullBounds = { x: full.x, y: full.y, w: full.w, h: full.h };
+    }
+
+    // Apply the fractional crop
+    el.crop = { x: crop.x, y: crop.y, w: crop.w, h: crop.h };
+    el.x = full.x + crop.x * full.w;
+    el.y = full.y + crop.y * full.h;
+    el.w = crop.w * full.w;
+    el.h = crop.h * full.h;
+
+    spatialUpdate(el);
+  }
+
+  if (_scheduleSave) _scheduleSave();
+  if (_render) _render();
+  showToast(`Crop pasted onto ${imageElements.length} image(s)`);
+  return true;
+}

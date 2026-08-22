@@ -22,7 +22,7 @@ import {
   getConnectorAnchorPoint, computeAnchorRatio,
   getClosestConnectionPort, updateConnectorsForElements,
 } from "./connectors.js";
-import { enterCropMode, exitCropMode, getCropEdgeAtPoint, getCropCursor, getFullImageBounds } from "./crop.js";
+import { enterCropMode, exitCropMode, getCropEdgeAtPoint, getCropCursor, getFullImageBounds, copyCropSettings, pasteCropSettings } from "./crop.js";
 import {
   expandSelectionToGroups, groupSelection, ungroupSelection, toggleLockSelection,
   bringToFront, sendToBack, bringForward, sendBackward,
@@ -455,6 +455,14 @@ export function initEventHandlers() {
       render();
       showToast(`Scaled to ${scale * 100}%`);
     });
+  });
+
+  // --- Crop copy/paste buttons ---
+  document.getElementById("crop-copy-btn").addEventListener("click", () => {
+    copyCropSettings();
+  });
+  document.getElementById("crop-paste-btn").addEventListener("click", () => {
+    pasteCropSettings();
   });
 
   // --- Opacity slider ---
@@ -2531,6 +2539,18 @@ function setupKeyboardHandlers() {
         document.getElementById("fmt-underline").dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
         return;
       }
+    }
+
+    // Crop copy/paste: Cmd/Ctrl+Alt+C to copy crop, Cmd/Ctrl+Alt+V to paste crop
+    if (e.altKey && e.code === "KeyC") {
+      e.preventDefault();
+      copyCropSettings();
+      return;
+    }
+    if (e.altKey && e.code === "KeyV") {
+      e.preventDefault();
+      pasteCropSettings();
+      return;
     }
 
     if (e.key.toLowerCase() === "c" && e.shiftKey) {
