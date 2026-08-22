@@ -519,8 +519,52 @@ export function buildAlignmentUnits(elements) {
     units.push({ elements: groupEls, b: { x: minX, y: minY, w: maxX - minX, h: maxY - minY, maxX, maxY }, isGroup: true, groupId: gid });
   });
 
+  // Separate ungrouped elements into images and non-images (drawings)
+  const ungroupedImages = [];
+  const ungroupedDrawings = [];
   ungrouped.forEach((el) => {
-    const b = el.elementType === "image" ? { x: el.x, y: el.y, w: el.w, h: el.h, maxX: el.x + el.w, maxY: el.y + el.h } : getShapeBounds(el);
+    if (el.elementType === "image") {
+      ungroupedImages.push(el);
+    } else {
+      ungroupedDrawings.push(el);
+    }
+  });
+
+  // For each ungrouped image, find drawings that are spatially on top of it
+  // and attach them to the same layout unit so they move together.
+  const attachedDrawingIds = new Set();
+  const imageUnits = ungroupedImages.map((img) => {
+    const imgB = { x: img.x, y: img.y, w: img.w, h: img.h, maxX: img.x + img.w, maxY: img.y + img.h };
+    const attachedEls = [img];
+    ungroupedDrawings.forEach((dr) => {
+      if (attachedDrawingIds.has(dr.id)) return;
+      const db = getShapeBounds(dr);
+      // Check if the drawing's bounding box center is within the image bounds
+      const centerX = db.x + db.w / 2;
+      const centerY = db.y + db.h / 2;
+      if (centerX >= imgB.x && centerX <= imgB.maxX && centerY >= imgB.y && centerY <= imgB.maxY) {
+        attachedEls.push(dr);
+        attachedDrawingIds.add(dr.id);
+      }
+    });
+    // Compute combined bounding box for the image + attached drawings
+    let minX = imgB.x, minY = imgB.y, maxX = imgB.maxX, maxY = imgB.maxY;
+    attachedEls.forEach((el) => {
+      if (el === img) return;
+      const db = getShapeBounds(el);
+      if (db.x < minX) minX = db.x;
+      if (db.y < minY) minY = db.y;
+      if ((db.maxX || db.x + db.w) > maxX) maxX = db.maxX || db.x + db.w;
+      if ((db.maxY || db.y + db.h) > maxY) maxY = db.maxY || db.y + db.h;
+    });
+    return { elements: attachedEls, b: { x: minX, y: minY, w: maxX - minX, h: maxY - minY, maxX, maxY }, isGroup: false };
+  });
+  units.push(...imageUnits);
+
+  // Remaining ungrouped drawings that aren't attached to any image stay as individual units
+  ungroupedDrawings.forEach((el) => {
+    if (attachedDrawingIds.has(el.id)) return;
+    const b = getShapeBounds(el);
     units.push({ elements: [el], b, isGroup: false });
   });
 
