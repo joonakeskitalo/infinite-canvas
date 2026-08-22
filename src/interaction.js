@@ -217,7 +217,9 @@ function eyedropperAnalyzeArea(rect) {
   const imageData = ctx.getImageData(readX, readY, readW, readH);
   offCtx.putImageData(imageData, 0, 0);
 
-  // Store as the marqueePixelCanvas for analyzeMarqueeColors to read
+  // Store pixel data for highlight rendering and color analysis
+  state.eyedropperMarqueePixels = imageData;
+  state.eyedropperHighlightColor = null;
   state.marqueePixelCanvas = offscreen;
   analyzeMarqueeColors();
 }

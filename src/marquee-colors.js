@@ -9,9 +9,10 @@
 import { state } from "./state.js";
 import { showToast } from "./utils.js";
 import { pushColorToHistory } from "./color-history.js";
+import { render } from "./rendering.js";
 
 const MAX_COLORS = 24;
-const MIN_PIXEL_COUNT_RATIO = 0.001; // Minimum 0.1% of pixels to be considered a real color
+const MIN_PIXEL_COUNT_RATIO = 0.003; // Minimum 0.3% of pixels to be considered a real color (filters out antialiasing artifacts)
 const QUANTIZE_BITS = 4; // Reduce color precision to group similar colors (shift right by this)
 
 let _panel = null;
@@ -33,6 +34,13 @@ export function initMarqueeColors() {
   _panel = document.getElementById("marquee-colors-panel");
   _swatchContainer = document.getElementById("marquee-colors-swatches");
   _countLabel = document.getElementById("marquee-colors-count");
+
+  // Prevent mousedown on the panel from propagating to the canvas container
+  if (_panel) {
+    _panel.addEventListener("mousedown", (e) => {
+      e.stopPropagation();
+    });
+  }
 }
 
 /**
@@ -139,6 +147,16 @@ function renderPanel(colors) {
     swatch.appendChild(label);
     swatch.appendChild(pct);
 
+    swatch.addEventListener("mouseenter", () => {
+      state.eyedropperHighlightColor = color.hex;
+      render();
+    });
+
+    swatch.addEventListener("mouseleave", () => {
+      state.eyedropperHighlightColor = null;
+      render();
+    });
+
     swatch.addEventListener("click", (e) => {
       if (e.shiftKey) {
         // Copy hex to clipboard
@@ -169,4 +187,5 @@ export function hideMarqueeColors() {
   if (_panel) {
     _panel.style.display = "none";
   }
+  state.eyedropperHighlightColor = null;
 }

@@ -750,6 +750,89 @@ export function drawShape(targetCtx, shape, isExporting, exportScale) {
   targetCtx.restore();
 }
 
+// Cache for the eyedropper highlight overlay to avoid recomputing every frame
+let _highlightCache = { color: null, dataKey: null, canvas: null };
+
+/**
+ * Render a highlight overlay showing pixels that match the hovered color.
+ * Dims non-matching pixels and brightens matching ones within the marquee rect.
+ */
+function renderEyedropperHighlight(ctx, rect, imageData, hexColor) {
+  // Parse the target hex color
+  const tr = parseInt(hexColor.slice(1, 3), 16);
+  const tg = parseInt(hexColor.slice(3, 5), 16);
+  const tb = parseInt(hexColor.slice(5, 7), 16);
+
+  const w = imageData.width;
+  const h = imageData.height;
+  const cacheKey = `${hexColor}_${w}_${h}`;
+
+  // Use cached overlay if the color and data haven't changed
+  if (_highlightCache.color === hexColor && _highlightCache.dataKey === cacheKey && _highlightCache.canvas) {
+    ctx.save();
+    ctx.drawImage(_highlightCache.canvas, rect.x, rect.y, rect.w, rect.h);
+    ctx.restore();
+    return;
+  }
+
+  // Create the highlight mask canvas
+  let offscreen, offCtx;
+  if (typeof OffscreenCanvas !== "undefined") {
+    offscreen = new OffscreenCanvas(w, h);
+    offCtx = offscreen.getContext("2d");
+  } else {
+    offscreen = document.createElement("canvas");
+    offscreen.width = w;
+    offscreen.height = h;
+    offCtx = offscreen.getContext("2d");
+  }
+
+  // Build overlay: checkerboard transparency grid for non-matching pixels
+  const overlay = offCtx.createImageData(w, h);
+  const src = imageData.data;
+  const dst = overlay.data;
+  const shift = 4; // Same quantization as marquee-colors.js
+  const checkSize = 6; // Checkerboard square size in pixels
+
+  for (let i = 0; i < src.length; i += 4) {
+    const px = (i / 4) % w;
+    const py = Math.floor((i / 4) / w);
+    const a = src[i + 3];
+    if (a < 10) {
+      // Transparent pixel — show checkerboard
+      const isLight = ((Math.floor(px / checkSize) + Math.floor(py / checkSize)) % 2) === 0;
+      dst[i] = isLight ? 255 : 204; dst[i + 1] = isLight ? 255 : 204; dst[i + 2] = isLight ? 255 : 204; dst[i + 3] = 255;
+      continue;
+    }
+
+    // Quantize both source pixel and target color to check match
+    const sr = (src[i] >> shift) << shift;
+    const sg = (src[i + 1] >> shift) << shift;
+    const sb = (src[i + 2] >> shift) << shift;
+    const qr = (tr >> shift) << shift;
+    const qg = (tg >> shift) << shift;
+    const qb = (tb >> shift) << shift;
+
+    if (sr === qr && sg === qg && sb === qb) {
+      // Matching pixel — no overlay (fully transparent so the original shows through)
+      dst[i] = 0; dst[i + 1] = 0; dst[i + 2] = 0; dst[i + 3] = 0;
+    } else {
+      // Non-matching pixel — show checkerboard (like transparency grid)
+      const isLight = ((Math.floor(px / checkSize) + Math.floor(py / checkSize)) % 2) === 0;
+      dst[i] = isLight ? 255 : 204; dst[i + 1] = isLight ? 255 : 204; dst[i + 2] = isLight ? 255 : 204; dst[i + 3] = 255;
+    }
+  }
+
+  offCtx.putImageData(overlay, 0, 0);
+
+  // Cache the result
+  _highlightCache = { color: hexColor, dataKey: cacheKey, canvas: offscreen };
+
+  ctx.save();
+  ctx.drawImage(offscreen, rect.x, rect.y, rect.w, rect.h);
+  ctx.restore();
+}
+
 function _doRender(targetCtx, isExporting) {
   const { canvas, textEditor } = getDom();
   const transform = state.transform;
@@ -1239,6 +1322,11 @@ function _doRender(targetCtx, isExporting) {
         targetCtx.strokeRect(rect.x, rect.y, rect.w, rect.h);
         targetCtx.setLineDash([]);
         targetCtx.restore();
+
+        // Highlight pixels matching the hovered color
+        if (state.eyedropperHighlightColor && state.eyedropperMarqueePixels && !isExporting) {
+          renderEyedropperHighlight(targetCtx, rect, state.eyedropperMarqueePixels, state.eyedropperHighlightColor);
+        }
       }
     }
 

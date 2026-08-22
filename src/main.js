@@ -92,5 +92,7 @@ setMarqueeColorsDeps({
     if (picker) picker.value = hex;
     const inner = document.getElementById("color-swatch-inner");
     if (inner) inner.style.background = hex;
+    const hexLbl = document.getElementById("color-hex-label");
+    if (hexLbl) hexLbl.textContent = hex.toUpperCase();
   },
 });

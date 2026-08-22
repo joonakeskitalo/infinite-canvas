@@ -29,6 +29,7 @@ export function updateToolbarUI() {
     state.eyedropperMarqueeRect = null;
     state.eyedropperMarqueeStart = null;
     state.eyedropperMarqueeActive = false;
+    state.eyedropperMarqueePixels = null;
   }
   // Show/hide bezier fill control
   const bezierFillGroup = document.getElementById("bezier-fill-group");

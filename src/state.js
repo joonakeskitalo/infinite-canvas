@@ -112,6 +112,8 @@ export const state = {
   eyedropperMarqueeActive: false,  // true while dragging to define the area
   eyedropperMarqueeStart: null,    // {x, y} world-coords where drag started
   eyedropperMarqueeRect: null,     // {x, y, w, h} world-coords of the selection rectangle
+  eyedropperMarqueePixels: null,   // ImageData of the clean selection area (for highlight rendering)
+  eyedropperHighlightColor: null,  // hex string of the currently hovered color to highlight
 
   // Split-line tool
   splitLineOrientation: "vertical", // "vertical" or "horizontal"
