@@ -483,7 +483,7 @@ input[type="color"]::-webkit-color-swatch {
   background: rgba(255, 255, 255, 0.4);
 }
 
-.scale-btn {
+.action-btn-sm {
   background: #2d2d2d;
   border: 1px solid #555;
   color: #ccc;
@@ -495,12 +495,12 @@ input[type="color"]::-webkit-color-swatch {
   transition: all 0.15s;
 }
 
-.scale-btn:hover {
+.action-btn-sm:hover {
   background: #444;
   color: #fff;
 }
 
-.scale-btn:active {
+.action-btn-sm:active {
   background: #007acc;
   color: #fff;
 }
