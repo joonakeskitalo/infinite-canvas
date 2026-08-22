@@ -166,6 +166,23 @@ input[type="color"]::-webkit-color-swatch {
   flex-shrink: 0;
 }
 
+.toolbar-secondary-row::-webkit-scrollbar {
+  height: 3px;
+}
+
+.toolbar-secondary-row::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.toolbar-secondary-row::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+}
+
+.toolbar-secondary-row::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
 .tool-btn {
   background: transparent;
   border: 1px solid transparent;
