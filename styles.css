@@ -549,6 +549,29 @@ input[type="color"]::-webkit-color-swatch {
   letter-spacing: 0.5px;
 }
 
+/* Color info display in secondary toolbar */
+.color-info-value {
+  font-size: 11px;
+  color: #ccc;
+  font-family: "SF Mono", "Menlo", "Monaco", monospace;
+  white-space: nowrap;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.color-info-value:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.color-info-separator {
+  color: #555;
+  font-size: 11px;
+  margin: 0 2px;
+}
+
 /* Contenteditable text editor overlay */
 #text-editor-overlay {
   position: absolute;

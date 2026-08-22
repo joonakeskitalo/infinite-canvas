@@ -36,7 +36,7 @@ import {
   updateToolbarUI, toggleAlignmentPanelVisibility,
   updateCursor, applyZoom, updateZoomSliderValue,
   syncFontSizeFromSelection, syncOpacityFromSelection,
-  updateSpacingInputs, updateGroupButtons,
+  updateSpacingInputs, updateGroupButtons, updateColorInfo,
 } from "./toolbar.js";
 import { setRulersVisible, resizeRulers } from "./rulers.js";
 import { FILTER_OPTIONS, FILTER_LABELS } from "./color-filter.js";
@@ -144,7 +144,7 @@ export function initEventHandlers() {
         toolbar.style.display = "";
         zoomOverlay.style.display = "";
       }
-      if (state.currentTool !== "select" && state.currentTool !== "eyedropper") state.selectedElements = [];
+      if (state.currentTool !== "select") state.selectedElements = [];
       if (state.currentTool !== "select") { state.swapHoveredElement = null; state.isSwapDragging = false; state.swapSourceElement = null; state.swapDragWorldPos = null; state.swapTargetElement = null; }
       if (state.currentTool !== "measure") { state.measureHoverGuides = []; state.activeMeasureLine = null; }
       if (state.currentTool !== "marquee" && state.marqueeMode) { marqueeCommit(); }
@@ -206,6 +206,7 @@ export function initEventHandlers() {
     const swatch = document.getElementById("color-swatch-inner");
     const color = state.currentTool === "text" ? state.textDrawColor : state.drawColor;
     swatch.style.background = color;
+    updateColorInfo();
   }
 
   const presetBtns = document.querySelectorAll(".preset-btn");
@@ -2457,6 +2458,7 @@ function setupKeyboardHandlers() {
     }
     if (key === "i" || (key === "a" && e.shiftKey)) {
       state.currentTool = "eyedropper";
+      state.selectedElements = [];
       updateToolbarUI();
       updateCursor();
       render();
@@ -3150,6 +3152,7 @@ function setupMouseHandlers() {
       state.drawColor = hex;
       dom.colorPicker.value = hex;
       document.getElementById("color-swatch-inner").style.background = hex;
+      updateColorInfo();
 
       if (e.shiftKey || state.eyedropperInsertMode) {
         // Shift+click: insert the hex code (and label if custom color) as a text element on the canvas

@@ -7,6 +7,7 @@
 import { state, CONSTANTS, getDom } from "./state.js";
 import { buildAlignmentUnits } from "./selection.js";
 import { getShapeBounds } from "./elements.js";
+import { showToast } from "./utils.js";
 
 export function updateToolbarUI() {
   const buttons = document.querySelectorAll(".tool-btn");
@@ -79,6 +80,8 @@ export function toggleAlignmentPanelVisibility() {
     if (textFormatGroup) textFormatGroup.style.display = "none";
     const cropCopyGroupHidden = document.getElementById("crop-copy-group");
     if (cropCopyGroupHidden) cropCopyGroupHidden.style.display = "none";
+    const colorInfoGroupHidden = document.getElementById("color-info-group");
+    if (colorInfoGroupHidden) colorInfoGroupHidden.style.display = "none";
     return;
   }
 
@@ -99,6 +102,9 @@ export function toggleAlignmentPanelVisibility() {
     dom.alignmentPanel.style.display = "flex";
     alignmentGroup.style.display = "none";
   } else if (state.currentTool === "split-line") {
+    dom.alignmentPanel.style.display = "flex";
+    alignmentGroup.style.display = "none";
+  } else if (state.currentTool === "eyedropper") {
     dom.alignmentPanel.style.display = "flex";
     alignmentGroup.style.display = "none";
   } else {
@@ -159,6 +165,85 @@ export function toggleAlignmentPanelVisibility() {
   if (textFormatGroup) textFormatGroup.style.display = showTextControls ? "flex" : "none";
   // Sync format button active states with selected text elements
   if (showTextControls && window._textFormatBar) window._textFormatBar.updateState();
+
+  // Show color info display when eyedropper/color picker tool is active
+  const colorInfoGroup = document.getElementById("color-info-group");
+  if (colorInfoGroup) {
+    if (state.currentTool === "eyedropper") {
+      colorInfoGroup.style.display = "flex";
+      updateColorInfo();
+    } else {
+      colorInfoGroup.style.display = "none";
+    }
+  }
+}
+
+/**
+ * Update the color info display (hex, RGB, HSL) in the secondary toolbar.
+ * Called whenever the active draw color changes or tool switches.
+ */
+let _colorInfoClickBound = false;
+
+function initColorInfoClick() {
+  if (_colorInfoClickBound) return;
+  _colorInfoClickBound = true;
+  const ids = ["color-info-hex", "color-info-rgb", "color-info-hsl"];
+  ids.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.style.cursor = "pointer";
+      el.addEventListener("click", () => {
+        const text = el.textContent;
+        navigator.clipboard.writeText(text).then(() => {
+          showToast(`Copied: ${text}`);
+        });
+      });
+    }
+  });
+}
+
+export function updateColorInfo() {
+  const hex = state.currentTool === "text" ? state.textDrawColor : state.drawColor;
+  const colorInfoGroup = document.getElementById("color-info-group");
+  if (!colorInfoGroup || colorInfoGroup.style.display === "none") return;
+
+  initColorInfoClick();
+
+  const swatch = document.getElementById("color-info-swatch");
+  const hexEl = document.getElementById("color-info-hex");
+  const rgbEl = document.getElementById("color-info-rgb");
+  const hslEl = document.getElementById("color-info-hsl");
+
+  if (swatch) swatch.style.background = hex;
+  if (hexEl) hexEl.textContent = hex.toUpperCase();
+
+  // Parse hex to RGB
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  if (rgbEl) rgbEl.textContent = `rgb(${r}, ${g}, ${b})`;
+
+  // Convert RGB to HSL
+  const rNorm = r / 255;
+  const gNorm = g / 255;
+  const bNorm = b / 255;
+  const max = Math.max(rNorm, gNorm, bNorm);
+  const min = Math.min(rNorm, gNorm, bNorm);
+  const l = (max + min) / 2;
+  let h = 0, s = 0;
+
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === rNorm) h = ((gNorm - bNorm) / d + (gNorm < bNorm ? 6 : 0)) / 6;
+    else if (max === gNorm) h = ((bNorm - rNorm) / d + 2) / 6;
+    else h = ((rNorm - gNorm) / d + 4) / 6;
+  }
+
+  const hDeg = Math.round(h * 360);
+  const sPct = Math.round(s * 100);
+  const lPct = Math.round(l * 100);
+  if (hslEl) hslEl.textContent = `hsl(${hDeg}, ${sPct}%, ${lPct}%)`;
 }
 
 export function syncFontSizeFromSelection() {
