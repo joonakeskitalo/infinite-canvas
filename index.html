@@ -1602,6 +1602,60 @@
         >
       </div>
       <div
+        id="split-line-extension-group"
+        style="display: none; align-items: center; gap: 4px"
+      >
+        <span class="align-title">Extend</span>
+        <input
+          type="range"
+          id="split-line-extension-slider"
+          min="0"
+          max="100"
+          value="0"
+          step="5"
+          title="Extend split line beyond image bounds (percentage of image dimension). Use Shift+[ / Shift+] to adjust."
+          style="width: 60px; accent-color: #ff6400; cursor: pointer"
+        />
+        <span
+          id="split-line-extension-val"
+          style="
+            font-size: 11px;
+            color: #aaa;
+            min-width: 24px;
+            text-align: right;
+          "
+          >0%</span
+        >
+      </div>
+      <div
+        id="split-line-dash-group"
+        style="display: none; align-items: center; gap: 4px"
+      >
+        <div
+          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
+        ></div>
+        <span class="align-title">Style</span>
+        <select
+          id="split-line-dash-select"
+          title="Split line dash pattern. Use ; key to cycle."
+          style="
+            background: #2d2d2d;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 2px 4px;
+            font-size: 11px;
+            outline: none;
+            cursor: pointer;
+          "
+        >
+          <option value="solid">Solid</option>
+          <option value="dashed">Dashed</option>
+          <option value="dotted">Dotted</option>
+          <option value="dash-dot">Dash-Dot</option>
+        </select>
+      </div>
+      <div
         id="text-align-group"
         style="display: none; align-items: center; gap: 4px"
       >

@@ -364,6 +364,17 @@ export function drawShape(targetCtx, shape, isExporting, exportScale) {
     if (shape.points.length < 2) { targetCtx.restore(); return; }
     drawBezierPath(targetCtx, shape, isExporting, state.transform.zoom);
   } else if (shape.type === "line") {
+    // Apply dash pattern for split lines
+    if (shape.isSplitLine && shape.dash && shape.dash !== "solid") {
+      const dashScale = isExporting ? (calculatedWidth || 1) : (1 / state.transform.zoom);
+      if (shape.dash === "dashed") {
+        targetCtx.setLineDash([8 * dashScale, 4 * dashScale]);
+      } else if (shape.dash === "dotted") {
+        targetCtx.setLineDash([2 * dashScale, 3 * dashScale]);
+      } else if (shape.dash === "dash-dot") {
+        targetCtx.setLineDash([8 * dashScale, 3 * dashScale, 2 * dashScale, 3 * dashScale]);
+      }
+    }
     if (isExporting && shape.isSplitLine && exportScale) {
       // Snap split line coordinates to pixel grid for crisp 1px rendering.
       // A line with odd-pixel width needs a 0.5px offset to align to the pixel grid.
@@ -785,7 +796,7 @@ function _doRender(targetCtx, isExporting) {
 
   // PERFORMANCE: Batch consecutive split lines into single stroke calls.
   // Split lines sharing color+width+opacity are drawn together with one beginPath/stroke.
-  let _splitBatch = null; // { color, width, opacity, lines: [{start, end}] }
+  let _splitBatch = null; // { color, width, opacity, dash, lines: [{start, end}] }
 
   function _flushSplitBatch() {
     if (!_splitBatch || _splitBatch.lines.length === 0) return;
@@ -794,6 +805,17 @@ function _doRender(targetCtx, isExporting) {
     targetCtx.strokeStyle = _splitBatch.color;
     targetCtx.lineWidth = _splitBatch.width;
     targetCtx.lineCap = "round";
+    // Apply dash pattern for the batch
+    if (_splitBatch.dash && _splitBatch.dash !== "solid") {
+      const dashScale = 1 / transform.zoom;
+      if (_splitBatch.dash === "dashed") {
+        targetCtx.setLineDash([8 * dashScale, 4 * dashScale]);
+      } else if (_splitBatch.dash === "dotted") {
+        targetCtx.setLineDash([2 * dashScale, 3 * dashScale]);
+      } else if (_splitBatch.dash === "dash-dot") {
+        targetCtx.setLineDash([8 * dashScale, 3 * dashScale, 2 * dashScale, 3 * dashScale]);
+      }
+    }
     targetCtx.beginPath();
     for (let i = 0; i < _splitBatch.lines.length; i++) {
       const ln = _splitBatch.lines[i];
@@ -889,12 +911,13 @@ function _doRender(targetCtx, isExporting) {
         if (!isSelected) {
           const lineWidth = isExporting ? shape.width : shape.width / transform.zoom;
           const opacity = shape.opacity != null ? shape.opacity : 1;
+          const dash = shape.dash || "solid";
           // Check if current batch matches; if not, flush and start new batch
-          if (_splitBatch && (_splitBatch.color !== shape.color || _splitBatch.width !== lineWidth || _splitBatch.opacity !== opacity)) {
+          if (_splitBatch && (_splitBatch.color !== shape.color || _splitBatch.width !== lineWidth || _splitBatch.opacity !== opacity || _splitBatch.dash !== dash)) {
             _flushSplitBatch();
           }
           if (!_splitBatch) {
-            _splitBatch = { color: shape.color, width: lineWidth, opacity, lines: [] };
+            _splitBatch = { color: shape.color, width: lineWidth, opacity, dash, lines: [] };
           }
           _splitBatch.lines.push({ start: shape.start, end: shape.end });
           return;
@@ -1444,6 +1467,19 @@ function _doRender(targetCtx, isExporting) {
     targetCtx.strokeStyle = state.drawColor;
     targetCtx.lineWidth = lineWidth;
     const lengthPct = state.splitLineLength / 100;
+    const extPct = state.splitLineExtension / 100;
+
+    // Apply dash pattern to preview
+    const dashScale = 1 / transform.zoom;
+    if (state.splitLineDash === "dashed") {
+      targetCtx.setLineDash([8 * dashScale, 4 * dashScale]);
+    } else if (state.splitLineDash === "dotted") {
+      targetCtx.setLineDash([2 * dashScale, 3 * dashScale]);
+    } else if (state.splitLineDash === "dash-dot") {
+      targetCtx.setLineDash([8 * dashScale, 3 * dashScale, 2 * dashScale, 3 * dashScale]);
+    } else {
+      targetCtx.setLineDash([]);
+    }
 
     if (state.isCtrlPressed) {
       // Draw both vertical and horizontal lines when ctrl is held
@@ -1459,6 +1495,9 @@ function _doRender(targetCtx, isExporting) {
       if (vSY < img.y) { vSY = img.y; vEY = img.y + vSpan; }
       if (vEY > img.y + img.h) { vEY = img.y + img.h; vSY = img.y + img.h - vSpan; }
       vSY = Math.max(vSY, img.y); vEY = Math.min(vEY, img.y + img.h);
+      // Apply extension
+      const vExt = img.h * extPct;
+      vSY -= vExt; vEY += vExt;
       targetCtx.beginPath();
       targetCtx.moveTo(lx, vSY);
       targetCtx.lineTo(lx, vEY);
@@ -1469,6 +1508,9 @@ function _doRender(targetCtx, isExporting) {
       if (hSX < img.x) { hSX = img.x; hEX = img.x + hSpan; }
       if (hEX > img.x + img.w) { hEX = img.x + img.w; hSX = img.x + img.w - hSpan; }
       hSX = Math.max(hSX, img.x); hEX = Math.min(hEX, img.x + img.w);
+      // Apply extension
+      const hExt = img.w * extPct;
+      hSX -= hExt; hEX += hExt;
       targetCtx.beginPath();
       targetCtx.moveTo(hSX, ly);
       targetCtx.lineTo(hEX, ly);
@@ -1485,6 +1527,8 @@ function _doRender(targetCtx, isExporting) {
         if (sX < img.x) { sX = img.x; eX = img.x + span; }
         if (eX > img.x + img.w) { eX = img.x + img.w; sX = img.x + img.w - span; }
         sX = Math.max(sX, img.x); eX = Math.min(eX, img.x + img.w);
+        const ext = img.w * extPct;
+        sX -= ext; eX += ext;
         targetCtx.moveTo(sX, ly);
         targetCtx.lineTo(eX, ly);
       } else {
@@ -1496,6 +1540,8 @@ function _doRender(targetCtx, isExporting) {
         if (sY < img.y) { sY = img.y; eY = img.y + span; }
         if (eY > img.y + img.h) { eY = img.y + img.h; sY = img.y + img.h - span; }
         sY = Math.max(sY, img.y); eY = Math.min(eY, img.y + img.h);
+        const ext = img.h * extPct;
+        sY -= ext; eY += ext;
         targetCtx.moveTo(lx, sY);
         targetCtx.lineTo(lx, eY);
       }
@@ -1511,6 +1557,8 @@ function _doRender(targetCtx, isExporting) {
         if (sY < img.y) { sY = img.y; eY = img.y + span; }
         if (eY > img.y + img.h) { eY = img.y + img.h; sY = img.y + img.h - span; }
         sY = Math.max(sY, img.y); eY = Math.min(eY, img.y + img.h);
+        const ext = img.h * extPct;
+        sY -= ext; eY += ext;
         targetCtx.moveTo(lx, sY);
         targetCtx.lineTo(lx, eY);
       } else {
@@ -1522,13 +1570,17 @@ function _doRender(targetCtx, isExporting) {
         if (sX < img.x) { sX = img.x; eX = img.x + span; }
         if (eX > img.x + img.w) { eX = img.x + img.w; sX = img.x + img.w - span; }
         sX = Math.max(sX, img.x); eX = Math.min(eX, img.x + img.w);
+        const ext = img.w * extPct;
+        sX -= ext; eX += ext;
         targetCtx.moveTo(sX, ly);
         targetCtx.lineTo(eX, ly);
       }
       targetCtx.stroke();
     }
 
-    // Draw small label showing orientation and length
+    targetCtx.setLineDash([]);
+
+    // Draw small label showing orientation, length, extension, and dash
     const fontSize = Math.max(10, 11 / transform.zoom);
     let label;
     if (state.isCtrlPressed) {
@@ -1540,6 +1592,8 @@ function _doRender(targetCtx, isExporting) {
       label = effectiveOrientation === "vertical" ? "V" : "H";
     }
     if (state.splitLineLength < 100) label += ` ${state.splitLineLength}%`;
+    if (state.splitLineExtension > 0) label += ` +${state.splitLineExtension}%`;
+    if (state.splitLineDash !== "solid") label += ` ${state.splitLineDash}`;
     if (state.isShiftPressed) label += " snap";
     targetCtx.font = `bold ${fontSize}px sans-serif`;
     targetCtx.textAlign = "left";

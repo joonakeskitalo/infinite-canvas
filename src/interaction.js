@@ -488,7 +488,33 @@ export function initEventHandlers() {
       splitLineLengthVal.textContent = val + "%";
       render();
     });
+    splitLineLengthSlider.addEventListener("change", () => { splitLineLengthSlider.blur(); });
     splitLineLengthSlider.addEventListener("mousedown", (e) => { e.stopPropagation(); });
+  }
+
+  // --- Split line extension slider ---
+  const splitLineExtSlider = document.getElementById("split-line-extension-slider");
+  const splitLineExtVal = document.getElementById("split-line-extension-val");
+  if (splitLineExtSlider) {
+    splitLineExtSlider.addEventListener("input", (e) => {
+      const val = parseInt(e.target.value);
+      state.splitLineExtension = val;
+      splitLineExtVal.textContent = val + "%";
+      render();
+    });
+    splitLineExtSlider.addEventListener("change", () => { splitLineExtSlider.blur(); });
+    splitLineExtSlider.addEventListener("mousedown", (e) => { e.stopPropagation(); });
+  }
+
+  // --- Split line dash pattern select ---
+  const splitLineDashSelect = document.getElementById("split-line-dash-select");
+  if (splitLineDashSelect) {
+    splitLineDashSelect.addEventListener("change", (e) => {
+      state.splitLineDash = e.target.value;
+      render();
+      splitLineDashSelect.blur();
+    });
+    splitLineDashSelect.addEventListener("mousedown", (e) => { e.stopPropagation(); });
   }
 
   // --- Grid spacing input ---
@@ -2148,6 +2174,36 @@ function setupKeyboardHandlers() {
       return;
     }
 
+    // ; key: cycle split line dash pattern when split-line tool is active
+    if (key === ";" && state.currentTool === "split-line") {
+      e.preventDefault();
+      const patterns = ["solid", "dashed", "dotted", "dash-dot"];
+      const idx = patterns.indexOf(state.splitLineDash);
+      state.splitLineDash = patterns[(idx + 1) % patterns.length];
+      const dashSelect = document.getElementById("split-line-dash-select");
+      if (dashSelect) dashSelect.value = state.splitLineDash;
+      render();
+      return;
+    }
+
+    // ' key: adjust split line extension when split-line tool is active
+    // ' increases, " (Shift+') decreases
+    if ((key === "'" || key === '"') && state.currentTool === "split-line") {
+      e.preventDefault();
+      const step = 10;
+      if (key === '"') {
+        state.splitLineExtension = Math.max(0, state.splitLineExtension - step);
+      } else {
+        state.splitLineExtension = Math.min(100, state.splitLineExtension + step);
+      }
+      const extSlider = document.getElementById("split-line-extension-slider");
+      const extVal = document.getElementById("split-line-extension-val");
+      if (extSlider) extSlider.value = state.splitLineExtension;
+      if (extVal) extVal.textContent = state.splitLineExtension + "%";
+      render();
+      return;
+    }
+
     // Z key: insert 4x4 grid + diagonal lines + edge inset lines on hovered image
     // Shift+Z: insert 8x8 grid lines on hovered image
     if (key === "z") {
@@ -2964,6 +3020,8 @@ function setupMouseHandlers() {
         const img = state.splitLineHoveredImage;
         const pos = state.splitLineWorldPos;
         const lengthPct = state.splitLineLength / 100; // 0..1
+        const extPct = state.splitLineExtension / 100; // 0..1
+        const dashPattern = state.splitLineDash;
 
         pushUndo();
 
@@ -2980,11 +3038,14 @@ function setupMouseHandlers() {
           const vSpan = img.h * lengthPct;
           let vStartY = cursorY - vSpan / 2;
           let vEndY = cursorY + vSpan / 2;
-          // Clamp to image bounds
           if (vStartY < img.y) { vStartY = img.y; vEndY = img.y + vSpan; }
           if (vEndY > img.y + img.h) { vEndY = img.y + img.h; vStartY = img.y + img.h - vSpan; }
           vStartY = Math.max(vStartY, img.y);
           vEndY = Math.min(vEndY, img.y + img.h);
+          // Apply extension beyond image
+          const vExt = img.h * extPct;
+          vStartY -= vExt;
+          vEndY += vExt;
 
           // Horizontal line: spans along X axis, centered at cursor X (clamped)
           const cursorX = Math.max(img.x, Math.min(pos.x, img.x + img.w));
@@ -2995,6 +3056,10 @@ function setupMouseHandlers() {
           if (hEndX > img.x + img.w) { hEndX = img.x + img.w; hStartX = img.x + img.w - hSpan; }
           hStartX = Math.max(hStartX, img.x);
           hEndX = Math.min(hEndX, img.x + img.w);
+          // Apply extension beyond image
+          const hExt = img.w * extPct;
+          hStartX -= hExt;
+          hEndX += hExt;
 
           const vLine = {
             id: "draw_" + state.elementIdCounter++,
@@ -3004,6 +3069,7 @@ function setupMouseHandlers() {
             color: state.drawColor,
             width: state.currentLineWidth / 4,
             opacity: 0.7,
+            dash: dashPattern,
             start: { x: lx, y: vStartY },
             end: { x: lx, y: vEndY },
           };
@@ -3015,6 +3081,7 @@ function setupMouseHandlers() {
             color: state.drawColor,
             width: state.currentLineWidth / 4,
             opacity: 0.7,
+            dash: dashPattern,
             start: { x: hStartX, y: ly },
             end: { x: hEndX, y: ly },
           };
@@ -3039,6 +3106,10 @@ function setupMouseHandlers() {
             if (eY > img.y + img.h) { eY = img.y + img.h; sY = img.y + img.h - span; }
             sY = Math.max(sY, img.y);
             eY = Math.min(eY, img.y + img.h);
+            // Apply extension
+            const ext = img.h * extPct;
+            sY -= ext;
+            eY += ext;
             start = { x: lx, y: sY };
             end = { x: lx, y: eY };
           } else {
@@ -3052,6 +3123,10 @@ function setupMouseHandlers() {
             if (eX > img.x + img.w) { eX = img.x + img.w; sX = img.x + img.w - span; }
             sX = Math.max(sX, img.x);
             eX = Math.min(eX, img.x + img.w);
+            // Apply extension
+            const ext = img.w * extPct;
+            sX -= ext;
+            eX += ext;
             start = { x: sX, y: ly };
             end = { x: eX, y: ly };
           }
@@ -3063,6 +3138,7 @@ function setupMouseHandlers() {
             color: state.drawColor,
             width: state.currentLineWidth / 4,
             opacity: 0.7,
+            dash: dashPattern,
             start,
             end,
           };

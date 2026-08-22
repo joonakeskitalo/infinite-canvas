@@ -32,6 +32,16 @@ export function updateToolbarUI() {
   if (splitLineLengthGroup) {
     splitLineLengthGroup.style.display = state.currentTool === "split-line" ? "flex" : "none";
   }
+  // Show/hide split-line extension control
+  const splitLineExtGroup = document.getElementById("split-line-extension-group");
+  if (splitLineExtGroup) {
+    splitLineExtGroup.style.display = state.currentTool === "split-line" ? "flex" : "none";
+  }
+  // Show/hide split-line dash pattern control
+  const splitLineDashGroup = document.getElementById("split-line-dash-group");
+  if (splitLineDashGroup) {
+    splitLineDashGroup.style.display = state.currentTool === "split-line" ? "flex" : "none";
+  }
   toggleAlignmentPanelVisibility();
 }
 
