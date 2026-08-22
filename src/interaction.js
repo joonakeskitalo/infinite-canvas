@@ -429,35 +429,6 @@ export function initEventHandlers() {
   }
 
   // --- Scale buttons ---
-  document.querySelectorAll(".scale-btn").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      const scale = parseFloat(e.target.dataset.scale);
-      if (!scale || state.selectedElements.length === 0) return;
-      pushUndo();
-      state.selectedElements.forEach((el) => {
-        if (el.elementType === "image") {
-          const fullNatW = el.img.naturalWidth || el.w;
-          const fullNatH = el.img.naturalHeight || el.h;
-          // Use cropped region's natural dimensions if the image is cropped
-          const naturalW = el.crop ? fullNatW * el.crop.w : fullNatW;
-          const naturalH = el.crop ? fullNatH * el.crop.h : fullNatH;
-          const newW = naturalW * scale, newH = naturalH * scale;
-          const centerX = el.x + el.w / 2, centerY = el.y + el.h / 2;
-          el.w = newW; el.h = newH; el.x = centerX - newW / 2; el.y = centerY - newH / 2;
-          // Update fullBounds so crop mode can reconstruct the full image position
-          if (el.crop && el.fullBounds) {
-            const fullW = el.w / el.crop.w;
-            const fullH = el.h / el.crop.h;
-            el.fullBounds = { x: el.x - el.crop.x * fullW, y: el.y - el.crop.y * fullH, w: fullW, h: fullH };
-          }
-        }
-      });
-      state.selectedElements.forEach((el) => spatialUpdate(el));
-      render();
-      showToast(`Scaled to ${scale * 100}%`);
-    });
-  });
-
   // --- Crop copy/paste buttons ---
   document.getElementById("crop-copy-btn").addEventListener("click", () => {
     copyCropSettings();

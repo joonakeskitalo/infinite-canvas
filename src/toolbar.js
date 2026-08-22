@@ -43,7 +43,6 @@ export function updateToolbarUI() {
 
 export function toggleAlignmentPanelVisibility() {
   const dom = getDom();
-  const scaleGroup = document.getElementById("scale-group");
   const alignmentGroup = document.getElementById("alignment-group");
 
   // Update bezier fill control visibility on selection changes
@@ -72,7 +71,6 @@ export function toggleAlignmentPanelVisibility() {
   if (state.overlaysHidden) {
     dom.alignmentPanel.style.display = "none";
     alignmentGroup.style.display = "none";
-    scaleGroup.style.display = "none";
     dom.textAlignGroup.style.display = "none";
     const zOrderGroup = document.getElementById("z-order-group");
     if (zOrderGroup) zOrderGroup.style.display = "none";
@@ -110,14 +108,6 @@ export function toggleAlignmentPanelVisibility() {
   } else {
     dom.alignmentPanel.style.display = "none";
     alignmentGroup.style.display = "none";
-  }
-
-  if (state.currentTool === "select" && state.selectedElements.length > 0 && hasImages) {
-    scaleGroup.style.display = "flex";
-    const scaleSep = scaleGroup.querySelector(".scale-separator");
-    if (scaleSep) scaleSep.style.display = alignmentGroup.style.display === "flex" ? "block" : "none";
-  } else {
-    scaleGroup.style.display = "none";
   }
 
   // Show crop copy/paste controls when images are selected
