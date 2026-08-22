@@ -372,6 +372,13 @@ export function drawShape(targetCtx, shape, isExporting, exportScale) {
   targetCtx.lineCap = "round";
   targetCtx.lineJoin = "round";
 
+  // Apply dash pattern for general drawing tools
+  if (shape.dash && shape.dash !== "solid" && !shape.isSplitLine) {
+    if (shape.dash === "dashed") {
+      targetCtx.setLineDash([calculatedWidth * 4, calculatedWidth * 3]);
+    }
+  }
+
   if (shape.type === "pen") {
     if (shape.points.length < 2) { targetCtx.restore(); return; }
     targetCtx.beginPath();

@@ -333,6 +333,7 @@ export function cloneElement(el) {
   };
   if (el.groupId) clone.groupId = el.groupId;
   if (el.locked) clone.locked = true;
+  if (el.dash) clone.dash = el.dash;
   if (el.type === "pen") {
     clone.points = el.points.map((p) => ({ x: p.x, y: p.y }));
   } else if (el.type === "bezier-path") {
@@ -382,6 +383,7 @@ export function serializeElement(el) {
     opacity: el.opacity != null ? el.opacity : 1,
     locked: el.locked || false,
   };
+  if (el.dash) clone.dash = el.dash;
   if (el.type === "pen") {
     clone.points = el.points.map((p) => ({ x: p.x, y: p.y }));
   } else if (el.type === "bezier-path") {

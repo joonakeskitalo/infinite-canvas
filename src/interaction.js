@@ -2172,6 +2172,14 @@ function setupKeyboardHandlers() {
       return;
     }
 
+    // , key: toggle dashed/solid line for general drawing tools
+    if (key === ",") {
+      e.preventDefault();
+      state.currentLineDash = state.currentLineDash === "solid" ? "dashed" : "solid";
+      showToast(state.currentLineDash === "dashed" ? "Dashed line" : "Solid line");
+      return;
+    }
+
     // Z key: insert 4x4 grid + diagonal lines + edge inset lines on hovered image
     // Shift+Z: insert 8x8 grid lines on hovered image
     if (key === "z") {
@@ -3413,6 +3421,7 @@ function setupMouseHandlers() {
         type: "pen",
         color: state.drawColor,
         width: state.currentLineWidth,
+        dash: state.currentLineDash,
         points: [worldPos],
       };
     } else {
@@ -3422,6 +3431,7 @@ function setupMouseHandlers() {
         type: state.currentTool,
         color: state.drawColor,
         width: state.currentLineWidth,
+        dash: state.currentLineDash,
         start: worldPos,
         end: worldPos,
       };

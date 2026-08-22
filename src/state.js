@@ -34,6 +34,7 @@ export const state = {
   currentFontFamily: "sans-serif",
   currentTextAlign: "left",
   currentLineWidth: 4,
+  currentLineDash: "solid", // "solid" or "dashed"
 
   // Interaction state
   isInteracting: false,
