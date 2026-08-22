@@ -722,8 +722,10 @@ export function initEventHandlers() {
     executePNGExport(scale, { download: true });
   });
   document.getElementById("download-jpeg-btn").addEventListener("click", (e) => executeJPEGExport(e.shiftKey ? 0.5 : 1.0, { download: true }));
-  downloadImagesBtn.addEventListener("click", () => {
+  downloadImagesBtn.addEventListener("click", async () => {
     if (state.images.length === 0) { showToast("No pasted images found to download!"); return; }
+    showToast(`Packing ${state.images.length} asset${state.images.length > 1 ? "s" : ""} into ZIP...`);
+    const zip = new JSZip();
     state.images.forEach((imgData, index) => {
       const tempCanvas = document.createElement("canvas");
       tempCanvas.width = imgData.img.naturalWidth || imgData.w;
@@ -735,13 +737,18 @@ export function initEventHandlers() {
         applyFilterToImageData(imgDataPixels, state.currentFilter);
         tempCtx.putImageData(imgDataPixels, 0, 0);
       }
-      const a = document.createElement("a");
-      a.href = tempCanvas.toDataURL("image/png");
-      const now = new Date(); const dtPrefix = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`;
-      a.download = `${dtPrefix}_pasted_asset_${index + 1}.png`;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      const dataURL = tempCanvas.toDataURL("image/png");
+      const base64 = dataURL.split(",")[1];
+      zip.file(`asset_${index + 1}.png`, base64, { base64: true });
     });
-    showToast(`Downloading ${state.images.length} asset files${state.currentFilter !== "none" ? ` (${state.currentFilter})` : ""}...`);
+    const blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } });
+    const a = document.createElement("a");
+    const now = new Date();
+    const dtPrefix = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`;
+    a.href = URL.createObjectURL(blob);
+    a.download = `${dtPrefix}_assets.zip`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href);
+    showToast(`Downloaded ${state.images.length} assets as ZIP${state.currentFilter !== "none" ? ` (${state.currentFilter})` : ""}`);
   });
 
   // --- Import images button (supports HEIF/HEIC) ---
