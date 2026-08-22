@@ -1617,33 +1617,6 @@ function _doRender(targetCtx, isExporting) {
 
     targetCtx.setLineDash([]);
 
-    // Draw small label showing orientation, length, and dash
-    const fontSize = Math.max(10, 11 / transform.zoom);
-    let label;
-    if (state.isCtrlPressed) {
-      label = "V+H";
-    } else {
-      const effectiveOrientation = state.isMetaPressed
-        ? (state.splitLineOrientation === "vertical" ? "horizontal" : "vertical")
-        : state.splitLineOrientation;
-      label = effectiveOrientation === "vertical" ? "V" : "H";
-    }
-    if (state.splitLineLength !== 100) label += ` ${state.splitLineLength}%`;
-    if (state.splitLineDash !== "solid") label += ` ${state.splitLineDash}`;
-    if (state.isShiftPressed) label += " snap";
-    targetCtx.font = `bold ${fontSize}px sans-serif`;
-    targetCtx.textAlign = "left";
-    targetCtx.textBaseline = "top";
-    const labelX = img.x + 4 / transform.zoom;
-    const labelY = img.y + 4 / transform.zoom;
-    const metrics = targetCtx.measureText(label);
-    const padX = 3 / transform.zoom;
-    const padY = 2 / transform.zoom;
-    targetCtx.fillStyle = "rgba(0, 0, 0, 0.7)";
-    targetCtx.fillRect(labelX - padX, labelY - padY, metrics.width + padX * 2, fontSize + padY * 2);
-    targetCtx.fillStyle = "#fff";
-    targetCtx.fillText(label, labelX, labelY);
-
     targetCtx.restore();
   }
 
