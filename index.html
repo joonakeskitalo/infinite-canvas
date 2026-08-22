@@ -498,36 +498,6 @@
         />
       </div>
 
-      <div
-        id="split-line-length-group"
-        style="display: none; align-items: center; gap: 4px"
-      >
-        <div
-          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
-        ></div>
-        <span style="font-size: 11px; color: #aaa; white-space: nowrap">Length</span>
-        <input
-          type="range"
-          id="split-line-length-slider"
-          min="10"
-          max="100"
-          value="100"
-          step="5"
-          title="Split line length (percentage of image dimension). Use [ / ] keys to adjust."
-          style="width: 70px; accent-color: #ff6400; cursor: pointer"
-        />
-        <span
-          id="split-line-length-val"
-          style="
-            font-size: 11px;
-            color: #aaa;
-            min-width: 32px;
-            text-align: right;
-          "
-          >100%</span
-        >
-      </div>
-
       <div class="separator"></div>
 
       <div
@@ -1593,6 +1563,35 @@
         />
         <span
           id="opacity-val"
+          style="
+            font-size: 11px;
+            color: #aaa;
+            min-width: 32px;
+            text-align: right;
+          "
+          >100%</span
+        >
+      </div>
+      <div
+        id="split-line-length-group"
+        style="display: none; align-items: center; gap: 4px"
+      >
+        <div
+          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
+        ></div>
+        <span class="align-title">Length</span>
+        <input
+          type="range"
+          id="split-line-length-slider"
+          min="10"
+          max="100"
+          value="100"
+          step="5"
+          title="Split line length (percentage of image dimension). Use [ / ] keys to adjust."
+          style="width: 70px; accent-color: #ff6400; cursor: pointer"
+        />
+        <span
+          id="split-line-length-val"
           style="
             font-size: 11px;
             color: #aaa;

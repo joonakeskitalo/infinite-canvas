@@ -93,6 +93,9 @@ export function toggleAlignmentPanelVisibility() {
   } else if (state.currentTool === "text") {
     dom.alignmentPanel.style.display = "flex";
     alignmentGroup.style.display = "none";
+  } else if (state.currentTool === "split-line") {
+    dom.alignmentPanel.style.display = "flex";
+    alignmentGroup.style.display = "none";
   } else {
     dom.alignmentPanel.style.display = "none";
     alignmentGroup.style.display = "none";
