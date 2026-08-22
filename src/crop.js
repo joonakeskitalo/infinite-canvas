@@ -177,13 +177,23 @@ export function pasteCropSettings() {
   pushUndo();
 
   for (const el of imageElements) {
-    const full = getFullImageBounds(el);
+    // Recalculate full bounds from the current position if already cropped
+    let full;
+    if (el.crop) {
+      const c = el.crop;
+      const fullW = el.w / c.w;
+      const fullH = el.h / c.h;
+      const fullX = el.x - c.x * fullW;
+      const fullY = el.y - c.y * fullH;
+      full = { x: fullX, y: fullY, w: fullW, h: fullH };
+    } else {
+      full = { x: el.x, y: el.y, w: el.w, h: el.h };
+    }
+
     const crop = state.cropClipboard;
 
-    // Store full bounds if not already stored
-    if (!el.fullBounds) {
-      el.fullBounds = { x: full.x, y: full.y, w: full.w, h: full.h };
-    }
+    // Store (updated) full bounds
+    el.fullBounds = { x: full.x, y: full.y, w: full.w, h: full.h };
 
     // Apply the fractional crop
     el.crop = { x: crop.x, y: crop.y, w: crop.w, h: crop.h };
