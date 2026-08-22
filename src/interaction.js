@@ -1334,13 +1334,19 @@ function autoResizeTextEditor() {
     if (w > maxWidth) maxWidth = w;
   });
   ctx.restore();
-  // Width: fit content + cursor padding
+  // Width: fit content + cursor padding; add extra buffer to prevent premature
+  // line wrapping at low zoom where sub-pixel rounding causes measureText to
+  // underestimate the space the browser needs for the contenteditable text.
   const minWidth = maxInlineFontSize * 1.5;
-  textEditor.style.width = Math.max(minWidth, maxWidth + maxInlineFontSize * 0.5) + "px";
-  // Height: auto-fit based on line count using the largest font size for line height
+  textEditor.style.width = Math.max(minWidth, maxWidth + maxInlineFontSize * 0.8) + "px";
+  // Height: auto-fit based on line count. Account for padding (2px each side)
+  // and border (1px each side) = 6px total vertical chrome, plus a proportional
+  // buffer to handle browser line-height differences at small font sizes.
   const lineHeight = maxInlineFontSize * 1.2;
   const minHeight = lineHeight;
-  textEditor.style.height = Math.max(minHeight, lines.length * lineHeight + 4) + "px";
+  const verticalChrome = 6; // 2px padding top + 2px padding bottom + 1px border top + 1px border bottom
+  const buffer = Math.max(4, lineHeight * 0.3);
+  textEditor.style.height = Math.max(minHeight, lines.length * lineHeight + verticalChrome + buffer) + "px";
 }
 
 // HEIF/HEIC file extensions that may not have a recognized MIME type
