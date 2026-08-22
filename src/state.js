@@ -108,8 +108,7 @@ export const state = {
 
   // Split-line tool
   splitLineOrientation: "vertical", // "vertical" or "horizontal"
-  splitLineLength: 100, // percentage of image dimension (1-100), 100 = full span
-  splitLineExtension: 0, // percentage to extend beyond image bounds (0-100), 0 = clamp to image
+  splitLineLength: 100, // percentage of image dimension (10-200), 100 = full span, >100 extends beyond image
   splitLineDash: "solid", // dash pattern: "solid", "dashed", "dotted", "dash-dot"
   splitLineHoveredImage: null,
   splitLineWorldPos: null,

@@ -1467,7 +1467,6 @@ function _doRender(targetCtx, isExporting) {
     targetCtx.strokeStyle = state.drawColor;
     targetCtx.lineWidth = lineWidth;
     const lengthPct = state.splitLineLength / 100;
-    const extPct = state.splitLineExtension / 100;
 
     // Apply dash pattern to preview
     const dashScale = 1 / transform.zoom;
@@ -1492,12 +1491,10 @@ function _doRender(targetCtx, isExporting) {
       // Vertical line: length along Y, centered at cursor Y
       const vSpan = img.h * lengthPct;
       let vSY = ly - vSpan / 2, vEY = ly + vSpan / 2;
-      if (vSY < img.y) { vSY = img.y; vEY = img.y + vSpan; }
-      if (vEY > img.y + img.h) { vEY = img.y + img.h; vSY = img.y + img.h - vSpan; }
-      vSY = Math.max(vSY, img.y); vEY = Math.min(vEY, img.y + img.h);
-      // Apply extension
-      const vExt = img.h * extPct;
-      vSY -= vExt; vEY += vExt;
+      if (lengthPct <= 1) {
+        if (vSY < img.y) { vSY = img.y; vEY = img.y + vSpan; }
+        if (vEY > img.y + img.h) { vEY = img.y + img.h; vSY = img.y + img.h - vSpan; }
+      }
       targetCtx.beginPath();
       targetCtx.moveTo(lx, vSY);
       targetCtx.lineTo(lx, vEY);
@@ -1505,12 +1502,10 @@ function _doRender(targetCtx, isExporting) {
       // Horizontal line: length along X, centered at cursor X
       const hSpan = img.w * lengthPct;
       let hSX = lx - hSpan / 2, hEX = lx + hSpan / 2;
-      if (hSX < img.x) { hSX = img.x; hEX = img.x + hSpan; }
-      if (hEX > img.x + img.w) { hEX = img.x + img.w; hSX = img.x + img.w - hSpan; }
-      hSX = Math.max(hSX, img.x); hEX = Math.min(hEX, img.x + img.w);
-      // Apply extension
-      const hExt = img.w * extPct;
-      hSX -= hExt; hEX += hExt;
+      if (lengthPct <= 1) {
+        if (hSX < img.x) { hSX = img.x; hEX = img.x + hSpan; }
+        if (hEX > img.x + img.w) { hEX = img.x + img.w; hSX = img.x + img.w - hSpan; }
+      }
       targetCtx.beginPath();
       targetCtx.moveTo(hSX, ly);
       targetCtx.lineTo(hEX, ly);
@@ -1524,11 +1519,10 @@ function _doRender(targetCtx, isExporting) {
         if (state.isShiftPressed) ly = snapSplitLinePreviewPos(ly, img.y, img.h);
         const span = img.w * lengthPct;
         let sX = pos.x - span / 2, eX = pos.x + span / 2;
-        if (sX < img.x) { sX = img.x; eX = img.x + span; }
-        if (eX > img.x + img.w) { eX = img.x + img.w; sX = img.x + img.w - span; }
-        sX = Math.max(sX, img.x); eX = Math.min(eX, img.x + img.w);
-        const ext = img.w * extPct;
-        sX -= ext; eX += ext;
+        if (lengthPct <= 1) {
+          if (sX < img.x) { sX = img.x; eX = img.x + span; }
+          if (eX > img.x + img.w) { eX = img.x + img.w; sX = img.x + img.w - span; }
+        }
         targetCtx.moveTo(sX, ly);
         targetCtx.lineTo(eX, ly);
       } else {
@@ -1537,11 +1531,10 @@ function _doRender(targetCtx, isExporting) {
         if (state.isShiftPressed) lx = snapSplitLinePreviewPos(lx, img.x, img.w);
         const span = img.h * lengthPct;
         let sY = pos.y - span / 2, eY = pos.y + span / 2;
-        if (sY < img.y) { sY = img.y; eY = img.y + span; }
-        if (eY > img.y + img.h) { eY = img.y + img.h; sY = img.y + img.h - span; }
-        sY = Math.max(sY, img.y); eY = Math.min(eY, img.y + img.h);
-        const ext = img.h * extPct;
-        sY -= ext; eY += ext;
+        if (lengthPct <= 1) {
+          if (sY < img.y) { sY = img.y; eY = img.y + span; }
+          if (eY > img.y + img.h) { eY = img.y + img.h; sY = img.y + img.h - span; }
+        }
         targetCtx.moveTo(lx, sY);
         targetCtx.lineTo(lx, eY);
       }
@@ -1549,29 +1542,25 @@ function _doRender(targetCtx, isExporting) {
     } else {
       targetCtx.beginPath();
       if (state.splitLineOrientation === "vertical") {
-        // Clamp x to image bounds
         let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
         if (state.isShiftPressed) lx = snapSplitLinePreviewPos(lx, img.x, img.w);
         const span = img.h * lengthPct;
         let sY = pos.y - span / 2, eY = pos.y + span / 2;
-        if (sY < img.y) { sY = img.y; eY = img.y + span; }
-        if (eY > img.y + img.h) { eY = img.y + img.h; sY = img.y + img.h - span; }
-        sY = Math.max(sY, img.y); eY = Math.min(eY, img.y + img.h);
-        const ext = img.h * extPct;
-        sY -= ext; eY += ext;
+        if (lengthPct <= 1) {
+          if (sY < img.y) { sY = img.y; eY = img.y + span; }
+          if (eY > img.y + img.h) { eY = img.y + img.h; sY = img.y + img.h - span; }
+        }
         targetCtx.moveTo(lx, sY);
         targetCtx.lineTo(lx, eY);
       } else {
-        // Clamp y to image bounds
         let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
         if (state.isShiftPressed) ly = snapSplitLinePreviewPos(ly, img.y, img.h);
         const span = img.w * lengthPct;
         let sX = pos.x - span / 2, eX = pos.x + span / 2;
-        if (sX < img.x) { sX = img.x; eX = img.x + span; }
-        if (eX > img.x + img.w) { eX = img.x + img.w; sX = img.x + img.w - span; }
-        sX = Math.max(sX, img.x); eX = Math.min(eX, img.x + img.w);
-        const ext = img.w * extPct;
-        sX -= ext; eX += ext;
+        if (lengthPct <= 1) {
+          if (sX < img.x) { sX = img.x; eX = img.x + span; }
+          if (eX > img.x + img.w) { eX = img.x + img.w; sX = img.x + img.w - span; }
+        }
         targetCtx.moveTo(sX, ly);
         targetCtx.lineTo(eX, ly);
       }
@@ -1580,7 +1569,7 @@ function _doRender(targetCtx, isExporting) {
 
     targetCtx.setLineDash([]);
 
-    // Draw small label showing orientation, length, extension, and dash
+    // Draw small label showing orientation, length, and dash
     const fontSize = Math.max(10, 11 / transform.zoom);
     let label;
     if (state.isCtrlPressed) {
@@ -1591,8 +1580,7 @@ function _doRender(targetCtx, isExporting) {
         : state.splitLineOrientation;
       label = effectiveOrientation === "vertical" ? "V" : "H";
     }
-    if (state.splitLineLength < 100) label += ` ${state.splitLineLength}%`;
-    if (state.splitLineExtension > 0) label += ` +${state.splitLineExtension}%`;
+    if (state.splitLineLength !== 100) label += ` ${state.splitLineLength}%`;
     if (state.splitLineDash !== "solid") label += ` ${state.splitLineDash}`;
     if (state.isShiftPressed) label += " snap";
     targetCtx.font = `bold ${fontSize}px sans-serif`;
