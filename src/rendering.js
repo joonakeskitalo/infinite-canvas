@@ -366,7 +366,9 @@ export function drawShape(targetCtx, shape, isExporting, exportScale) {
   } else if (shape.type === "line") {
     // Apply dash pattern for split lines
     if (shape.isSplitLine && shape.dash && shape.dash !== "solid") {
-      const dashScale = isExporting ? (calculatedWidth || 1) : (1 / state.transform.zoom);
+      // In export mode, scale dashes to produce consistent pixel sizes in the output.
+      // On canvas, compensate for zoom so dashes appear constant-size on screen.
+      const dashScale = isExporting ? (1 / (exportScale || 1)) : (1 / state.transform.zoom);
       if (shape.dash === "dashed") {
         targetCtx.setLineDash([8 * dashScale, 4 * dashScale]);
       } else if (shape.dash === "dotted") {
