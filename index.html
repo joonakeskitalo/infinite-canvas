@@ -536,6 +536,36 @@
       </div>
       <div id="alignment-panel" class="toolbar-secondary-row">
       <div
+        class="color-picker-inline"
+        id="color-picker-group"
+        style="display: none"
+        title="Draw Color (right-click for picker)"
+      >
+        <button class="color-swatch-btn" id="color-swatch-btn">
+          <div
+            class="color-swatch-inner"
+            id="color-swatch-inner"
+            style="background: #ff4444"
+          ></div>
+        </button>
+        <input
+          type="color"
+          id="color-picker"
+          value="#ff4444"
+          class="hidden-color-input"
+        />
+        <span
+          id="color-hex-label"
+          style="font-size: 11px; color: #aaa; font-family: monospace; white-space: nowrap; cursor: pointer"
+          title="Click to copy"
+        >#FF4444</span>
+        <span
+          id="color-name-label"
+          style="font-size: 11px; color: #ccc; white-space: nowrap; font-weight: 500; display: none; cursor: pointer"
+          title="Click to copy"
+        ></span>
+      </div>
+      <div
         class="control-group"
         id="line-width-group"
         style="display: none; align-items: center; gap: 4px"
@@ -584,36 +614,6 @@
             />
           </svg>
         </button>
-      </div>
-      <div
-        class="color-picker-inline"
-        id="color-picker-group"
-        style="display: none"
-        title="Draw Color (right-click for picker)"
-      >
-        <button class="color-swatch-btn" id="color-swatch-btn">
-          <div
-            class="color-swatch-inner"
-            id="color-swatch-inner"
-            style="background: #ff4444"
-          ></div>
-        </button>
-        <input
-          type="color"
-          id="color-picker"
-          value="#ff4444"
-          class="hidden-color-input"
-        />
-        <span
-          id="color-hex-label"
-          style="font-size: 11px; color: #aaa; font-family: monospace; white-space: nowrap; cursor: pointer"
-          title="Click to copy"
-        >#FF4444</span>
-        <span
-          id="color-name-label"
-          style="font-size: 11px; color: #ccc; white-space: nowrap; font-weight: 500; display: none; cursor: pointer"
-          title="Click to copy"
-        ></span>
       </div>
       <div
         class="color-picker-inline"
