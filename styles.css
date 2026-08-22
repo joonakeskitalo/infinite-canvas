@@ -322,6 +322,46 @@ input[type="color"]::-webkit-color-swatch {
   border-radius: 3px;
 }
 
+/* Color History */
+.color-history-group {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+  padding-left: 8px;
+  border-left: 1px solid #444;
+}
+
+.color-history-label {
+  font-size: 9px;
+  color: #888;
+  margin-right: 2px;
+  white-space: nowrap;
+}
+
+.color-history-list {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 3px;
+}
+
+.color-history-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  border: none;
+  outline: 1px solid #555;
+  cursor: pointer;
+  transition: outline-color 0.15s, transform 0.1s;
+  flex-shrink: 0;
+}
+
+.color-history-swatch:hover {
+  outline-color: #fff;
+}
+
 .hidden-color-input {
   position: absolute;
   width: 0;

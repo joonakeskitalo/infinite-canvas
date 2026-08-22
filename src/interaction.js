@@ -43,6 +43,7 @@ import { FILTER_OPTIONS, FILTER_LABELS } from "./color-filter.js";
 import { openFilterPreview, isFilterPreviewActive } from "./filter-preview-mode.js";
 import { applyFilterToImageData } from "./filter-kernels.js";
 import { setCustomColorsDeps, getCustomColors } from "./custom-colors.js";
+import { initColorHistory, setColorHistoryDeps, pushColorToHistory } from "./color-history.js";
 import { showContrastResult, showContrastWaiting, hideContrastPanel, contrastRatio, rgbToHex } from "./contrast-checker.js";
 import {
   marqueeStartSelection, marqueeUpdateSelection, marqueeEndSelection,
@@ -176,6 +177,7 @@ export function initEventHandlers() {
     else { state.drawColor = e.target.value; }
     applyColorToSelectedElements(e.target.value);
     updateColorSwatch();
+    pushColorToHistory(e.target.value);
     if (state.currentTool === "laser") updateCursor();
   });
 
@@ -230,6 +232,7 @@ export function initEventHandlers() {
         colorPicker.value = color;
         applyColorToSelectedElements(color);
         updateColorSwatch();
+        pushColorToHistory(color);
         if (state.currentTool === "laser") updateCursor();
         colorPopup.classList.remove("open");
       }
@@ -253,8 +256,21 @@ export function initEventHandlers() {
       colorPicker.value = hex;
       applyColorToSelectedElements(hex);
       updateColorSwatch();
+      pushColorToHistory(hex);
       colorPopup.classList.remove("open");
       showColorToast(hex);
+    },
+  });
+
+  // --- Wire color history selection callback ---
+  setColorHistoryDeps({
+    onColorSelect(hex) {
+      if (state.currentTool === "text") { state.textDrawColor = hex; }
+      else { state.drawColor = hex; }
+      colorPicker.value = hex;
+      applyColorToSelectedElements(hex);
+      updateColorSwatch();
+      if (state.currentTool === "laser") updateCursor();
     },
   });
 
@@ -3242,6 +3258,7 @@ function setupMouseHandlers() {
         // Normal click: pick color and apply to selected elements if any have changeable colors
         const customMatchPick = getCustomColors().find((c) => c.hex === hex.toLowerCase());
         showColorToast(hexUpper, customMatchPick ? customMatchPick.label : null);
+        pushColorToHistory(hex);
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(hexUpper).catch(() => {});
         }

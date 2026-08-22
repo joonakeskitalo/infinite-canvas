@@ -17,6 +17,7 @@ import { initEventHandlers } from "./interaction.js";
 import { initFilterPreviewMode } from "./filter-preview-mode.js";
 import { initWelcomeModal } from "./welcome.js";
 import { initCustomColors, setCustomColorsToast } from "./custom-colors.js";
+import { initColorHistory } from "./color-history.js";
 import { setLaserRenderFn } from "./laser-pointer.js";
 import { setBezierPenDeps } from "./bezier-pen.js";
 
@@ -81,3 +82,4 @@ initWelcomeModal();
 // --- Initialize custom color palette ---
 setCustomColorsToast(showToast);
 initCustomColors();
+initColorHistory();
