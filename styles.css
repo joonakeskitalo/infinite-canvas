@@ -226,8 +226,10 @@ input[type="color"]::-webkit-color-swatch {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .line-width-btn:hover {
@@ -524,8 +526,10 @@ input[type="color"]::-webkit-color-swatch {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .align-btn svg {
