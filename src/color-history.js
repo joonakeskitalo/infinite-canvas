@@ -110,4 +110,18 @@ function renderColorHistory() {
     });
     _container.appendChild(swatch);
   });
+
+  // Clear button (only show when there are colors)
+  if (colorHistory.length > 0) {
+    const clearBtn = document.createElement("button");
+    clearBtn.className = "color-history-clear-btn";
+    clearBtn.title = "Clear recent colors";
+    clearBtn.innerHTML = "&times;";
+    clearBtn.addEventListener("click", () => {
+      colorHistory = [];
+      saveToStorage();
+      renderColorHistory();
+    });
+    _container.appendChild(clearBtn);
+  }
 }
