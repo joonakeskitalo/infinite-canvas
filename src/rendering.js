@@ -1443,6 +1443,7 @@ function _doRender(targetCtx, isExporting) {
     targetCtx.globalAlpha = 0.5;
     targetCtx.strokeStyle = state.drawColor;
     targetCtx.lineWidth = lineWidth;
+    const lengthPct = state.splitLineLength / 100;
 
     if (state.isCtrlPressed) {
       // Draw both vertical and horizontal lines when ctrl is held
@@ -1452,13 +1453,25 @@ function _doRender(targetCtx, isExporting) {
         lx = snapSplitLinePreviewPos(lx, img.x, img.w);
         ly = snapSplitLinePreviewPos(ly, img.y, img.h);
       }
+      // Vertical line: length along Y, centered at cursor Y
+      const vSpan = img.h * lengthPct;
+      let vSY = ly - vSpan / 2, vEY = ly + vSpan / 2;
+      if (vSY < img.y) { vSY = img.y; vEY = img.y + vSpan; }
+      if (vEY > img.y + img.h) { vEY = img.y + img.h; vSY = img.y + img.h - vSpan; }
+      vSY = Math.max(vSY, img.y); vEY = Math.min(vEY, img.y + img.h);
       targetCtx.beginPath();
-      targetCtx.moveTo(lx, img.y);
-      targetCtx.lineTo(lx, img.y + img.h);
+      targetCtx.moveTo(lx, vSY);
+      targetCtx.lineTo(lx, vEY);
       targetCtx.stroke();
+      // Horizontal line: length along X, centered at cursor X
+      const hSpan = img.w * lengthPct;
+      let hSX = lx - hSpan / 2, hEX = lx + hSpan / 2;
+      if (hSX < img.x) { hSX = img.x; hEX = img.x + hSpan; }
+      if (hEX > img.x + img.w) { hEX = img.x + img.w; hSX = img.x + img.w - hSpan; }
+      hSX = Math.max(hSX, img.x); hEX = Math.min(hEX, img.x + img.w);
       targetCtx.beginPath();
-      targetCtx.moveTo(img.x, ly);
-      targetCtx.lineTo(img.x + img.w, ly);
+      targetCtx.moveTo(hSX, ly);
+      targetCtx.lineTo(hEX, ly);
       targetCtx.stroke();
     } else if (state.isMetaPressed) {
       // Draw line in the opposite orientation when meta is held
@@ -1467,14 +1480,24 @@ function _doRender(targetCtx, isExporting) {
         // Opposite: horizontal
         let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
         if (state.isShiftPressed) ly = snapSplitLinePreviewPos(ly, img.y, img.h);
-        targetCtx.moveTo(img.x, ly);
-        targetCtx.lineTo(img.x + img.w, ly);
+        const span = img.w * lengthPct;
+        let sX = pos.x - span / 2, eX = pos.x + span / 2;
+        if (sX < img.x) { sX = img.x; eX = img.x + span; }
+        if (eX > img.x + img.w) { eX = img.x + img.w; sX = img.x + img.w - span; }
+        sX = Math.max(sX, img.x); eX = Math.min(eX, img.x + img.w);
+        targetCtx.moveTo(sX, ly);
+        targetCtx.lineTo(eX, ly);
       } else {
         // Opposite: vertical
         let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
         if (state.isShiftPressed) lx = snapSplitLinePreviewPos(lx, img.x, img.w);
-        targetCtx.moveTo(lx, img.y);
-        targetCtx.lineTo(lx, img.y + img.h);
+        const span = img.h * lengthPct;
+        let sY = pos.y - span / 2, eY = pos.y + span / 2;
+        if (sY < img.y) { sY = img.y; eY = img.y + span; }
+        if (eY > img.y + img.h) { eY = img.y + img.h; sY = img.y + img.h - span; }
+        sY = Math.max(sY, img.y); eY = Math.min(eY, img.y + img.h);
+        targetCtx.moveTo(lx, sY);
+        targetCtx.lineTo(lx, eY);
       }
       targetCtx.stroke();
     } else {
@@ -1483,19 +1506,29 @@ function _doRender(targetCtx, isExporting) {
         // Clamp x to image bounds
         let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
         if (state.isShiftPressed) lx = snapSplitLinePreviewPos(lx, img.x, img.w);
-        targetCtx.moveTo(lx, img.y);
-        targetCtx.lineTo(lx, img.y + img.h);
+        const span = img.h * lengthPct;
+        let sY = pos.y - span / 2, eY = pos.y + span / 2;
+        if (sY < img.y) { sY = img.y; eY = img.y + span; }
+        if (eY > img.y + img.h) { eY = img.y + img.h; sY = img.y + img.h - span; }
+        sY = Math.max(sY, img.y); eY = Math.min(eY, img.y + img.h);
+        targetCtx.moveTo(lx, sY);
+        targetCtx.lineTo(lx, eY);
       } else {
         // Clamp y to image bounds
         let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
         if (state.isShiftPressed) ly = snapSplitLinePreviewPos(ly, img.y, img.h);
-        targetCtx.moveTo(img.x, ly);
-        targetCtx.lineTo(img.x + img.w, ly);
+        const span = img.w * lengthPct;
+        let sX = pos.x - span / 2, eX = pos.x + span / 2;
+        if (sX < img.x) { sX = img.x; eX = img.x + span; }
+        if (eX > img.x + img.w) { eX = img.x + img.w; sX = img.x + img.w - span; }
+        sX = Math.max(sX, img.x); eX = Math.min(eX, img.x + img.w);
+        targetCtx.moveTo(sX, ly);
+        targetCtx.lineTo(eX, ly);
       }
       targetCtx.stroke();
     }
 
-    // Draw small label showing orientation
+    // Draw small label showing orientation and length
     const fontSize = Math.max(10, 11 / transform.zoom);
     let label;
     if (state.isCtrlPressed) {
@@ -1506,6 +1539,7 @@ function _doRender(targetCtx, isExporting) {
         : state.splitLineOrientation;
       label = effectiveOrientation === "vertical" ? "V" : "H";
     }
+    if (state.splitLineLength < 100) label += ` ${state.splitLineLength}%`;
     if (state.isShiftPressed) label += " snap";
     targetCtx.font = `bold ${fontSize}px sans-serif`;
     targetCtx.textAlign = "left";

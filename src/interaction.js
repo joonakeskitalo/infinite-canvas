@@ -478,6 +478,19 @@ export function initEventHandlers() {
   opacitySlider.addEventListener("mousedown", (e) => { e.stopPropagation(); opacityUndoPushed = false; });
   opacitySlider.addEventListener("change", () => { opacityUndoPushed = false; });
 
+  // --- Split line length slider ---
+  const splitLineLengthSlider = document.getElementById("split-line-length-slider");
+  const splitLineLengthVal = document.getElementById("split-line-length-val");
+  if (splitLineLengthSlider) {
+    splitLineLengthSlider.addEventListener("input", (e) => {
+      const val = parseInt(e.target.value);
+      state.splitLineLength = val;
+      splitLineLengthVal.textContent = val + "%";
+      render();
+    });
+    splitLineLengthSlider.addEventListener("mousedown", (e) => { e.stopPropagation(); });
+  }
+
   // --- Grid spacing input ---
   // --- Dimension inputs ---
   const dimW = document.getElementById("dim-w");
@@ -2117,6 +2130,24 @@ function setupKeyboardHandlers() {
     }
     if (key === "w" && e.shiftKey) targetTool = "split-line";
 
+    // [ / ] keys: adjust split line length when split-line tool is active
+    if ((key === "[" || key === "]") && state.currentTool === "split-line") {
+      e.preventDefault();
+      const step = e.shiftKey ? 5 : 10;
+      if (key === "[") {
+        state.splitLineLength = Math.max(10, state.splitLineLength - step);
+      } else {
+        state.splitLineLength = Math.min(100, state.splitLineLength + step);
+      }
+      // Sync the slider UI
+      const slider = document.getElementById("split-line-length-slider");
+      const valDisplay = document.getElementById("split-line-length-val");
+      if (slider) slider.value = state.splitLineLength;
+      if (valDisplay) valDisplay.textContent = state.splitLineLength + "%";
+      render();
+      return;
+    }
+
     // Z key: insert 4x4 grid + diagonal lines + edge inset lines on hovered image
     // Shift+Z: insert 8x8 grid lines on hovered image
     if (key === "z") {
@@ -2932,6 +2963,7 @@ function setupMouseHandlers() {
       if (state.splitLineHoveredImage && state.splitLineWorldPos) {
         const img = state.splitLineHoveredImage;
         const pos = state.splitLineWorldPos;
+        const lengthPct = state.splitLineLength / 100; // 0..1
 
         pushUndo();
 
@@ -2943,6 +2975,27 @@ function setupMouseHandlers() {
             lx = snapSplitLinePos(lx, img.x, img.w);
             ly = snapSplitLinePos(ly, img.y, img.h);
           }
+          // Vertical line: spans along Y axis, centered at cursor Y (clamped)
+          const cursorY = Math.max(img.y, Math.min(pos.y, img.y + img.h));
+          const vSpan = img.h * lengthPct;
+          let vStartY = cursorY - vSpan / 2;
+          let vEndY = cursorY + vSpan / 2;
+          // Clamp to image bounds
+          if (vStartY < img.y) { vStartY = img.y; vEndY = img.y + vSpan; }
+          if (vEndY > img.y + img.h) { vEndY = img.y + img.h; vStartY = img.y + img.h - vSpan; }
+          vStartY = Math.max(vStartY, img.y);
+          vEndY = Math.min(vEndY, img.y + img.h);
+
+          // Horizontal line: spans along X axis, centered at cursor X (clamped)
+          const cursorX = Math.max(img.x, Math.min(pos.x, img.x + img.w));
+          const hSpan = img.w * lengthPct;
+          let hStartX = cursorX - hSpan / 2;
+          let hEndX = cursorX + hSpan / 2;
+          if (hStartX < img.x) { hStartX = img.x; hEndX = img.x + hSpan; }
+          if (hEndX > img.x + img.w) { hEndX = img.x + img.w; hStartX = img.x + img.w - hSpan; }
+          hStartX = Math.max(hStartX, img.x);
+          hEndX = Math.min(hEndX, img.x + img.w);
+
           const vLine = {
             id: "draw_" + state.elementIdCounter++,
             elementType: "drawing",
@@ -2951,8 +3004,8 @@ function setupMouseHandlers() {
             color: state.drawColor,
             width: state.currentLineWidth / 4,
             opacity: 0.7,
-            start: { x: lx, y: img.y },
-            end: { x: lx, y: img.y + img.h },
+            start: { x: lx, y: vStartY },
+            end: { x: lx, y: vEndY },
           };
           const hLine = {
             id: "draw_" + state.elementIdCounter++,
@@ -2962,8 +3015,8 @@ function setupMouseHandlers() {
             color: state.drawColor,
             width: state.currentLineWidth / 4,
             opacity: 0.7,
-            start: { x: img.x, y: ly },
-            end: { x: img.x + img.w, y: ly },
+            start: { x: hStartX, y: ly },
+            end: { x: hEndX, y: ly },
           };
           state.drawings.push(vLine);
           spatialInsert(vLine);
@@ -2978,13 +3031,29 @@ function setupMouseHandlers() {
           if (effectiveOrientation === "vertical") {
             let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
             if (e.shiftKey) lx = snapSplitLinePos(lx, img.x, img.w);
-            start = { x: lx, y: img.y };
-            end = { x: lx, y: img.y + img.h };
+            // Length centered at cursor Y, clamped to image
+            const span = img.h * lengthPct;
+            let sY = pos.y - span / 2;
+            let eY = pos.y + span / 2;
+            if (sY < img.y) { sY = img.y; eY = img.y + span; }
+            if (eY > img.y + img.h) { eY = img.y + img.h; sY = img.y + img.h - span; }
+            sY = Math.max(sY, img.y);
+            eY = Math.min(eY, img.y + img.h);
+            start = { x: lx, y: sY };
+            end = { x: lx, y: eY };
           } else {
             let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
             if (e.shiftKey) ly = snapSplitLinePos(ly, img.y, img.h);
-            start = { x: img.x, y: ly };
-            end = { x: img.x + img.w, y: ly };
+            // Length centered at cursor X, clamped to image
+            const span = img.w * lengthPct;
+            let sX = pos.x - span / 2;
+            let eX = pos.x + span / 2;
+            if (sX < img.x) { sX = img.x; eX = img.x + span; }
+            if (eX > img.x + img.w) { eX = img.x + img.w; sX = img.x + img.w - span; }
+            sX = Math.max(sX, img.x);
+            eX = Math.min(eX, img.x + img.w);
+            start = { x: sX, y: ly };
+            end = { x: eX, y: ly };
           }
           const lineEl = {
             id: "draw_" + state.elementIdCounter++,

@@ -108,6 +108,7 @@ export const state = {
 
   // Split-line tool
   splitLineOrientation: "vertical", // "vertical" or "horizontal"
+  splitLineLength: 100, // percentage of image dimension (1-100), 100 = full span
   splitLineHoveredImage: null,
   splitLineWorldPos: null,
 

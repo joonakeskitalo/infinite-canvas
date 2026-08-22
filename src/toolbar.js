@@ -27,6 +27,11 @@ export function updateToolbarUI() {
       (state.currentTool === "select" && state.selectedElements.some((el) => el.type === "bezier-path"));
     bezierFillGroup.style.display = show ? "" : "none";
   }
+  // Show/hide split-line length control
+  const splitLineLengthGroup = document.getElementById("split-line-length-group");
+  if (splitLineLengthGroup) {
+    splitLineLengthGroup.style.display = state.currentTool === "split-line" ? "flex" : "none";
+  }
   toggleAlignmentPanelVisibility();
 }
 
