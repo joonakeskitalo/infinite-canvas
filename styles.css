@@ -348,18 +348,17 @@ input[type="color"]::-webkit-color-swatch {
 }
 
 .color-history-swatch {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   border-radius: 3px;
-  border: none;
-  outline: 1px solid #555;
+  border: 1px solid #555;
   cursor: pointer;
-  transition: outline-color 0.15s;
+  transition: border-color 0.15s;
   flex-shrink: 0;
 }
 
 .color-history-swatch:hover {
-  outline-color: #fff;
+  border-color: #aaa;
 }
 
 .color-history-clear-btn {
@@ -447,11 +446,10 @@ input[type="color"]::-webkit-color-swatch {
   border: 1px solid #555;
   border-radius: 3px;
   cursor: pointer;
-  transition: transform 0.1s, border-color 0.15s;
+  transition: border-color 0.15s;
 }
 
 .preset-btn:hover {
-  transform: scale(1.15);
   border-color: #aaa;
 }
 
