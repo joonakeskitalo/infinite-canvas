@@ -17,6 +17,25 @@ import { renderAccessibilityPreviewSelection, isAccessibilityPreviewSelecting } 
 import { renderLaserTrails, hasLaserVisuals } from "./laser-pointer.js";
 import { drawBezierPath, renderBezierPreview, renderBezierEditOverlay } from "./bezier-pen.js";
 
+// --- Empty canvas placeholder ---
+let _placeholderEl = null;
+let _placeholderVisible = true;
+
+function updateEmptyCanvasPlaceholder() {
+  if (!_placeholderEl) {
+    _placeholderEl = document.getElementById("empty-canvas-placeholder");
+    if (!_placeholderEl) return;
+  }
+  const isEmpty = state.images.length === 0 && state.drawings.length === 0;
+  if (isEmpty && !_placeholderVisible) {
+    _placeholderEl.classList.remove("hidden");
+    _placeholderVisible = true;
+  } else if (!isEmpty && _placeholderVisible) {
+    _placeholderEl.classList.add("hidden");
+    _placeholderVisible = false;
+  }
+}
+
 // --- PERFORMANCE: requestAnimationFrame batching ---
 let _renderScheduled = false;
 let _renderAfterCallbacks = [];
@@ -725,6 +744,9 @@ function _doRender(targetCtx, isExporting) {
   const transform = state.transform;
 
   if (!isExporting) {
+    // Toggle empty-canvas placeholder visibility
+    updateEmptyCanvasPlaceholder();
+
     targetCtx.fillStyle = state.bgColor;
     targetCtx.fillRect(0, 0, canvas.width, canvas.height);
   }
