@@ -106,7 +106,7 @@ export function toggleAlignmentPanelVisibility() {
   } else if (state.currentTool === "select" && state.selectedElements.length === 1) {
     dom.alignmentPanel.style.display = "flex";
     alignmentGroup.style.display = "none";
-  } else if (state.currentTool === "text") {
+  } else if (state.currentTool === "text" || state.currentTool === "text-element") {
     dom.alignmentPanel.style.display = "flex";
     alignmentGroup.style.display = "none";
   } else if (state.currentTool === "split-line") {
@@ -215,7 +215,7 @@ export function toggleAlignmentPanelVisibility() {
   }
 
   // Show text alignment controls when text tool is active or a text element is selected
-  if (state.currentTool === "text" || (state.currentTool === "select" && state.selectedElements.length >= 1 && hasText)) {
+  if (state.currentTool === "text" || state.currentTool === "text-element" || (state.currentTool === "select" && state.selectedElements.length >= 1 && hasText)) {
     dom.textAlignGroup.style.display = "flex";
     if (hasText) syncTextAlignFromSelection();
   } else {
@@ -240,7 +240,7 @@ export function toggleAlignmentPanelVisibility() {
 
   // Show text format controls when text tool is active or a text element is selected
   const textFormatGroup = document.getElementById("text-format-group");
-  const showTextControls = state.currentTool === "text" || state.selectedElements.some((el) => el.elementType === "text" || el.type === "text");
+  const showTextControls = state.currentTool === "text" || state.currentTool === "text-element" || state.selectedElements.some((el) => el.elementType === "text" || el.type === "text");
   if (textFormatGroup) textFormatGroup.style.display = showTextControls ? "flex" : "none";
   // Sync format button active states with selected text elements
   if (showTextControls && window._textFormatBar) window._textFormatBar.updateState();
