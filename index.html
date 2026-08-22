@@ -14,6 +14,7 @@
   </head>
   <body style="background-color: #f0f0f0">
     <div id="toolbar">
+      <div class="toolbar-primary-row">
       <button class="tool-btn" id="toolbar-menu-btn" title="Menu">
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -624,6 +625,577 @@
           </svg>
         </button>
       </div>
+      </div>
+      <div id="alignment-panel" class="toolbar-secondary-row">
+      <div
+        id="alignment-group"
+        style="display: flex; align-items: center; gap: 4px"
+      >
+        <button
+          class="align-btn"
+          data-align="left"
+          title="Align Left (Alt+A / Alt+←)"
+        >
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M4 2h2v20H4V2zm4 3h12v3H8V5zm0 6h8v3H8v-3zm0 6h11v3H8v-3z"
+            />
+          </svg>
+        </button>
+        <button
+          class="align-btn"
+          data-align="centerX"
+          title="Align Center X (Alt+H)"
+        >
+          <svg viewBox="0 0 24 24">
+            <path d="M11 2h2v3h6v3h-6v8h4v3h-4v3h-2v-3H7v-3h4v-8H5V5h6V2z" />
+          </svg>
+        </button>
+        <button
+          class="align-btn"
+          data-align="right"
+          title="Align Right (Alt+D / Alt+→)"
+        >
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M18 2h2v20h-2V2zM4 5h12v3H4V5zm4 6h8v3H8v-3zm-3 6h11v3H5v-3z"
+            />
+          </svg>
+        </button>
+        <div
+          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
+        ></div>
+        <button
+          class="align-btn"
+          data-align="top"
+          title="Align Top (Alt+W / Alt+↑)"
+        >
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M2 4h20v2H2V4zm3 4h3v12H5V8zm6 0h3v8h-3V8zm6 0h3v11h-3V8z"
+            />
+          </svg>
+        </button>
+        <button
+          class="align-btn"
+          data-align="centerY"
+          title="Align Center Y (Alt+V)"
+        >
+          <svg viewBox="0 0 24 24">
+            <path d="M2 11h3V5h3v6h8V7h3v4h3v2h-3v4h-3v-4H8v6H5v-6H2v-2z" />
+          </svg>
+        </button>
+        <button
+          class="align-btn"
+          data-align="bottom"
+          title="Align Bottom (Alt+S / Alt+↓)"
+        >
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M2 18h20v2H2v-2zm3-11h3v10H5V7zm6 4h3v6h-3v-6zm6-7h3v13h-3V4z"
+            />
+          </svg>
+        </button>
+        <div
+          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
+        ></div>
+        <button
+          class="align-btn"
+          data-align="distributeX"
+          title="Distribute Horizontally (Alt+Shift+X)"
+        >
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M4 22H2V2h2v20zM22 2h-2v20h2V2zM7 5h10v3H7V5zm2 6h6v3H9v-3z"
+            />
+          </svg>
+        </button>
+        <button
+          class="align-btn"
+          data-align="distributeY"
+          title="Distribute Vertically (Alt+Shift+Y)"
+        >
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M2 4V2h20v2H2zm0 18v-2h20v2H2zM5 7h3v10H5V7zm6 2h3v6h-3V9z"
+            />
+          </svg>
+        </button>
+        <div
+          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
+        ></div>
+        <input
+          type="number"
+          id="spacing-input-x"
+          value="10"
+          min="0"
+          max="500"
+          step="10"
+          title="Horizontal spacing (px) — Enter to apply"
+          style="
+            width: 48px;
+            background: #2d2d2d;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 2px 4px;
+            font-size: 11px;
+            text-align: center;
+            outline: none;
+          "
+        />
+        <input
+          type="number"
+          id="spacing-input-y"
+          value="10"
+          min="0"
+          max="500"
+          step="10"
+          title="Vertical spacing (px) — Enter to apply"
+          style="
+            width: 48px;
+            background: #2d2d2d;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 2px 4px;
+            font-size: 11px;
+            text-align: center;
+            outline: none;
+          "
+        />
+        <div
+          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
+        ></div>
+        <button
+          class="align-btn"
+          data-align="rowLayout"
+          title="Row Layout (Horizontal)"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <rect x="2" y="7" width="5" height="10" rx="1" />
+            <rect x="9" y="7" width="5" height="10" rx="1" />
+            <rect x="16" y="7" width="5" height="10" rx="1" />
+          </svg>
+        </button>
+        <button
+          class="align-btn"
+          data-align="columnLayout"
+          title="Column Layout (Vertical)"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <rect x="7" y="2" width="10" height="5" rx="1" />
+            <rect x="7" y="9" width="10" height="5" rx="1" />
+            <rect x="7" y="16" width="10" height="5" rx="1" />
+          </svg>
+        </button>
+        <button class="align-btn" data-align="gridLayout" title="Mosaic Layout">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <rect x="3" y="3" width="7" height="7" rx="1" />
+            <rect x="14" y="3" width="7" height="7" rx="1" />
+            <rect x="3" y="14" width="7" height="7" rx="1" />
+            <rect x="14" y="14" width="7" height="7" rx="1" />
+          </svg>
+        </button>
+        <button
+          class="align-btn"
+          data-align="arrangeBySizeRow"
+          title="Arrange by Size (Row)"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <rect x="2" y="12" width="4" height="6" rx="0.5" />
+            <rect x="8" y="9" width="5" height="9" rx="0.5" />
+            <rect x="15" y="5" width="7" height="13" rx="0.5" />
+          </svg>
+        </button>
+        <button
+          class="align-btn"
+          data-align="arrangeByNameRow"
+          title="Arrange by Name (Row)"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <text
+              x="3"
+              y="16"
+              font-size="7"
+              font-family="sans-serif"
+              font-weight="bold"
+            >
+              A
+            </text>
+            <text
+              x="10"
+              y="16"
+              font-size="7"
+              font-family="sans-serif"
+              font-weight="bold"
+            >
+              B
+            </text>
+            <text
+              x="17"
+              y="16"
+              font-size="7"
+              font-family="sans-serif"
+              font-weight="bold"
+            >
+              C
+            </text>
+          </svg>
+        </button>
+      </div>
+      <div
+        id="scale-group"
+        style="display: none; align-items: center; gap: 4px"
+      >
+        <div
+          class="scale-separator"
+          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
+        ></div>
+        <span class="align-title">Scale</span>
+        <button
+          class="scale-btn"
+          data-scale="0.5"
+          title="Scale to 50% of original size"
+        >
+          0.5x
+        </button>
+        <button class="scale-btn" data-scale="1" title="Scale to original size">
+          1x
+        </button>
+        <button
+          class="scale-btn"
+          data-scale="2"
+          title="Scale to 200% of original size"
+        >
+          2x
+        </button>
+      </div>
+      <div
+        id="crop-copy-group"
+        style="display: none; align-items: center; gap: 4px"
+      >
+        <div
+          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
+        ></div>
+        <span class="align-title">Crop</span>
+        <button
+          id="crop-copy-btn"
+          class="scale-btn"
+          title="Copy crop settings (⌘/Ctrl+Alt+C)"
+        >
+          Copy
+        </button>
+        <button
+          id="crop-paste-btn"
+          class="scale-btn"
+          title="Paste crop settings (⌘/Ctrl+Alt+V)"
+        >
+          Paste
+        </button>
+      </div>
+      <div
+        id="dimensions-group"
+        style="display: none; align-items: center; gap: 4px"
+      >
+        <div
+          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
+        ></div>
+        <span class="align-title">W</span>
+        <input
+          type="number"
+          id="dim-w"
+          min="1"
+          step="1"
+          title="Width (px) — Hold Shift for 10px steps"
+          style="
+            width: 52px;
+            background: #2d2d2d;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 2px 4px;
+            font-size: 11px;
+            text-align: center;
+            outline: none;
+          "
+        />
+        <span class="align-title">H</span>
+        <input
+          type="number"
+          id="dim-h"
+          min="1"
+          step="1"
+          title="Height (px) — Hold Shift for 10px steps"
+          style="
+            width: 52px;
+            background: #2d2d2d;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 2px 4px;
+            font-size: 11px;
+            text-align: center;
+            outline: none;
+          "
+        />
+      </div>
+      <div
+        id="length-group"
+        style="display: none; align-items: center; gap: 4px"
+      >
+        <div
+          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
+        ></div>
+        <span class="align-title">L</span>
+        <input
+          type="number"
+          id="dim-length"
+          min="1"
+          step="1"
+          title="Length (px) — Hold Shift for 10px steps"
+          style="
+            width: 60px;
+            background: #2d2d2d;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 2px 4px;
+            font-size: 11px;
+            text-align: center;
+            outline: none;
+          "
+        />
+      </div>
+      <div
+        id="opacity-group"
+        style="display: none; align-items: center; gap: 4px"
+      >
+        <div
+          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
+        ></div>
+        <span class="align-title">Opacity</span>
+        <input
+          type="range"
+          id="opacity-slider"
+          min="0"
+          max="100"
+          value="100"
+          step="1"
+          title="Element Opacity"
+          style="width: 80px; accent-color: #007acc; cursor: pointer"
+        />
+        <span
+          id="opacity-val"
+          style="
+            font-size: 11px;
+            color: #aaa;
+            min-width: 32px;
+            text-align: right;
+          "
+          >100%</span
+        >
+      </div>
+      <div
+        id="split-line-length-group"
+        style="display: none; align-items: center; gap: 4px"
+      >
+        <span class="align-title">Length</span>
+        <input
+          type="range"
+          id="split-line-length-slider"
+          min="10"
+          max="200"
+          value="100"
+          step="5"
+          title="Split line length (% of image dimension). 100% = full span, >100% extends beyond. Use [ / ] keys."
+          style="width: 160px; accent-color: #ff6400; cursor: pointer"
+        />
+        <span
+          id="split-line-length-val"
+          style="
+            font-size: 11px;
+            color: #aaa;
+            min-width: 36px;
+            text-align: right;
+          "
+          >100%</span
+        >
+      </div>
+      <div
+        id="split-line-dash-group"
+        style="display: none; align-items: center; gap: 4px"
+      >
+        <div
+          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
+        ></div>
+        <span class="align-title">Style</span>
+        <select
+          id="split-line-dash-select"
+          title="Split line dash pattern. Use , key to cycle."
+          style="
+            background: #2d2d2d;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 2px 4px;
+            font-size: 11px;
+            outline: none;
+            cursor: pointer;
+          "
+        >
+          <option value="solid">Solid</option>
+          <option value="dashed">Dashed</option>
+          <option value="dotted">Dotted</option>
+          <option value="dash-dot">Dash-Dot</option>
+        </select>
+      </div>
+      <div
+        id="text-align-group"
+        style="display: none; align-items: center; gap: 4px"
+      >
+        <div
+          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
+        ></div>
+        <span class="align-title">Text</span>
+        <button
+          class="align-btn text-align-btn"
+          data-text-align="left"
+          title="Align Text Left"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M3 3h18v2H3V3zm0 4h12v2H3V7zm0 4h18v2H3v-2zm0 4h12v2H3v-2zm0 4h18v2H3v-2z"
+            />
+          </svg>
+        </button>
+        <button
+          class="align-btn text-align-btn"
+          data-text-align="center"
+          title="Align Text Center"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M3 3h18v2H3V3zm3 4h12v2H6V7zm-3 4h18v2H3v-2zm3 4h12v2H6v-2zm-3 4h18v2H3v-2z"
+            />
+          </svg>
+        </button>
+        <button
+          class="align-btn text-align-btn"
+          data-text-align="right"
+          title="Align Text Right"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M3 3h18v2H3V3zm6 4h12v2H9V7zm-6 4h18v2H3v-2zm6 4h12v2H9v-2zm-6 4h18v2H3v-2z"
+            />
+          </svg>
+        </button>
+      </div>
+      <div
+        id="text-format-group"
+        style="display: none; align-items: center; gap: 2px"
+      >
+        <div
+          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
+        ></div>
+        <button class="text-format-btn" id="fmt-bold" title="Bold (Cmd+B)">
+          <b>B</b>
+        </button>
+        <button class="text-format-btn" id="fmt-italic" title="Italic (Cmd+I)">
+          <i>I</i>
+        </button>
+        <button
+          class="text-format-btn"
+          id="fmt-underline"
+          title="Underline (Cmd+U)"
+        >
+          <u>U</u>
+        </button>
+        <button
+          class="text-format-btn"
+          id="fmt-strikethrough"
+          title="Strikethrough"
+        >
+          <s>S</s>
+        </button>
+        <span class="fmt-separator"></span>
+        <button
+          class="text-format-btn fmt-size-btn"
+          id="fmt-size-down"
+          title="Decrease font size"
+        >
+          −
+        </button>
+        <input
+          type="number"
+          id="fmt-font-size"
+          class="fmt-font-size-input"
+          value="28"
+          min="8"
+          max="999"
+          title="Font size"
+        />
+        <button
+          class="text-format-btn fmt-size-btn"
+          id="fmt-size-up"
+          title="Increase font size"
+        >
+          +
+        </button>
+      </div>
+      <div
+        id="z-order-group"
+        style="display: none; align-items: center; gap: 4px"
+      >
+        <div
+          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
+        ></div>
+        <span class="align-title">Order</span>
+        <button
+          class="align-btn z-order-btn"
+          id="send-to-back-btn"
+          title="Send to Back"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <rect x="3" y="3" width="10" height="10" rx="1" opacity="0.3" />
+            <rect x="11" y="11" width="10" height="10" rx="1" />
+          </svg>
+        </button>
+        <button
+          class="align-btn z-order-btn"
+          id="send-backward-btn"
+          title="Send Backward"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <rect x="3" y="5" width="10" height="10" rx="1" opacity="0.3" />
+            <rect x="11" y="9" width="10" height="10" rx="1" />
+            <path d="M12 20l-4-4h8l-4 4z" />
+          </svg>
+        </button>
+        <button
+          class="align-btn z-order-btn"
+          id="bring-forward-btn"
+          title="Bring Forward"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <rect x="11" y="9" width="10" height="10" rx="1" opacity="0.3" />
+            <rect x="3" y="5" width="10" height="10" rx="1" />
+            <path d="M12 4l4 4H8l4-4z" />
+          </svg>
+        </button>
+        <button
+          class="align-btn z-order-btn"
+          id="bring-to-front-btn"
+          title="Bring to Front"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <rect x="11" y="11" width="10" height="10" rx="1" opacity="0.3" />
+            <rect x="3" y="3" width="10" height="10" rx="1" />
+          </svg>
+        </button>
+      </div>
+      </div>
     </div>
 
     <div class="toolbar-menu" id="toolbar-menu">
@@ -1200,577 +1772,6 @@
         <option value="1200"></option>
       </datalist>
       <span id="zoom-val">100%</span>
-    </div>
-
-    <div id="alignment-panel">
-      <div
-        id="alignment-group"
-        style="display: flex; align-items: center; gap: 4px"
-      >
-        <button
-          class="align-btn"
-          data-align="left"
-          title="Align Left (Alt+A / Alt+←)"
-        >
-          <svg viewBox="0 0 24 24">
-            <path
-              d="M4 2h2v20H4V2zm4 3h12v3H8V5zm0 6h8v3H8v-3zm0 6h11v3H8v-3z"
-            />
-          </svg>
-        </button>
-        <button
-          class="align-btn"
-          data-align="centerX"
-          title="Align Center X (Alt+H)"
-        >
-          <svg viewBox="0 0 24 24">
-            <path d="M11 2h2v3h6v3h-6v8h4v3h-4v3h-2v-3H7v-3h4v-8H5V5h6V2z" />
-          </svg>
-        </button>
-        <button
-          class="align-btn"
-          data-align="right"
-          title="Align Right (Alt+D / Alt+→)"
-        >
-          <svg viewBox="0 0 24 24">
-            <path
-              d="M18 2h2v20h-2V2zM4 5h12v3H4V5zm4 6h8v3H8v-3zm-3 6h11v3H5v-3z"
-            />
-          </svg>
-        </button>
-        <div
-          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
-        ></div>
-        <button
-          class="align-btn"
-          data-align="top"
-          title="Align Top (Alt+W / Alt+↑)"
-        >
-          <svg viewBox="0 0 24 24">
-            <path
-              d="M2 4h20v2H2V4zm3 4h3v12H5V8zm6 0h3v8h-3V8zm6 0h3v11h-3V8z"
-            />
-          </svg>
-        </button>
-        <button
-          class="align-btn"
-          data-align="centerY"
-          title="Align Center Y (Alt+V)"
-        >
-          <svg viewBox="0 0 24 24">
-            <path d="M2 11h3V5h3v6h8V7h3v4h3v2h-3v4h-3v-4H8v6H5v-6H2v-2z" />
-          </svg>
-        </button>
-        <button
-          class="align-btn"
-          data-align="bottom"
-          title="Align Bottom (Alt+S / Alt+↓)"
-        >
-          <svg viewBox="0 0 24 24">
-            <path
-              d="M2 18h20v2H2v-2zm3-11h3v10H5V7zm6 4h3v6h-3v-6zm6-7h3v13h-3V4z"
-            />
-          </svg>
-        </button>
-        <div
-          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
-        ></div>
-        <button
-          class="align-btn"
-          data-align="distributeX"
-          title="Distribute Horizontally (Alt+Shift+X)"
-        >
-          <svg viewBox="0 0 24 24">
-            <path
-              d="M4 22H2V2h2v20zM22 2h-2v20h2V2zM7 5h10v3H7V5zm2 6h6v3H9v-3z"
-            />
-          </svg>
-        </button>
-        <button
-          class="align-btn"
-          data-align="distributeY"
-          title="Distribute Vertically (Alt+Shift+Y)"
-        >
-          <svg viewBox="0 0 24 24">
-            <path
-              d="M2 4V2h20v2H2zm0 18v-2h20v2H2zM5 7h3v10H5V7zm6 2h3v6h-3V9z"
-            />
-          </svg>
-        </button>
-        <div
-          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
-        ></div>
-        <input
-          type="number"
-          id="spacing-input-x"
-          value="10"
-          min="0"
-          max="500"
-          step="10"
-          title="Horizontal spacing (px) — Enter to apply"
-          style="
-            width: 48px;
-            background: #2d2d2d;
-            color: #fff;
-            border: 1px solid #555;
-            border-radius: 4px;
-            padding: 2px 4px;
-            font-size: 11px;
-            text-align: center;
-            outline: none;
-          "
-        />
-        <input
-          type="number"
-          id="spacing-input-y"
-          value="10"
-          min="0"
-          max="500"
-          step="10"
-          title="Vertical spacing (px) — Enter to apply"
-          style="
-            width: 48px;
-            background: #2d2d2d;
-            color: #fff;
-            border: 1px solid #555;
-            border-radius: 4px;
-            padding: 2px 4px;
-            font-size: 11px;
-            text-align: center;
-            outline: none;
-          "
-        />
-        <div
-          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
-        ></div>
-        <button
-          class="align-btn"
-          data-align="rowLayout"
-          title="Row Layout (Horizontal)"
-        >
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <rect x="2" y="7" width="5" height="10" rx="1" />
-            <rect x="9" y="7" width="5" height="10" rx="1" />
-            <rect x="16" y="7" width="5" height="10" rx="1" />
-          </svg>
-        </button>
-        <button
-          class="align-btn"
-          data-align="columnLayout"
-          title="Column Layout (Vertical)"
-        >
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <rect x="7" y="2" width="10" height="5" rx="1" />
-            <rect x="7" y="9" width="10" height="5" rx="1" />
-            <rect x="7" y="16" width="10" height="5" rx="1" />
-          </svg>
-        </button>
-        <button class="align-btn" data-align="gridLayout" title="Mosaic Layout">
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <rect x="3" y="3" width="7" height="7" rx="1" />
-            <rect x="14" y="3" width="7" height="7" rx="1" />
-            <rect x="3" y="14" width="7" height="7" rx="1" />
-            <rect x="14" y="14" width="7" height="7" rx="1" />
-          </svg>
-        </button>
-        <button
-          class="align-btn"
-          data-align="arrangeBySizeRow"
-          title="Arrange by Size (Row)"
-        >
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <rect x="2" y="12" width="4" height="6" rx="0.5" />
-            <rect x="8" y="9" width="5" height="9" rx="0.5" />
-            <rect x="15" y="5" width="7" height="13" rx="0.5" />
-          </svg>
-        </button>
-        <button
-          class="align-btn"
-          data-align="arrangeByNameRow"
-          title="Arrange by Name (Row)"
-        >
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <text
-              x="3"
-              y="16"
-              font-size="7"
-              font-family="sans-serif"
-              font-weight="bold"
-            >
-              A
-            </text>
-            <text
-              x="10"
-              y="16"
-              font-size="7"
-              font-family="sans-serif"
-              font-weight="bold"
-            >
-              B
-            </text>
-            <text
-              x="17"
-              y="16"
-              font-size="7"
-              font-family="sans-serif"
-              font-weight="bold"
-            >
-              C
-            </text>
-          </svg>
-        </button>
-      </div>
-      <div
-        id="scale-group"
-        style="display: none; align-items: center; gap: 4px"
-      >
-        <div
-          class="scale-separator"
-          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
-        ></div>
-        <span class="align-title">Scale</span>
-        <button
-          class="scale-btn"
-          data-scale="0.5"
-          title="Scale to 50% of original size"
-        >
-          0.5x
-        </button>
-        <button class="scale-btn" data-scale="1" title="Scale to original size">
-          1x
-        </button>
-        <button
-          class="scale-btn"
-          data-scale="2"
-          title="Scale to 200% of original size"
-        >
-          2x
-        </button>
-      </div>
-      <div
-        id="crop-copy-group"
-        style="display: none; align-items: center; gap: 4px"
-      >
-        <div
-          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
-        ></div>
-        <span class="align-title">Crop</span>
-        <button
-          id="crop-copy-btn"
-          class="scale-btn"
-          title="Copy crop settings (⌘/Ctrl+Alt+C)"
-        >
-          Copy
-        </button>
-        <button
-          id="crop-paste-btn"
-          class="scale-btn"
-          title="Paste crop settings (⌘/Ctrl+Alt+V)"
-        >
-          Paste
-        </button>
-      </div>
-      <div
-        id="dimensions-group"
-        style="display: none; align-items: center; gap: 4px"
-      >
-        <div
-          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
-        ></div>
-        <span class="align-title">W</span>
-        <input
-          type="number"
-          id="dim-w"
-          min="1"
-          step="1"
-          title="Width (px) — Hold Shift for 10px steps"
-          style="
-            width: 52px;
-            background: #2d2d2d;
-            color: #fff;
-            border: 1px solid #555;
-            border-radius: 4px;
-            padding: 2px 4px;
-            font-size: 11px;
-            text-align: center;
-            outline: none;
-          "
-        />
-        <span class="align-title">H</span>
-        <input
-          type="number"
-          id="dim-h"
-          min="1"
-          step="1"
-          title="Height (px) — Hold Shift for 10px steps"
-          style="
-            width: 52px;
-            background: #2d2d2d;
-            color: #fff;
-            border: 1px solid #555;
-            border-radius: 4px;
-            padding: 2px 4px;
-            font-size: 11px;
-            text-align: center;
-            outline: none;
-          "
-        />
-      </div>
-      <div
-        id="length-group"
-        style="display: none; align-items: center; gap: 4px"
-      >
-        <div
-          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
-        ></div>
-        <span class="align-title">L</span>
-        <input
-          type="number"
-          id="dim-length"
-          min="1"
-          step="1"
-          title="Length (px) — Hold Shift for 10px steps"
-          style="
-            width: 60px;
-            background: #2d2d2d;
-            color: #fff;
-            border: 1px solid #555;
-            border-radius: 4px;
-            padding: 2px 4px;
-            font-size: 11px;
-            text-align: center;
-            outline: none;
-          "
-        />
-      </div>
-      <div
-        id="opacity-group"
-        style="display: none; align-items: center; gap: 4px"
-      >
-        <div
-          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
-        ></div>
-        <span class="align-title">Opacity</span>
-        <input
-          type="range"
-          id="opacity-slider"
-          min="0"
-          max="100"
-          value="100"
-          step="1"
-          title="Element Opacity"
-          style="width: 80px; accent-color: #007acc; cursor: pointer"
-        />
-        <span
-          id="opacity-val"
-          style="
-            font-size: 11px;
-            color: #aaa;
-            min-width: 32px;
-            text-align: right;
-          "
-          >100%</span
-        >
-      </div>
-      <div
-        id="split-line-length-group"
-        style="display: none; align-items: center; gap: 4px"
-      >
-        <span class="align-title">Length</span>
-        <input
-          type="range"
-          id="split-line-length-slider"
-          min="10"
-          max="200"
-          value="100"
-          step="5"
-          title="Split line length (% of image dimension). 100% = full span, >100% extends beyond. Use [ / ] keys."
-          style="width: 160px; accent-color: #ff6400; cursor: pointer"
-        />
-        <span
-          id="split-line-length-val"
-          style="
-            font-size: 11px;
-            color: #aaa;
-            min-width: 36px;
-            text-align: right;
-          "
-          >100%</span
-        >
-      </div>
-      <div
-        id="split-line-dash-group"
-        style="display: none; align-items: center; gap: 4px"
-      >
-        <div
-          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
-        ></div>
-        <span class="align-title">Style</span>
-        <select
-          id="split-line-dash-select"
-          title="Split line dash pattern. Use , key to cycle."
-          style="
-            background: #2d2d2d;
-            color: #fff;
-            border: 1px solid #555;
-            border-radius: 4px;
-            padding: 2px 4px;
-            font-size: 11px;
-            outline: none;
-            cursor: pointer;
-          "
-        >
-          <option value="solid">Solid</option>
-          <option value="dashed">Dashed</option>
-          <option value="dotted">Dotted</option>
-          <option value="dash-dot">Dash-Dot</option>
-        </select>
-      </div>
-      <div
-        id="text-align-group"
-        style="display: none; align-items: center; gap: 4px"
-      >
-        <div
-          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
-        ></div>
-        <span class="align-title">Text</span>
-        <button
-          class="align-btn text-align-btn"
-          data-text-align="left"
-          title="Align Text Left"
-        >
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path
-              d="M3 3h18v2H3V3zm0 4h12v2H3V7zm0 4h18v2H3v-2zm0 4h12v2H3v-2zm0 4h18v2H3v-2z"
-            />
-          </svg>
-        </button>
-        <button
-          class="align-btn text-align-btn"
-          data-text-align="center"
-          title="Align Text Center"
-        >
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path
-              d="M3 3h18v2H3V3zm3 4h12v2H6V7zm-3 4h18v2H3v-2zm3 4h12v2H6v-2zm-3 4h18v2H3v-2z"
-            />
-          </svg>
-        </button>
-        <button
-          class="align-btn text-align-btn"
-          data-text-align="right"
-          title="Align Text Right"
-        >
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path
-              d="M3 3h18v2H3V3zm6 4h12v2H9V7zm-6 4h18v2H3v-2zm6 4h12v2H9v-2zm-6 4h18v2H3v-2z"
-            />
-          </svg>
-        </button>
-      </div>
-      <div
-        id="text-format-group"
-        style="display: none; align-items: center; gap: 2px"
-      >
-        <div
-          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
-        ></div>
-        <button class="text-format-btn" id="fmt-bold" title="Bold (Cmd+B)">
-          <b>B</b>
-        </button>
-        <button class="text-format-btn" id="fmt-italic" title="Italic (Cmd+I)">
-          <i>I</i>
-        </button>
-        <button
-          class="text-format-btn"
-          id="fmt-underline"
-          title="Underline (Cmd+U)"
-        >
-          <u>U</u>
-        </button>
-        <button
-          class="text-format-btn"
-          id="fmt-strikethrough"
-          title="Strikethrough"
-        >
-          <s>S</s>
-        </button>
-        <span class="fmt-separator"></span>
-        <button
-          class="text-format-btn fmt-size-btn"
-          id="fmt-size-down"
-          title="Decrease font size"
-        >
-          −
-        </button>
-        <input
-          type="number"
-          id="fmt-font-size"
-          class="fmt-font-size-input"
-          value="28"
-          min="8"
-          max="999"
-          title="Font size"
-        />
-        <button
-          class="text-format-btn fmt-size-btn"
-          id="fmt-size-up"
-          title="Increase font size"
-        >
-          +
-        </button>
-      </div>
-      <div
-        id="z-order-group"
-        style="display: none; align-items: center; gap: 4px"
-      >
-        <div
-          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
-        ></div>
-        <span class="align-title">Order</span>
-        <button
-          class="align-btn z-order-btn"
-          id="send-to-back-btn"
-          title="Send to Back"
-        >
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <rect x="3" y="3" width="10" height="10" rx="1" opacity="0.3" />
-            <rect x="11" y="11" width="10" height="10" rx="1" />
-          </svg>
-        </button>
-        <button
-          class="align-btn z-order-btn"
-          id="send-backward-btn"
-          title="Send Backward"
-        >
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <rect x="3" y="5" width="10" height="10" rx="1" opacity="0.3" />
-            <rect x="11" y="9" width="10" height="10" rx="1" />
-            <path d="M12 20l-4-4h8l-4 4z" />
-          </svg>
-        </button>
-        <button
-          class="align-btn z-order-btn"
-          id="bring-forward-btn"
-          title="Bring Forward"
-        >
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <rect x="11" y="9" width="10" height="10" rx="1" opacity="0.3" />
-            <rect x="3" y="5" width="10" height="10" rx="1" />
-            <path d="M12 4l4 4H8l4-4z" />
-          </svg>
-        </button>
-        <button
-          class="align-btn z-order-btn"
-          id="bring-to-front-btn"
-          title="Bring to Front"
-        >
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <rect x="11" y="11" width="10" height="10" rx="1" opacity="0.3" />
-            <rect x="3" y="3" width="10" height="10" rx="1" />
-          </svg>
-        </button>
-      </div>
     </div>
 
     <div id="contrast-checker-panel" style="display: none"></div>

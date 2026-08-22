@@ -118,29 +118,64 @@ input[type="color"]::-webkit-color-swatch {
   border-radius: 8px;
   padding: 6px 10px;
   display: flex;
+  flex-direction: column;
   gap: 4px;
-  align-items: center;
+  align-items: stretch;
   z-index: 10;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
   max-width: calc(100vw - 36px);
+  overflow: hidden;
+}
+
+.toolbar-primary-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
   overflow-x: auto;
   overflow-y: hidden;
 }
 
-#toolbar::-webkit-scrollbar {
+.toolbar-primary-row::-webkit-scrollbar {
   height: 4px;
 }
 
-#toolbar::-webkit-scrollbar-track {
+.toolbar-primary-row::-webkit-scrollbar-track {
   background: transparent;
 }
 
-#toolbar::-webkit-scrollbar-thumb {
+.toolbar-primary-row::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.2);
   border-radius: 2px;
 }
 
-#toolbar::-webkit-scrollbar-thumb:hover {
+.toolbar-primary-row::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.toolbar-secondary-row {
+  display: none;
+  gap: 4px;
+  align-items: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-top: 1px solid #444;
+  padding-top: 4px;
+}
+
+.toolbar-secondary-row::-webkit-scrollbar {
+  height: 4px;
+}
+
+.toolbar-secondary-row::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.toolbar-secondary-row::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+
+.toolbar-secondary-row::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.4);
 }
 
@@ -426,23 +461,7 @@ input[type="color"]::-webkit-color-swatch {
 
 /* Alignment Panel */
 #alignment-panel {
-  display: none;
-  position: fixed;
-  top: 72px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(30, 30, 30, 0.95);
-  backdrop-filter: blur(10px);
-  border: 1px solid #444;
-  padding: 4px 8px;
-  border-radius: 6px;
-  gap: 4px;
-  align-items: center;
-  z-index: 11;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
-  max-width: calc(100vw - 20px);
-  overflow-x: auto;
-  overflow-y: hidden;
+  /* Now displayed as toolbar-secondary-row inside #toolbar */
 }
 
 #alignment-panel::-webkit-scrollbar {
