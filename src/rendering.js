@@ -1488,10 +1488,14 @@ function _doRender(targetCtx, isExporting) {
         lx = snapSplitLinePreviewPos(lx, img.x, img.w);
         ly = snapSplitLinePreviewPos(ly, img.y, img.h);
       }
-      // Vertical line: length along Y, centered at cursor Y
+      // Vertical line
       const vSpan = img.h * lengthPct;
-      let vSY = ly - vSpan / 2, vEY = ly + vSpan / 2;
-      if (lengthPct <= 1) {
+      let vSY, vEY;
+      if (lengthPct > 1) {
+        const ext = (vSpan - img.h) / 2;
+        vSY = img.y - ext; vEY = img.y + img.h + ext;
+      } else {
+        vSY = ly - vSpan / 2; vEY = ly + vSpan / 2;
         if (vSY < img.y) { vSY = img.y; vEY = img.y + vSpan; }
         if (vEY > img.y + img.h) { vEY = img.y + img.h; vSY = img.y + img.h - vSpan; }
       }
@@ -1499,10 +1503,14 @@ function _doRender(targetCtx, isExporting) {
       targetCtx.moveTo(lx, vSY);
       targetCtx.lineTo(lx, vEY);
       targetCtx.stroke();
-      // Horizontal line: length along X, centered at cursor X
+      // Horizontal line
       const hSpan = img.w * lengthPct;
-      let hSX = lx - hSpan / 2, hEX = lx + hSpan / 2;
-      if (lengthPct <= 1) {
+      let hSX, hEX;
+      if (lengthPct > 1) {
+        const ext = (hSpan - img.w) / 2;
+        hSX = img.x - ext; hEX = img.x + img.w + ext;
+      } else {
+        hSX = lx - hSpan / 2; hEX = lx + hSpan / 2;
         if (hSX < img.x) { hSX = img.x; hEX = img.x + hSpan; }
         if (hEX > img.x + img.w) { hEX = img.x + img.w; hSX = img.x + img.w - hSpan; }
       }
@@ -1518,8 +1526,12 @@ function _doRender(targetCtx, isExporting) {
         let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
         if (state.isShiftPressed) ly = snapSplitLinePreviewPos(ly, img.y, img.h);
         const span = img.w * lengthPct;
-        let sX = pos.x - span / 2, eX = pos.x + span / 2;
-        if (lengthPct <= 1) {
+        let sX, eX;
+        if (lengthPct > 1) {
+          const ext = (span - img.w) / 2;
+          sX = img.x - ext; eX = img.x + img.w + ext;
+        } else {
+          sX = pos.x - span / 2; eX = pos.x + span / 2;
           if (sX < img.x) { sX = img.x; eX = img.x + span; }
           if (eX > img.x + img.w) { eX = img.x + img.w; sX = img.x + img.w - span; }
         }
@@ -1530,8 +1542,12 @@ function _doRender(targetCtx, isExporting) {
         let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
         if (state.isShiftPressed) lx = snapSplitLinePreviewPos(lx, img.x, img.w);
         const span = img.h * lengthPct;
-        let sY = pos.y - span / 2, eY = pos.y + span / 2;
-        if (lengthPct <= 1) {
+        let sY, eY;
+        if (lengthPct > 1) {
+          const ext = (span - img.h) / 2;
+          sY = img.y - ext; eY = img.y + img.h + ext;
+        } else {
+          sY = pos.y - span / 2; eY = pos.y + span / 2;
           if (sY < img.y) { sY = img.y; eY = img.y + span; }
           if (eY > img.y + img.h) { eY = img.y + img.h; sY = img.y + img.h - span; }
         }
@@ -1545,8 +1561,12 @@ function _doRender(targetCtx, isExporting) {
         let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
         if (state.isShiftPressed) lx = snapSplitLinePreviewPos(lx, img.x, img.w);
         const span = img.h * lengthPct;
-        let sY = pos.y - span / 2, eY = pos.y + span / 2;
-        if (lengthPct <= 1) {
+        let sY, eY;
+        if (lengthPct > 1) {
+          const ext = (span - img.h) / 2;
+          sY = img.y - ext; eY = img.y + img.h + ext;
+        } else {
+          sY = pos.y - span / 2; eY = pos.y + span / 2;
           if (sY < img.y) { sY = img.y; eY = img.y + span; }
           if (eY > img.y + img.h) { eY = img.y + img.h; sY = img.y + img.h - span; }
         }
@@ -1556,8 +1576,12 @@ function _doRender(targetCtx, isExporting) {
         let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
         if (state.isShiftPressed) ly = snapSplitLinePreviewPos(ly, img.y, img.h);
         const span = img.w * lengthPct;
-        let sX = pos.x - span / 2, eX = pos.x + span / 2;
-        if (lengthPct <= 1) {
+        let sX, eX;
+        if (lengthPct > 1) {
+          const ext = (span - img.w) / 2;
+          sX = img.x - ext; eX = img.x + img.w + ext;
+        } else {
+          sX = pos.x - span / 2; eX = pos.x + span / 2;
           if (sX < img.x) { sX = img.x; eX = img.x + span; }
           if (eX > img.x + img.w) { eX = img.x + img.w; sX = img.x + img.w - span; }
         }

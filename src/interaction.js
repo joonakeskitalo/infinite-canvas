@@ -3000,23 +3000,34 @@ function setupMouseHandlers() {
             lx = snapSplitLinePos(lx, img.x, img.w);
             ly = snapSplitLinePos(ly, img.y, img.h);
           }
-          // Vertical line: spans along Y axis, centered at cursor Y
+          // Vertical line: spans along Y axis
           const cursorY = Math.max(img.y, Math.min(pos.y, img.y + img.h));
           const vSpan = img.h * lengthPct;
-          let vStartY = cursorY - vSpan / 2;
-          let vEndY = cursorY + vSpan / 2;
-          // Only clamp centering when span fits within image
-          if (lengthPct <= 1) {
+          let vStartY, vEndY;
+          if (lengthPct > 1) {
+            // Extend symmetrically from image edges
+            const ext = (vSpan - img.h) / 2;
+            vStartY = img.y - ext;
+            vEndY = img.y + img.h + ext;
+          } else {
+            vStartY = cursorY - vSpan / 2;
+            vEndY = cursorY + vSpan / 2;
             if (vStartY < img.y) { vStartY = img.y; vEndY = img.y + vSpan; }
             if (vEndY > img.y + img.h) { vEndY = img.y + img.h; vStartY = img.y + img.h - vSpan; }
           }
 
-          // Horizontal line: spans along X axis, centered at cursor X
+          // Horizontal line: spans along X axis
           const cursorX = Math.max(img.x, Math.min(pos.x, img.x + img.w));
           const hSpan = img.w * lengthPct;
-          let hStartX = cursorX - hSpan / 2;
-          let hEndX = cursorX + hSpan / 2;
-          if (lengthPct <= 1) {
+          let hStartX, hEndX;
+          if (lengthPct > 1) {
+            // Extend symmetrically from image edges
+            const ext = (hSpan - img.w) / 2;
+            hStartX = img.x - ext;
+            hEndX = img.x + img.w + ext;
+          } else {
+            hStartX = cursorX - hSpan / 2;
+            hEndX = cursorX + hSpan / 2;
             if (hStartX < img.x) { hStartX = img.x; hEndX = img.x + hSpan; }
             if (hEndX > img.x + img.w) { hEndX = img.x + img.w; hStartX = img.x + img.w - hSpan; }
           }
@@ -3059,9 +3070,14 @@ function setupMouseHandlers() {
             let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
             if (e.shiftKey) lx = snapSplitLinePos(lx, img.x, img.w);
             const span = img.h * lengthPct;
-            let sY = pos.y - span / 2;
-            let eY = pos.y + span / 2;
-            if (lengthPct <= 1) {
+            let sY, eY;
+            if (lengthPct > 1) {
+              const ext = (span - img.h) / 2;
+              sY = img.y - ext;
+              eY = img.y + img.h + ext;
+            } else {
+              sY = pos.y - span / 2;
+              eY = pos.y + span / 2;
               if (sY < img.y) { sY = img.y; eY = img.y + span; }
               if (eY > img.y + img.h) { eY = img.y + img.h; sY = img.y + img.h - span; }
             }
@@ -3071,9 +3087,14 @@ function setupMouseHandlers() {
             let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
             if (e.shiftKey) ly = snapSplitLinePos(ly, img.y, img.h);
             const span = img.w * lengthPct;
-            let sX = pos.x - span / 2;
-            let eX = pos.x + span / 2;
-            if (lengthPct <= 1) {
+            let sX, eX;
+            if (lengthPct > 1) {
+              const ext = (span - img.w) / 2;
+              sX = img.x - ext;
+              eX = img.x + img.w + ext;
+            } else {
+              sX = pos.x - span / 2;
+              eX = pos.x + span / 2;
               if (sX < img.x) { sX = img.x; eX = img.x + span; }
               if (eX > img.x + img.w) { eX = img.x + img.w; sX = img.x + img.w - span; }
             }
