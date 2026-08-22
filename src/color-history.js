@@ -2,7 +2,7 @@
  * Color History
  *
  * Tracks the last 10 selected colors. Persists to localStorage.
- * Renders as small squares in the secondary toolbar next to the color picker.
+ * Renders as swatches inside the color popup menu.
  */
 
 import { showToast } from "./utils.js";
@@ -74,6 +74,9 @@ export function getColorHistory() {
 // --- UI ---
 
 let _container = null;
+let _section = null;
+let _clearBtn = null;
+let _toolbarContainer = null;
 
 /**
  * Initialize the color history UI. Call once after DOM is ready.
@@ -81,13 +84,30 @@ let _container = null;
 export function initColorHistory() {
   loadFromStorage();
   _container = document.getElementById("color-history-list");
+  _section = document.getElementById("color-history-section");
+  _clearBtn = document.getElementById("color-history-clear-btn");
+  _toolbarContainer = document.getElementById("color-history-toolbar-list");
   if (!_container) return;
+
+  if (_clearBtn) {
+    _clearBtn.addEventListener("click", () => {
+      colorHistory = [];
+      saveToStorage();
+      renderColorHistory();
+    });
+  }
+
   renderColorHistory();
 }
 
 function renderColorHistory() {
   if (!_container) return;
   _container.innerHTML = "";
+
+  // Show/hide section based on whether there are colors
+  if (_section) {
+    _section.style.display = colorHistory.length > 0 ? "" : "none";
+  }
 
   colorHistory.forEach((hex) => {
     const swatch = document.createElement("div");
@@ -111,17 +131,31 @@ function renderColorHistory() {
     _container.appendChild(swatch);
   });
 
-  // Clear button (only show when there are colors)
-  if (colorHistory.length > 0) {
-    const clearBtn = document.createElement("button");
-    clearBtn.className = "color-history-clear-btn";
-    clearBtn.title = "Clear recent colors";
-    clearBtn.innerHTML = "&times;";
-    clearBtn.addEventListener("click", () => {
-      colorHistory = [];
-      saveToStorage();
-      renderColorHistory();
+  // Also render in the toolbar list
+  renderToolbarHistory();
+}
+
+function renderToolbarHistory() {
+  if (!_toolbarContainer) return;
+  _toolbarContainer.innerHTML = "";
+
+  colorHistory.forEach((hex) => {
+    const swatch = document.createElement("div");
+    swatch.className = "color-history-swatch";
+    swatch.style.background = hex;
+    swatch.title = hex.toUpperCase() + " — Click to select, Shift+click to copy hex";
+    swatch.addEventListener("click", (e) => {
+      if (e.shiftKey) {
+        const upper = hex.toUpperCase();
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(upper).then(() => {
+            showToast(`Copied: ${upper}`);
+          }).catch(() => {});
+        }
+      } else {
+        if (_onHistoryColorSelect) _onHistoryColorSelect(hex);
+      }
     });
-    _container.appendChild(clearBtn);
-  }
+    _toolbarContainer.appendChild(swatch);
+  });
 }

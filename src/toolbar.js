@@ -149,20 +149,17 @@ export function toggleAlignmentPanelVisibility() {
 
   // Show color picker for tools that draw with color
   const colorPickerGroup = document.getElementById("color-picker-group");
-  const colorHistoryGroup = document.getElementById("color-history-group");
   if (colorPickerGroup) {
     const colorTools = ["pen", "bezier-pen", "line", "arrow", "connector", "rect-border", "rect-fill", "text", "text-element", "split-line", "eyedropper"];
     const hasColorElement = state.currentTool === "select" && state.selectedElements.length > 0 &&
       state.selectedElements.some((el) => el.elementType !== "image");
     if (colorTools.includes(state.currentTool) || hasColorElement) {
       colorPickerGroup.style.display = "";
-      if (colorHistoryGroup) colorHistoryGroup.style.display = "flex";
       if (dom.alignmentPanel.style.display !== "flex") {
         dom.alignmentPanel.style.display = "flex";
       }
     } else {
       colorPickerGroup.style.display = "none";
-      if (colorHistoryGroup) colorHistoryGroup.style.display = "none";
     }
   }
 
@@ -248,6 +245,12 @@ export function toggleAlignmentPanelVisibility() {
     } else {
       colorInfoGroup.style.display = "none";
     }
+  }
+
+  // Show color history in toolbar for eyedropper tool
+  const colorHistoryToolbar = document.getElementById("color-history-toolbar");
+  if (colorHistoryToolbar) {
+    colorHistoryToolbar.style.display = state.currentTool === "eyedropper" ? "flex" : "none";
   }
 }
 

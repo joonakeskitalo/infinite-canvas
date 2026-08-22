@@ -323,38 +323,38 @@ input[type="color"]::-webkit-color-swatch {
 }
 
 /* Color History */
-.color-history-group {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 3px;
-  margin-left: auto;
-  padding-left: 8px;
-  border-left: 1px solid #444;
+.color-history-section {
+  padding: 2px 0;
 }
 
-.color-history-label {
-  font-size: 9px;
+.color-history-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 2px 4px;
+}
+
+.color-history-popup-title {
+  font-size: 10px;
   color: #888;
-  margin-right: 2px;
-  white-space: nowrap;
 }
 
 .color-history-list {
   display: flex;
   flex-direction: row;
   align-items: center;
+  flex-wrap: wrap;
   gap: 3px;
 }
 
 .color-history-swatch {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 3px;
   border: none;
   outline: 1px solid #555;
   cursor: pointer;
-  transition: outline-color 0.15s, transform 0.1s;
+  transition: outline-color 0.15s;
   flex-shrink: 0;
 }
 
@@ -382,6 +382,31 @@ input[type="color"]::-webkit-color-swatch {
 .color-history-clear-btn:hover {
   color: #fff;
   background: rgba(255, 255, 255, 0.1);
+}
+
+/* Color History in toolbar (eyedropper) */
+.color-history-toolbar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+  padding-left: 8px;
+  border-left: 1px solid #444;
+}
+
+.color-history-toolbar-label {
+  font-size: 9px;
+  color: #888;
+  margin-right: 2px;
+  white-space: nowrap;
+}
+
+.color-history-toolbar-list {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 3px;
 }
 
 .hidden-color-input {

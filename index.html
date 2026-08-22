@@ -1210,13 +1210,13 @@
         <span id="color-info-hsl" class="color-info-value" title="HSL — Click to copy">hsl(0, 100%, 63%)</span>
       </div>
       <div
-        class="control-group color-history-group"
-        id="color-history-group"
+        class="control-group color-history-toolbar"
+        id="color-history-toolbar"
         style="display: none; align-items: center; gap: 3px"
-        title="Recent Colors — Click to select & copy hex"
+        title="Recent Colors — Click to select, Shift+click to copy hex"
       >
-        <span class="color-history-label">Recent</span>
-        <div class="color-history-list" id="color-history-list"></div>
+        <span class="color-history-toolbar-label">Recent</span>
+        <div class="color-history-toolbar-list" id="color-history-toolbar-list"></div>
       </div>
       </div>
     </div>
@@ -1740,6 +1740,14 @@
           style="background: #1e1e1e"
           data-color="#1e1e1e"
         ></div>
+      </div>
+      <div class="color-popup-separator"></div>
+      <div class="color-history-section" id="color-history-section" style="display: none">
+        <div class="color-history-popup-header">
+          <span class="color-history-popup-title">Recent</span>
+          <button class="color-history-clear-btn" id="color-history-clear-btn" title="Clear recent colors">&times;</button>
+        </div>
+        <div class="color-history-list" id="color-history-list"></div>
       </div>
       <div class="color-popup-separator"></div>
       <div class="custom-colors-section">
