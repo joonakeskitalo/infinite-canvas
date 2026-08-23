@@ -14,7 +14,7 @@ import {
 import { getFullImageBounds } from "./crop.js";
 import { renderMarquee, renderMarqueeSelecting } from "./marquee-select.js";
 import { renderAccessibilityPreviewSelection, isAccessibilityPreviewSelecting } from "./accessibility-preview.js";
-import { renderLaserTrails, hasLaserVisuals } from "./laser-pointer.js";
+import { renderLaserTrails, renderLaserTrailsForExport, hasLaserVisuals } from "./laser-pointer.js";
 import { drawBezierPath, renderBezierPreview, renderBezierEditOverlay } from "./bezier-pen.js";
 
 // --- Empty canvas placeholder ---
@@ -1766,7 +1766,7 @@ async function executeImageExport(scaleFactor = 1.0, { download = false, format 
   const mimeType = format === "jpeg" ? "image/jpeg" : "image/png";
   const fileExt = format === "jpeg" ? "jpg" : "png";
 
-  if (!exportingSelection && state.images.length === 0 && state.drawings.length === 0) {
+  if (!exportingSelection && state.images.length === 0 && state.drawings.length === 0 && !hasLaserVisuals()) {
     showToast("Canvas is completely empty!");
     return;
   }
@@ -1790,6 +1790,30 @@ async function executeImageExport(scaleFactor = 1.0, { download = false, format 
         if (b.y + b.h > maxY) maxY = b.y + b.h;
       }
     });
+    // Include laser trails in selection export bounds
+    state.laserTrails.forEach((trail) => {
+      if (trail.type === "dot") {
+        if (trail.x < minX) minX = trail.x;
+        if (trail.y < minY) minY = trail.y;
+        if (trail.x > maxX) maxX = trail.x;
+        if (trail.y > maxY) maxY = trail.y;
+      } else if (trail.type === "stroke" && trail.points) {
+        trail.points.forEach((p) => {
+          if (p.x < minX) minX = p.x;
+          if (p.y < minY) minY = p.y;
+          if (p.x > maxX) maxX = p.x;
+          if (p.y > maxY) maxY = p.y;
+        });
+      }
+    });
+    if (state.laserActiveStroke && state.laserActiveStroke.points) {
+      state.laserActiveStroke.points.forEach((p) => {
+        if (p.x < minX) minX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y > maxY) maxY = p.y;
+      });
+    }
     const padding = customPadding != null ? customPadding : 50;
     bounds = { minX: minX - padding, minY: minY - padding, maxX: maxX + padding, maxY: maxY + padding };
     // Filter z-ordered elements to only those selected
@@ -1845,6 +1869,12 @@ async function executeImageExport(scaleFactor = 1.0, { download = false, format 
       drawShape(finalCtx, el, true, effectiveScale);
     }
   });
+
+  // Render laser pointer trails into the export
+  if (hasLaserVisuals()) {
+    renderLaserTrailsForExport(finalCtx);
+  }
+
   finalCtx.restore();
 
   const blobArgs = format === "jpeg" ? [mimeType, quality] : [mimeType];
@@ -1913,6 +1943,21 @@ function getCanvasContentBounds() {
     expandBounds(b.x, b.y);
     expandBounds(b.x + b.w, b.y + b.h);
   });
+  // Include laser pointer trails in bounds
+  state.laserTrails.forEach((trail) => {
+    if (trail.type === "dot") {
+      expandBounds(trail.x, trail.y);
+    } else if (trail.type === "stroke" && trail.points) {
+      trail.points.forEach((p) => {
+        expandBounds(p.x, p.y);
+      });
+    }
+  });
+  if (state.laserActiveStroke && state.laserActiveStroke.points) {
+    state.laserActiveStroke.points.forEach((p) => {
+      expandBounds(p.x, p.y);
+    });
+  }
   const padding = 100;
   return { minX: minX - padding, minY: minY - padding, maxX: maxX + padding, maxY: maxY + padding };
 }

@@ -179,6 +179,47 @@ export function renderLaserTrails(ctx, zoom) {
 }
 
 /**
+ * Render laser trails for export with a fixed thick line width.
+ * Uses absolute world-space dimensions so the result doesn't depend on zoom.
+ */
+export function renderLaserTrailsForExport(ctx) {
+  for (const trail of state.laserTrails) {
+    drawLaserMarkExport(ctx, trail);
+  }
+  if (state.laserActiveStroke) {
+    drawLaserMarkExport(ctx, state.laserActiveStroke);
+  }
+}
+
+/**
+ * Draw a single laser mark for export with a thick fixed line width.
+ */
+function drawLaserMarkExport(ctx, mark) {
+  ctx.save();
+  ctx.globalAlpha = 0.8;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  if (mark.type === "dot") {
+    const radius = Math.max(mark.width * 3, 12);
+    ctx.fillStyle = mark.color;
+    ctx.beginPath();
+    ctx.arc(mark.x, mark.y, radius, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (mark.type === "stroke" && mark.points.length >= 2) {
+    const lineWidth = Math.max(mark.width * 2.5, 6);
+    ctx.setLineDash([lineWidth * 4, lineWidth * 2]);
+    ctx.strokeStyle = mark.color;
+    ctx.lineWidth = lineWidth;
+    ctx.beginPath();
+    drawSmoothPath(ctx, mark.points);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+/**
  * Draw a smooth path through points using quadratic bezier curves through midpoints.
  * This produces natural, fluid lines from raw mouse input.
  */

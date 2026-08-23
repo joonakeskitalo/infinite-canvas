@@ -21,6 +21,7 @@ import { render, drawShape, getFilteredImage } from "./rendering.js";
 import { getShapeBounds, cloneElement, translateElement } from "./elements.js";
 import { serializeClipboardElements } from "./selection.js";
 import { getSnapTargets, snapToElements } from "./snap-guides.js";
+import { hasLaserVisuals, renderLaserTrailsForExport } from "./laser-pointer.js";
 
 // Marching ants animation
 let _marchingAntsRAF = null;
@@ -730,6 +731,11 @@ export function marqueeExportPNG(scaleFactor = 1.0, { download = false, padding:
     } else {
       drawShape(exportCtx, el, true, effectiveScale);
     }
+  }
+
+  // Render laser pointer trails into the marquee export
+  if (hasLaserVisuals()) {
+    renderLaserTrailsForExport(exportCtx);
   }
 
   exportCtx.restore();
