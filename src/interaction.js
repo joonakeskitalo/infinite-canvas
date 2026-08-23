@@ -66,6 +66,7 @@ import {
   enterBezierEdit,
 } from "./bezier-pen.js";
 import { analyzeMarqueeColors, hideMarqueeColors } from "./marquee-colors.js";
+import { toggle as toggleCommandPalette } from "./command-palette.js";
 
 // --- PERFORMANCE: Throttle proximity/spacing guide computation during drag ---
 const GUIDE_COMPUTE_INTERVAL_MS = 60; // ms between expensive guide recalculations
@@ -1830,6 +1831,12 @@ function setupKeyboardHandlers() {
     }
     if (e.key === " " || e.code === "Space") {
       if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA" || e.target.isContentEditable) return;
+      // Shift+Space: open command palette
+      if (e.shiftKey) {
+        e.preventDefault();
+        toggleCommandPalette();
+        return;
+      }
       e.preventDefault();
       if (!state.isSpacePressed) {
         state.isSpacePressed = true;

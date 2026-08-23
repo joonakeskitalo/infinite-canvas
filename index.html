@@ -1924,6 +1924,21 @@
       </div>
     </div>
 
+    <!-- Command Palette -->
+    <div id="command-palette" class="cmd-palette-overlay" style="display: none">
+      <div class="cmd-palette-container">
+        <input
+          type="text"
+          id="command-palette-input"
+          class="cmd-palette-input"
+          placeholder="Type a command..."
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <div id="command-palette-list" class="cmd-palette-list"></div>
+      </div>
+    </div>
+
     <script type="module" src="./src/main.js"></script>
   </body>
 </html>

@@ -21,6 +21,7 @@ import { initColorHistory } from "./color-history.js";
 import { setLaserRenderFn } from "./laser-pointer.js";
 import { setBezierPenDeps } from "./bezier-pen.js";
 import { initMarqueeColors, setMarqueeColorsDeps } from "./marquee-colors.js";
+import { initCommandPalette } from "./command-palette.js";
 
 // --- Wire up forward dependencies to break circular imports ---
 setHistoryDeps({
@@ -96,3 +97,6 @@ setMarqueeColorsDeps({
     if (hexLbl) hexLbl.textContent = hex.toUpperCase();
   },
 });
+
+// --- Initialize command palette ---
+initCommandPalette();
