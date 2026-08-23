@@ -2678,7 +2678,6 @@ input[type="color"]::-webkit-color-swatch {
   transition: background 0.08s ease;
 }
 
-.cmd-palette-item:hover,
 .cmd-palette-item.selected {
   background: #333;
 }

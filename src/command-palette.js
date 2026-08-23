@@ -19,6 +19,7 @@ let listEl = null;
 let isOpen = false;
 let selectedIndex = 0;
 let filteredCommands = [];
+let isKeyboardNavigating = false;
 
 export function setCommandPaletteDeps({ render: renderFn }) {
   _render = renderFn;
@@ -301,6 +302,7 @@ function renderList() {
     }
 
     item.addEventListener("mouseenter", () => {
+      if (isKeyboardNavigating) return;
       selectedIndex = idx;
       updateSelection();
     });
@@ -375,6 +377,7 @@ export function initCommandPalette() {
 
   // Input filtering
   inputEl.addEventListener("input", () => {
+    isKeyboardNavigating = true;
     selectedIndex = 0;
     filteredCommands = filterCommands(inputEl.value);
     renderList();
@@ -384,10 +387,12 @@ export function initCommandPalette() {
   inputEl.addEventListener("keydown", (e) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
+      isKeyboardNavigating = true;
       selectedIndex = selectedIndex >= filteredCommands.length - 1 ? 0 : selectedIndex + 1;
       updateSelection();
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
+      isKeyboardNavigating = true;
       selectedIndex = selectedIndex <= 0 ? filteredCommands.length - 1 : selectedIndex - 1;
       updateSelection();
     } else if (e.key === "Enter") {
@@ -397,6 +402,11 @@ export function initCommandPalette() {
       e.preventDefault();
       close();
     }
+  });
+
+  // Reset keyboard navigation flag on actual mouse movement
+  listEl.addEventListener("mousemove", () => {
+    isKeyboardNavigating = false;
   });
 
   // Click outside to close
