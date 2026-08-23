@@ -866,9 +866,6 @@ export function initEventHandlers() {
       else if (alignType === "arrangeBySizeRow") { applyArrangeBySizeRow(units); }
       else if (alignType === "arrangeByNameRow") { applyArrangeByNameRow(units); }
       else {
-
-        console.log(`🟣106 🟣 interaction:415 AA`, {  });
-        
         units.forEach((unit) => {
           const b = unit.b;
           let shiftX = 0, shiftY = 0;
