@@ -4651,6 +4651,11 @@ function setupMouseHandlers() {
         pushUndo();
         state.drawings.push(state.activeShape);
         spatialInsert(state.activeShape);
+      } else if (state.activeShape.type === "pen" && state.activeShape.points.length === 1) {
+        // Single click with pen tool — commit as a dot
+        pushUndo();
+        state.drawings.push(state.activeShape);
+        spatialInsert(state.activeShape);
       }
       state.activeShape = null;
     }

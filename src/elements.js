@@ -58,6 +58,12 @@ export function getShapeBounds(shape) {
       if (p.x > maxX) maxX = p.x;
       if (p.y > maxY) maxY = p.y;
     });
+    // Single-point dot: expand bounds by stroke radius so it's selectable
+    if (shape.points.length === 1) {
+      const r = shape.width || 4;
+      minX -= r; minY -= r;
+      maxX += r; maxY += r;
+    }
   } else if (shape.type === "bezier-path") {
     const b = getBezierPathBounds(shape);
     return b;

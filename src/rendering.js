@@ -384,6 +384,17 @@ export function drawShape(targetCtx, shape, isExporting, exportScale) {
   }
 
   if (shape.type === "pen") {
+    if (shape.points.length === 1) {
+      // Single-point pen stroke — draw as a filled dot
+      const p = shape.points[0];
+      const radius = calculatedWidth;
+      targetCtx.beginPath();
+      targetCtx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+      targetCtx.fillStyle = shape.color;
+      targetCtx.fill();
+      targetCtx.restore();
+      return;
+    }
     if (shape.points.length < 2) { targetCtx.restore(); return; }
     targetCtx.beginPath();
     targetCtx.moveTo(shape.points[0].x, shape.points[0].y);
