@@ -251,7 +251,7 @@ function drawLaserMark(ctx, mark, alpha, zoom) {
   ctx.lineJoin = "round";
 
   if (mark.type === "dot") {
-    const radius = Math.max(mark.width * 1.5, 6) / zoom;
+    const radius = Math.max(mark.width * 2.5, 10) / zoom;
     ctx.fillStyle = mark.color;
     ctx.beginPath();
     ctx.arc(mark.x, mark.y, radius, 0, Math.PI * 2);
