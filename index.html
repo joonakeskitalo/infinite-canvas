@@ -1222,6 +1222,29 @@
     </div>
 
     <div class="toolbar-menu" id="toolbar-menu">
+      <button
+        class="menu-item"
+        id="open-command-palette-btn"
+        title="Open command palette [Shift+Space]"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.3-4.3" />
+        </svg>
+        <span>Command Palette</span>
+        <kbd>Shift+Space</kbd>
+      </button>
+      <div class="menu-separator"></div>
       <div class="menu-item menu-item-color" title="Background Workspace Color">
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -1838,7 +1861,8 @@
         <p class="empty-canvas-placeholder-title">Drop or paste images here</p>
         <p class="empty-canvas-placeholder-hint">
           Export frames from Figma, Sketch, or other design tools<br/>
-          or paste screenshots directly with <kbd data-shortcut="Mod+V">Ctrl+V</kbd>
+          or paste screenshots directly with <kbd data-shortcut="Mod+V">Ctrl+V</kbd><br/>
+          <kbd>Shift+Space</kbd> to open command palette
         </p>
       </div>
     </div>

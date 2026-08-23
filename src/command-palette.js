@@ -416,4 +416,17 @@ export function initCommandPalette() {
       close();
     }
   });
+
+  // Menu button to open palette
+  const openBtn = document.getElementById("open-command-palette-btn");
+  if (openBtn) {
+    openBtn.addEventListener("click", () => {
+      // Close the toolbar menu
+      const toolbarMenu = document.getElementById("toolbar-menu");
+      const toolbarMenuBtn = document.getElementById("toolbar-menu-btn");
+      if (toolbarMenu) toolbarMenu.classList.remove("open");
+      if (toolbarMenuBtn) toolbarMenuBtn.classList.remove("menu-open");
+      open();
+    });
+  }
 }
