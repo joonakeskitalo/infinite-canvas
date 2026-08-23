@@ -109,6 +109,7 @@ function getCommands() {
 
     // --- Help ---
     { id: "help-shortcuts", label: "Help & Shortcuts", shortcut: "", category: "Help", action: () => document.getElementById("show-welcome-btn")?.click() },
+    { id: "send-feedback", label: "Send Feedback", shortcut: "", category: "Help", action: () => document.getElementById("feedback-btn")?.click() },
   ];
 }
 
