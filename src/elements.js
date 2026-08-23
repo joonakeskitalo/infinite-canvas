@@ -149,6 +149,14 @@ export function getShapeBounds(shape) {
 export function isPointHittingShape(p, shape) {
   const threshold = 12 / state.transform.zoom;
   if (shape.type === "pen") {
+    // Single-point dot: hit test against the dot circle
+    if (shape.points.length === 1) {
+      const pt = shape.points[0];
+      const radius = (shape.width || 4) / state.transform.zoom;
+      const dx = p.x - pt.x;
+      const dy = p.y - pt.y;
+      return Math.sqrt(dx * dx + dy * dy) < radius + threshold;
+    }
     for (let i = 0; i < shape.points.length - 1; i++) {
       if (getPtToSegmentDist(p, shape.points[i], shape.points[i + 1]) < threshold)
         return true;
