@@ -81,6 +81,32 @@ function getCommands() {
     { id: "view-toggle-rulers", label: "Toggle Rulers", shortcut: "\u21E7R", category: "View", action: () => document.getElementById("toggle-rulers-btn")?.click() },
     { id: "view-toggle-grid", label: "Toggle Grid", shortcut: "", category: "View", action: () => document.getElementById("toggle-grid-item")?.click() },
 
+    // --- Alignment ---
+    { id: "align-left", label: "Align Left", shortcut: "\u2325A", category: "Alignment", action: () => clickAlignBtn("left") },
+    { id: "align-right", label: "Align Right", shortcut: "\u2325D", category: "Alignment", action: () => clickAlignBtn("right") },
+    { id: "align-center-h", label: "Align Center Horizontal", shortcut: "\u2325H", category: "Alignment", action: () => clickAlignBtn("centerX") },
+    { id: "align-top", label: "Align Top", shortcut: "\u2325W", category: "Alignment", action: () => clickAlignBtn("top") },
+    { id: "align-bottom", label: "Align Bottom", shortcut: "\u2325S", category: "Alignment", action: () => clickAlignBtn("bottom") },
+    { id: "align-center-v", label: "Align Center Vertical", shortcut: "\u2325V", category: "Alignment", action: () => clickAlignBtn("centerY") },
+    { id: "distribute-h", label: "Distribute Horizontally", shortcut: "\u2325\u21E7X", category: "Alignment", action: () => clickAlignBtn("distributeX") },
+    { id: "distribute-v", label: "Distribute Vertically", shortcut: "\u2325\u21E7Y", category: "Alignment", action: () => clickAlignBtn("distributeY") },
+    { id: "layout-row", label: "Arrange in Row", shortcut: "", category: "Alignment", action: () => clickAlignBtn("rowLayout") },
+    { id: "layout-column", label: "Arrange in Column", shortcut: "", category: "Alignment", action: () => clickAlignBtn("columnLayout") },
+    { id: "layout-grid", label: "Arrange in Grid", shortcut: "", category: "Alignment", action: () => clickAlignBtn("gridLayout") },
+    { id: "layout-by-size", label: "Arrange by Size (Row)", shortcut: "", category: "Alignment", action: () => clickAlignBtn("arrangeBySizeRow") },
+    { id: "layout-by-name", label: "Arrange by Name (Row)", shortcut: "", category: "Alignment", action: () => clickAlignBtn("arrangeByNameRow") },
+
+    // --- Color Filters ---
+    { id: "filter-none", label: "Filter: None (Original)", shortcut: "", category: "Filters", action: () => setFilter("none") },
+    { id: "filter-grayscale", label: "Filter: Grayscale", shortcut: "", category: "Filters", action: () => setFilter("grayscale") },
+    { id: "filter-protanopia", label: "Filter: Protanopia", shortcut: "", category: "Filters", action: () => setFilter("protanopia") },
+    { id: "filter-deuteranopia", label: "Filter: Deuteranopia", shortcut: "", category: "Filters", action: () => setFilter("deuteranopia") },
+    { id: "filter-tritanopia", label: "Filter: Tritanopia", shortcut: "", category: "Filters", action: () => setFilter("tritanopia") },
+    { id: "filter-achromatopsia", label: "Filter: Achromatopsia", shortcut: "", category: "Filters", action: () => setFilter("achromatopsia") },
+    { id: "filter-low-contrast", label: "Filter: Low Contrast", shortcut: "", category: "Filters", action: () => setFilter("low-contrast") },
+    { id: "filter-high-contrast", label: "Filter: High Contrast", shortcut: "", category: "Filters", action: () => setFilter("high-contrast") },
+    { id: "filter-low-quality", label: "Filter: Low Quality Display", shortcut: "", category: "Filters", action: () => setFilter("low-quality-display") },
+
     // --- Help ---
     { id: "help-shortcuts", label: "Help & Shortcuts", shortcut: "", category: "Help", action: () => document.getElementById("show-welcome-btn")?.click() },
   ];
@@ -92,6 +118,32 @@ function switchTool(toolId) {
   updateToolbarUI();
   updateCursor();
   render();
+}
+
+function clickAlignBtn(alignType) {
+  const btn = document.querySelector(`.align-btn[data-align="${alignType}"]`);
+  if (btn) {
+    btn.click();
+  } else {
+    showToast("Select 2+ elements to align");
+  }
+}
+
+function setFilter(value) {
+  state.currentFilter = value;
+  state.filteredImageCache = new WeakMap();
+  const filterSelect = document.getElementById("filter-select");
+  if (filterSelect) {
+    filterSelect.value = value;
+    filterSelect.classList.toggle("filter-active", value !== "none");
+  }
+  render();
+  if (value !== "none") {
+    const labels = { none: "Original", grayscale: "Grayscale", protanopia: "Protanopia", deuteranopia: "Deuteranopia", tritanopia: "Tritanopia", achromatopsia: "Achromatopsia", "low-contrast": "Low contrast", "high-contrast": "High contrast", "low-quality-display": "Low quality display" };
+    showToast(`Filter: ${labels[value] || value}`);
+  } else {
+    showToast("Filter removed");
+  }
 }
 
 function zoomToFit() {
