@@ -33,7 +33,7 @@ function getCommands() {
     // --- Tools ---
     { id: "tool-pan", label: "Hand Tool", shortcut: "H", category: "Tools", action: () => switchTool("pan") },
     { id: "tool-select", label: "Select Tool", shortcut: "V", category: "Tools", action: () => switchTool("select") },
-    { id: "tool-marquee", label: "Rectangle Select", shortcut: "M", category: "Tools", action: () => switchTool("marquee") },
+    { id: "tool-marquee", label: "Marquee Select", shortcut: "M", category: "Tools", action: () => switchTool("marquee") },
     { id: "tool-measure", label: "Measure Tool", shortcut: "Y", category: "Tools", action: () => switchTool("measure") },
     { id: "tool-split-line", label: "Split Line Tool", shortcut: "W", category: "Tools", action: () => switchTool("split-line") },
     { id: "tool-pen", label: "Pen Tool", shortcut: "B", category: "Tools", action: () => switchTool("pen") },
@@ -42,8 +42,8 @@ function getCommands() {
     { id: "tool-line", label: "Line Tool", shortcut: "L", category: "Tools", action: () => switchTool("line") },
     { id: "tool-arrow", label: "Arrow Tool", shortcut: "A", category: "Tools", action: () => switchTool("arrow") },
     { id: "tool-connector", label: "Connector Arrow", shortcut: "C", category: "Tools", action: () => switchTool("connector") },
-    { id: "tool-rect-border", label: "Box Border Tool", shortcut: "R", category: "Tools", action: () => switchTool("rect-border") },
-    { id: "tool-rect-fill", label: "Box Fill Tool", shortcut: "F", category: "Tools", action: () => switchTool("rect-fill") },
+    { id: "tool-rect-border", label: "Rectangle Bordered", shortcut: "R", category: "Tools", action: () => switchTool("rect-border") },
+    { id: "tool-rect-fill", label: "Rectangle Filled", shortcut: "F", category: "Tools", action: () => switchTool("rect-fill") },
     { id: "tool-text", label: "Text Tool", shortcut: "T", category: "Tools", action: () => switchTool("text") },
     { id: "tool-text-element", label: "Sticky Note Text", shortcut: "N", category: "Tools", action: () => switchTool("text-element") },
     { id: "tool-eraser", label: "Object Eraser", shortcut: "E", category: "Tools", action: () => switchTool("eraser") },
@@ -205,6 +205,16 @@ function escapeHtml(str) {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+function updateSelection() {
+  if (!listEl) return;
+  const items = listEl.querySelectorAll(".cmd-palette-item");
+  items.forEach((item, i) => {
+    item.classList.toggle("selected", i === selectedIndex);
+  });
+  const selectedEl = listEl.querySelector(".cmd-palette-item.selected");
+  if (selectedEl) selectedEl.scrollIntoView({ block: "nearest" });
+}
+
 function renderList() {
   if (!listEl) return;
   listEl.innerHTML = "";
@@ -239,12 +249,13 @@ function renderList() {
 
     item.addEventListener("mouseenter", () => {
       selectedIndex = idx;
-      renderList();
+      updateSelection();
     });
 
     item.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
+      selectedIndex = idx;
       executeSelected();
     });
 
@@ -320,12 +331,12 @@ export function initCommandPalette() {
   inputEl.addEventListener("keydown", (e) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      selectedIndex = Math.min(selectedIndex + 1, filteredCommands.length - 1);
-      renderList();
+      selectedIndex = selectedIndex >= filteredCommands.length - 1 ? 0 : selectedIndex + 1;
+      updateSelection();
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      selectedIndex = Math.max(selectedIndex - 1, 0);
-      renderList();
+      selectedIndex = selectedIndex <= 0 ? filteredCommands.length - 1 : selectedIndex - 1;
+      updateSelection();
     } else if (e.key === "Enter") {
       e.preventDefault();
       executeSelected();
