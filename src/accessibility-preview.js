@@ -835,6 +835,58 @@ function hideModal() {
  * Track shift key state for the modal preview hover behavior.
  */
 function onKeyDownForModal(e) {
+  // Tab/Shift+Tab: navigate between images
+  if (e.key === "Tab") {
+    e.preventDefault();
+    e.stopPropagation();
+    if (state.images.length === 0) { showToast("No images on canvas"); return; }
+
+    // Sort images in reading order (row-based, left-to-right within rows)
+    const sorted = [...state.images].sort((a, b) => {
+      const aCy = a.y + a.h / 2;
+      const bCy = b.y + b.h / 2;
+      const rowThreshold = Math.min(a.h, b.h) * 0.5;
+      if (Math.abs(aCy - bCy) < rowThreshold) return a.x - b.x;
+      return aCy - bCy;
+    });
+
+    // Find current image by matching activeRect bounds
+    let currentIdx = -1;
+    if (activeRect) {
+      currentIdx = sorted.findIndex(img =>
+        Math.abs(img.x - activeRect.x) < 1 && Math.abs(img.y - activeRect.y) < 1 &&
+        Math.abs(img.w - activeRect.w) < 1 && Math.abs(img.h - activeRect.h) < 1
+      );
+    }
+
+    // Navigate forward or backward (with wraparound)
+    let nextIdx;
+    if (e.shiftKey) {
+      nextIdx = currentIdx <= 0 ? sorted.length - 1 : currentIdx - 1;
+    } else {
+      nextIdx = currentIdx >= sorted.length - 1 ? 0 : currentIdx + 1;
+    }
+
+    const nextImg = sorted[nextIdx];
+
+    // Set activeRect to this image's bounds
+    activeRect = { x: nextImg.x, y: nextImg.y, w: nextImg.w, h: nextImg.h };
+
+    // Center viewport on image, accounting for panel width on the right
+    const canvas = document.getElementById("canvas");
+    const panelWidth = panelEl ? panelEl.offsetWidth + 16 : 0; // 16 = panel right margin
+    const availableWidth = canvas.width - panelWidth;
+    const centerX = nextImg.x + nextImg.w / 2;
+    const centerY = nextImg.y + nextImg.h / 2;
+    state.transform.x = -centerX * state.transform.zoom + availableWidth / 2;
+    state.transform.y = -centerY * state.transform.zoom + canvas.height / 2;
+
+    render();
+    refreshPreview();
+    showToast(`Image ${nextIdx + 1} of ${sorted.length}`);
+    return;
+  }
+
   if (e.key === "Shift") {
     isShiftHeld = true;
     // If already hovering over a cell, show the modal with its content

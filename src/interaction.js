@@ -2237,6 +2237,8 @@ function setupKeyboardHandlers() {
 
     // Tab / Shift+Tab: navigate to next/previous image in reading order (left-to-right, top-to-bottom)
     if (e.key === "Tab") {
+      // When accessibility preview panel is open, it handles its own Tab navigation
+      if (isAccessibilityPreviewModalOpen()) return;
       e.preventDefault();
       if (state.images.length === 0) { showToast("No images on canvas"); return; }
       // Sort images in reading order: top-to-bottom first, then left-to-right for same row
