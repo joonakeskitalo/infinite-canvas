@@ -323,8 +323,20 @@ export function initEventHandlers() {
     const isOpen = colorPopup.classList.toggle("open");
     if (isOpen) {
       const rect = colorSwatchBtn.getBoundingClientRect();
-      colorPopup.style.top = (rect.bottom + 6) + "px";
-      colorPopup.style.left = (rect.left + rect.width / 2 - colorPopup.offsetWidth / 2) + "px";
+      const popupW = colorPopup.offsetWidth;
+      const popupH = colorPopup.offsetHeight;
+      const margin = 8;
+
+      let left = rect.left + rect.width / 2 - popupW / 2;
+      left = Math.max(margin, Math.min(left, window.innerWidth - popupW - margin));
+
+      let top = rect.bottom + 6;
+      if (top + popupH > window.innerHeight - margin) {
+        top = rect.top - popupH - 6;
+      }
+
+      colorPopup.style.top = top + "px";
+      colorPopup.style.left = left + "px";
     }
   });
 

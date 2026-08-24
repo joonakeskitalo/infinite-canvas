@@ -429,6 +429,8 @@ input[type="color"]::-webkit-color-swatch {
   padding: 6px;
   z-index: 200;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
 }
 
 .color-popup.open {
