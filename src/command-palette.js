@@ -100,10 +100,10 @@ function getCommands() {
     // --- Color Filters ---
     { id: "filter-none", label: "Filter: None (Original)", shortcut: "", category: "Filters", action: () => setFilter("none") },
     { id: "filter-grayscale", label: "Filter: Grayscale", shortcut: "", category: "Filters", action: () => setFilter("grayscale") },
-    { id: "filter-protanopia", label: "Filter: Protanopia", shortcut: "", category: "Filters", action: () => setFilter("protanopia") },
-    { id: "filter-deuteranopia", label: "Filter: Deuteranopia", shortcut: "", category: "Filters", action: () => setFilter("deuteranopia") },
-    { id: "filter-tritanopia", label: "Filter: Tritanopia", shortcut: "", category: "Filters", action: () => setFilter("tritanopia") },
-    { id: "filter-achromatopsia", label: "Filter: Achromatopsia", shortcut: "", category: "Filters", action: () => setFilter("achromatopsia") },
+    { id: "filter-protanopia", label: "Filter: Protanopia (Red-Green, no red)", shortcut: "", category: "Filters", action: () => setFilter("protanopia") },
+    { id: "filter-deuteranopia", label: "Filter: Deuteranopia (Red-Green, no green)", shortcut: "", category: "Filters", action: () => setFilter("deuteranopia") },
+    { id: "filter-tritanopia", label: "Filter: Tritanopia (Blue-Yellow)", shortcut: "", category: "Filters", action: () => setFilter("tritanopia") },
+    { id: "filter-achromatopsia", label: "Filter: Achromatopsia (Total color blindness)", shortcut: "", category: "Filters", action: () => setFilter("achromatopsia") },
     { id: "filter-low-contrast", label: "Filter: Low Contrast", shortcut: "", category: "Filters", action: () => setFilter("low-contrast") },
     { id: "filter-high-contrast", label: "Filter: High Contrast", shortcut: "", category: "Filters", action: () => setFilter("high-contrast") },
     { id: "filter-low-quality", label: "Filter: Low Quality Display", shortcut: "", category: "Filters", action: () => setFilter("low-quality-display") },
@@ -141,7 +141,7 @@ function setFilter(value) {
   }
   render();
   if (value !== "none") {
-    const labels = { none: "Original", grayscale: "Grayscale", protanopia: "Protanopia", deuteranopia: "Deuteranopia", tritanopia: "Tritanopia", achromatopsia: "Achromatopsia", "low-contrast": "Low contrast", "high-contrast": "High contrast", "low-quality-display": "Low quality display" };
+    const labels = { none: "Original", grayscale: "Grayscale", protanopia: "Protanopia (Red-Green, no red)", deuteranopia: "Deuteranopia (Red-Green, no green)", tritanopia: "Tritanopia (Blue-Yellow)", achromatopsia: "Achromatopsia (Total color blindness)", "low-contrast": "Low contrast", "high-contrast": "High contrast", "low-quality-display": "Low quality display" };
     showToast(`Filter: ${labels[value] || value}`);
   } else {
     showToast("Filter removed");

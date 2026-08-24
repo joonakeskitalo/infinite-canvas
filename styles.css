@@ -807,6 +807,10 @@ input[type="color"]::-webkit-color-swatch {
   white-space: nowrap;
 }
 
+.filter-select {
+  width: 105px;
+}
+
 .filter-select.filter-active {
   border-color: #007acc;
   background: #1a3a5c;
