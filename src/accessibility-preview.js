@@ -51,6 +51,7 @@ let interactionOrigRect = null; // copy of activeRect at drag start
 let panelOpen = false;
 let panelEl = null;
 let gridEl = null;
+let lastPanelWidth = null; // remembers user-resized width within session
 
 // Debounce timer for live updates during move/resize
 let updateTimer = null;
@@ -637,6 +638,7 @@ function setupPanelResizeHandle(handle, panel) {
     document.removeEventListener("mouseup", onMouseUp);
     document.body.style.cursor = "";
     document.body.style.userSelect = "";
+    lastPanelWidth = panel.offsetWidth;
   };
 
   handle.addEventListener("mousedown", (e) => {
@@ -663,6 +665,9 @@ export function openPanel() {
   const panel = document.createElement("div");
   panel.id = "accessibility-preview-panel";
   panel.className = "accessibility-preview-panel";
+  if (lastPanelWidth) {
+    panel.style.width = lastPanelWidth + "px";
+  }
 
   // Resize handle on the left edge
   const resizeHandle = document.createElement("div");
