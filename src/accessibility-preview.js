@@ -18,10 +18,14 @@ import { getShapeBounds } from "./elements.js";
 
 // --- Preview filters ---
 const PREVIEW_FILTERS = [
-  { key: "protanopia", label: "Protanopia" },
-  { key: "deuteranopia", label: "Deuteranopia" },
-  { key: "tritanopia", label: "Tritanopia" },
-  { key: "achromatopsia", label: "Achromatopsia" },
+  { key: "protanopia", label: "Protanopia (no red)" },
+  { key: "protanomaly", label: "Protanomaly (weak red)" },
+  { key: "deuteranopia", label: "Deuteranopia (no green)" },
+  { key: "deuteranomaly", label: "Deuteranomaly (weak green)" },
+  { key: "tritanopia", label: "Tritanopia (Blue-Yellow)" },
+  { key: "tritanomaly", label: "Tritanomaly (mild)" },
+  { key: "achromatopsia", label: "Achromatopsia (no color)" },
+  { key: "achromatomaly", label: "Achromatomaly (almost no color)" },
   { key: "grayscale", label: "Grayscale" },
   { key: "low-contrast", label: "Low Contrast" },
   { key: "high-contrast", label: "High Contrast" },
