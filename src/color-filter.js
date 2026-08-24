@@ -5,7 +5,6 @@
 
 export const FILTER_OPTIONS = [
   "none",
-  "grayscale",
   "protanomaly",
   "protanopia",
   "deuteranomaly",
@@ -21,15 +20,14 @@ export const FILTER_OPTIONS = [
 
 export const FILTER_LABELS = {
   none: "Original",
-  grayscale: "Grayscale",
-  protanopia: "Protanopia (Red-Green, no red)",
   protanomaly: "Protanomaly (Red-Green, weak red)",
-  deuteranopia: "Deuteranopia (Red-Green, no green)",
+  protanopia: "Protanopia (Red-Green, no red)",
   deuteranomaly: "Deuteranomaly (Red-Green, weak green)",
-  tritanopia: "Tritanopia (Blue-Yellow)",
+  deuteranopia: "Deuteranopia (Red-Green, no green)",
   tritanomaly: "Tritanomaly (Blue-Yellow, mild)",
-  achromatopsia: "Achromatopsia (Total color blindness)",
+  tritanopia: "Tritanopia (Blue-Yellow)",
   achromatomaly: "Achromatomaly (Almost no color)",
+  achromatopsia: "Achromatopsia (Grayscale / Total color blindness)",
   "low-contrast": "Low contrast",
   "high-contrast": "High contrast",
   "low-quality-display": "Low quality display",

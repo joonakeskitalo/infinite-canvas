@@ -47,12 +47,6 @@ export const COLOR_MATRICES = {
     0,     0.183, 0.817, 0, 0,
     0,     0,     0,     1, 0,
   ],
-  achromatopsia: [
-    0.299, 0.587, 0.114, 0, 0,
-    0.299, 0.587, 0.114, 0, 0,
-    0.299, 0.587, 0.114, 0, 0,
-    0,     0,     0,     1, 0,
-  ],
   achromatomaly: [
     0.618, 0.320, 0.062, 0, 0,
     0.163, 0.775, 0.062, 0, 0,
@@ -125,7 +119,7 @@ export const applyFilterToImageData = (imageData, filter) => {
   const d = imageData.data;
   const len = d.length;
 
-  if (filter === "grayscale") {
+  if (filter === "achromatopsia") {
     for (let i = 0; i < len; i += 4) {
       // Integer luma approximation: (r*77 + g*150 + b*29) >> 8
       // Avoids floating point and matches perceived luminance closely
@@ -198,7 +192,7 @@ export const generateWorkerSource = () => {
     const applyFilterToImageData = (data, filter) => {
       const len = data.length;
 
-      if (filter === "grayscale") {
+      if (filter === "achromatopsia") {
         for (let i = 0; i < len; i += 4) {
           const gray = (data[i] * 77 + data[i + 1] * 150 + data[i + 2] * 29 + 128) >> 8;
           data[i] = data[i + 1] = data[i + 2] = gray;
