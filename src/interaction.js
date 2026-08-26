@@ -1117,13 +1117,24 @@ export function initEventHandlers() {
     return true;
   }
 
+  // Helper: map style property name to pending state key
+  const pendingStyleKey = { bold: "pendingTextBold", italic: "pendingTextItalic", underline: "pendingTextUnderline", strikethrough: "pendingTextStrikethrough" };
+
+  // Helper: toggle pending text style when text tool is active but no text is being edited/selected
+  function togglePendingStyle(prop) {
+    const key = pendingStyleKey[prop];
+    if (key) {
+      state[key] = !state[key];
+    }
+  }
+
   fmtBoldBtn.addEventListener("mousedown", (e) => {
     e.preventDefault();
     e.stopPropagation();
     if (textEditor.style.display === "block") {
       document.execCommand("bold");
-    } else {
-      toggleStyleOnSelectedElements("bold");
+    } else if (!toggleStyleOnSelectedElements("bold")) {
+      togglePendingStyle("bold");
     }
     updateFormatBarState();
   });
@@ -1132,8 +1143,8 @@ export function initEventHandlers() {
     e.stopPropagation();
     if (textEditor.style.display === "block") {
       document.execCommand("italic");
-    } else {
-      toggleStyleOnSelectedElements("italic");
+    } else if (!toggleStyleOnSelectedElements("italic")) {
+      togglePendingStyle("italic");
     }
     updateFormatBarState();
   });
@@ -1142,8 +1153,8 @@ export function initEventHandlers() {
     e.stopPropagation();
     if (textEditor.style.display === "block") {
       document.execCommand("underline");
-    } else {
-      toggleStyleOnSelectedElements("underline");
+    } else if (!toggleStyleOnSelectedElements("underline")) {
+      togglePendingStyle("underline");
     }
     updateFormatBarState();
   });
@@ -1152,8 +1163,8 @@ export function initEventHandlers() {
     e.stopPropagation();
     if (textEditor.style.display === "block") {
       document.execCommand("strikeThrough");
-    } else {
-      toggleStyleOnSelectedElements("strikethrough");
+    } else if (!toggleStyleOnSelectedElements("strikethrough")) {
+      togglePendingStyle("strikethrough");
     }
     updateFormatBarState();
   });
@@ -1312,10 +1323,11 @@ export function initEventHandlers() {
         }
         fmtFontSizeInput.value = textEls[0].fontSize;
       } else {
-        fmtBoldBtn.classList.remove("active");
-        fmtItalicBtn.classList.remove("active");
-        fmtUnderlineBtn.classList.remove("active");
-        fmtStrikethroughBtn.classList.remove("active");
+        // No text elements selected: reflect pending styles for pre-set formatting
+        fmtBoldBtn.classList.toggle("active", state.pendingTextBold);
+        fmtItalicBtn.classList.toggle("active", state.pendingTextItalic);
+        fmtUnderlineBtn.classList.toggle("active", state.pendingTextUnderline);
+        fmtStrikethroughBtn.classList.toggle("active", state.pendingTextStrikethrough);
         fmtFontSizeInput.value = state.currentFontSize;
       }
     }
@@ -2832,10 +2844,10 @@ function setupKeyboardHandlers() {
     if (e.key.toLowerCase() === "g" && e.shiftKey) { e.preventDefault(); ungroupSelection(); return; }
     if (e.key.toLowerCase() === "l" && !e.shiftKey) { e.preventDefault(); toggleLockSelection(); return; }
 
-    // Text style shortcuts (Cmd/Ctrl+B, I, U) — apply to selected text elements
+    // Text style shortcuts (Cmd/Ctrl+B, I, U) — apply to selected text elements or toggle pending style
     if (e.key.toLowerCase() === "b" && !e.shiftKey) {
       const textEls = state.selectedElements.filter((el) => el.elementType === "text");
-      if (textEls.length > 0) {
+      if (textEls.length > 0 || state.currentTool === "text" || state.currentTool === "text-element") {
         e.preventDefault();
         document.getElementById("fmt-bold").dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
         return;
@@ -2843,7 +2855,7 @@ function setupKeyboardHandlers() {
     }
     if (e.key.toLowerCase() === "i" && !e.shiftKey) {
       const textEls = state.selectedElements.filter((el) => el.elementType === "text");
-      if (textEls.length > 0) {
+      if (textEls.length > 0 || state.currentTool === "text" || state.currentTool === "text-element") {
         e.preventDefault();
         document.getElementById("fmt-italic").dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
         return;
@@ -2851,7 +2863,7 @@ function setupKeyboardHandlers() {
     }
     if (e.key.toLowerCase() === "u" && !e.shiftKey) {
       const textEls = state.selectedElements.filter((el) => el.elementType === "text");
-      if (textEls.length > 0) {
+      if (textEls.length > 0 || state.currentTool === "text" || state.currentTool === "text-element") {
         e.preventDefault();
         document.getElementById("fmt-underline").dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
         return;
@@ -3410,7 +3422,15 @@ function setupMouseHandlers() {
       textEditor.style.lineHeight = "1.2";
       textEditor.style.background = "transparent";
       autoResizeTextEditor();
-      setTimeout(() => { textEditor.focus(); if (window._textFormatBar) { window._textFormatBar.show(); } }, 20);
+      setTimeout(() => {
+        textEditor.focus();
+        // Apply pending text styles so typed text inherits them
+        if (state.pendingTextBold) document.execCommand("bold");
+        if (state.pendingTextItalic) document.execCommand("italic");
+        if (state.pendingTextUnderline) document.execCommand("underline");
+        if (state.pendingTextStrikethrough) document.execCommand("strikeThrough");
+        if (window._textFormatBar) { window._textFormatBar.show(); }
+      }, 20);
       return;
     }
 
@@ -3436,7 +3456,15 @@ function setupMouseHandlers() {
       textEditor.style.border = "none";
       textEditor.style.outline = "1px dashed #c4b800";
       autoResizeTextEditor();
-      setTimeout(() => { textEditor.focus(); if (window._textFormatBar) { window._textFormatBar.show(); } }, 20);
+      setTimeout(() => {
+        textEditor.focus();
+        // Apply pending text styles so typed text inherits them
+        if (state.pendingTextBold) document.execCommand("bold");
+        if (state.pendingTextItalic) document.execCommand("italic");
+        if (state.pendingTextUnderline) document.execCommand("underline");
+        if (state.pendingTextStrikethrough) document.execCommand("strikeThrough");
+        if (window._textFormatBar) { window._textFormatBar.show(); }
+      }, 20);
       return;
     }
 

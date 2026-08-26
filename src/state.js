@@ -37,6 +37,12 @@ export const state = {
   currentLineDash: "solid", // "solid", "dashed", "dotted", "dash-dot"
   currentNoteBgColor: "#f5e642", // text-element (note) background color
 
+  // Pending text styles (applied to newly created text when tool is active)
+  pendingTextBold: false,
+  pendingTextItalic: false,
+  pendingTextUnderline: false,
+  pendingTextStrikethrough: false,
+
   // Interaction state
   isInteracting: false,
   startX: 0,
