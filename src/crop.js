@@ -7,6 +7,7 @@
 import { state, spatialUpdate } from "./state.js";
 import { showToast } from "./utils.js";
 import { pushUndo } from "./history.js";
+import { invalidateCropCache } from "./rendering.js";
 
 // Forward declarations
 let _render = null;
@@ -79,6 +80,7 @@ export function exitCropMode(apply) {
     }
 
     showToast(isCropped ? "Crop applied" : "Crop removed");
+    invalidateCropCache(el);
     spatialUpdate(el);
     if (_scheduleSave) _scheduleSave();
   }
@@ -202,6 +204,7 @@ export function pasteCropSettings() {
     el.w = crop.w * full.w;
     el.h = crop.h * full.h;
 
+    invalidateCropCache(el);
     spatialUpdate(el);
   }
 

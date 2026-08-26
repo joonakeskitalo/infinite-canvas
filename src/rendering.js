@@ -135,6 +135,54 @@ export function getFilteredImage(imgData) {
 }
 
 /**
+ * Get a cached pre-rendered canvas containing just the cropped sub-region of an image.
+ * This avoids the expensive 9-arg drawImage call on every frame during panning.
+ * The cache is keyed by the source image and validated against the current crop parameters.
+ */
+export function getCroppedImage(imgData, drawSrc) {
+  const c = imgData.crop;
+  const cached = state.cropImageCache.get(imgData);
+  if (cached && cached.cx === c.x && cached.cy === c.y && cached.cw === c.w && cached.ch === c.h && cached.src === drawSrc) {
+    return cached.canvas;
+  }
+
+  const natW = drawSrc.naturalWidth || drawSrc.width;
+  const natH = drawSrc.naturalHeight || drawSrc.height;
+  const sx = c.x * natW;
+  const sy = c.y * natH;
+  const sw = c.w * natW;
+  const sh = c.h * natH;
+
+  // Round to integer pixel dimensions for the cached canvas
+  const cw = Math.round(sw);
+  const ch = Math.round(sh);
+  if (cw < 1 || ch < 1) return null;
+
+  let offscreen, offCtx;
+  if (typeof OffscreenCanvas !== "undefined") {
+    offscreen = new OffscreenCanvas(cw, ch);
+    offCtx = offscreen.getContext("2d");
+  } else {
+    offscreen = document.createElement("canvas");
+    offscreen.width = cw;
+    offscreen.height = ch;
+    offCtx = offscreen.getContext("2d");
+  }
+
+  offCtx.drawImage(drawSrc, sx, sy, sw, sh, 0, 0, cw, ch);
+
+  state.cropImageCache.set(imgData, { canvas: offscreen, cx: c.x, cy: c.y, cw: c.w, ch: c.h, src: drawSrc });
+  return offscreen;
+}
+
+/**
+ * Invalidate the crop cache entry for a specific image element.
+ */
+export function invalidateCropCache(imgElement) {
+  state.cropImageCache.delete(imgElement);
+}
+
+/**
  * Draw a small lock icon at the top-left corner of an element to indicate it's locked.
  */
 function drawLockIcon(ctx, x, y, zoom) {
@@ -975,14 +1023,16 @@ function _doRender(targetCtx, isExporting) {
       }
 
       if (imgData.crop) {
-        const c = imgData.crop;
-        const natW = imgData.img.naturalWidth || imgData.img.width;
-        const natH = imgData.img.naturalHeight || imgData.img.height;
-        const sx = c.x * natW;
-        const sy = c.y * natH;
-        const sw = c.w * natW;
-        const sh = c.h * natH;
-        targetCtx.drawImage(drawSrc, sx, sy, sw, sh, imgData.x, imgData.y, imgData.w, imgData.h);
+        const cropped = getCroppedImage(imgData, drawSrc);
+        if (cropped) {
+          targetCtx.drawImage(cropped, imgData.x, imgData.y, imgData.w, imgData.h);
+        } else {
+          // Fallback if cache creation failed (e.g. tiny crop region)
+          const c = imgData.crop;
+          const natW = drawSrc.naturalWidth || drawSrc.width;
+          const natH = drawSrc.naturalHeight || drawSrc.height;
+          targetCtx.drawImage(drawSrc, c.x * natW, c.y * natH, c.w * natW, c.h * natH, imgData.x, imgData.y, imgData.w, imgData.h);
+        }
       } else {
         targetCtx.drawImage(drawSrc, imgData.x, imgData.y, imgData.w, imgData.h);
       }

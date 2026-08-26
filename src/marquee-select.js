@@ -17,7 +17,7 @@ import { state, CONSTANTS, spatialInsert, spatialRemove, spatialUpdate, invalida
 import { showToast } from "./utils.js";
 import { pushUndo } from "./history.js";
 import { scheduleSave } from "./persistence.js";
-import { render, drawShape, getFilteredImage } from "./rendering.js";
+import { render, drawShape, getFilteredImage, invalidateCropCache } from "./rendering.js";
 import { getShapeBounds, cloneElement, translateElement } from "./elements.js";
 import { serializeClipboardElements } from "./selection.js";
 import { getSnapTargets, snapToElements } from "./snap-guides.js";
@@ -904,6 +904,7 @@ function clearImageRect(imgEl, rect) {
   delete imgEl.fullBounds;
 
   imgEl.img = trimmedCanvas;
+  invalidateCropCache(imgEl);
   spatialUpdate(imgEl);
   render();
 
@@ -1189,6 +1190,7 @@ function moveImagePixels(imgEl, rect, dx, dy) {
     // Clear crop since we've baked everything into a new canvas
     if (imgEl.crop) delete imgEl.crop;
     if (imgEl.fullBounds) delete imgEl.fullBounds;
+    invalidateCropCache(imgEl);
     spatialUpdate(imgEl);
     render();
 

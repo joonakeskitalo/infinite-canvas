@@ -135,6 +135,9 @@ export const state = {
   filteredImageCache: new WeakMap(),
   filteredImageCacheFilter: "none",
 
+  // Crop image cache: pre-rendered cropped sub-images for faster panning
+  cropImageCache: new WeakMap(),
+
   // Rulers & Guides
   guides: [],
   guidesVisible: true,
