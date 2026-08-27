@@ -9,6 +9,7 @@
 import { state } from "./state.js";
 import { showToast } from "./utils.js";
 import { pushColorToHistory } from "./color-history.js";
+import { getCustomColors } from "./custom-colors.js";
 import { render } from "./rendering.js";
 
 const MAX_COLORS = 24;
@@ -129,22 +130,77 @@ function renderPanel(colors) {
   for (const color of colors) {
     const swatch = document.createElement("div");
     swatch.className = "marquee-color-swatch";
-    swatch.title = `${color.hex.toUpperCase()} (${color.percentage}%)\nClick to select, Shift+click to copy`;
+
+    // Look up custom color label (fuzzy match to account for color quantization)
+    const customColors = getCustomColors();
+    const cr = parseInt(color.hex.slice(1, 3), 16);
+    const cg = parseInt(color.hex.slice(3, 5), 16);
+    const cb = parseInt(color.hex.slice(5, 7), 16);
+    const MATCH_THRESHOLD = 24; // max channel distance to consider a match (quantization can shift by up to 16)
+    let colorLabel = null;
+    let bestDist = Infinity;
+    for (const cc of customColors) {
+      if (!cc.label || cc.label.toLowerCase() === cc.hex.toLowerCase()) continue;
+      const hr = parseInt(cc.hex.slice(1, 3), 16);
+      const hg = parseInt(cc.hex.slice(3, 5), 16);
+      const hb = parseInt(cc.hex.slice(5, 7), 16);
+      const dist = Math.abs(cr - hr) + Math.abs(cg - hg) + Math.abs(cb - hb);
+      if (dist < bestDist && dist <= MATCH_THRESHOLD) {
+        bestDist = dist;
+        colorLabel = cc.label;
+      }
+    }
+
+    swatch.title = `${color.hex.toUpperCase()}${colorLabel ? " — " + colorLabel : ""} (${color.percentage}%)`;
 
     const colorBlock = document.createElement("div");
     colorBlock.className = "marquee-color-block";
     colorBlock.style.background = color.hex;
+    colorBlock.title = "Click to select color";
+    colorBlock.addEventListener("click", (e) => {
+      e.stopPropagation();
+      pushColorToHistory(color.hex);
+      if (_onColorSelect) _onColorSelect(color.hex);
+      showToast(`Color: ${color.hex.toUpperCase()}`);
+    });
 
-    const label = document.createElement("span");
-    label.className = "marquee-color-label";
-    label.textContent = color.hex.toUpperCase();
+    const hexSpan = document.createElement("span");
+    hexSpan.className = "marquee-color-hex";
+    hexSpan.textContent = color.hex.toUpperCase();
+    hexSpan.title = "Click to copy hex";
+    hexSpan.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const upper = color.hex.toUpperCase();
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(upper).then(() => {
+          showToast(`Copied: ${upper}`);
+        }).catch(() => {});
+      }
+    });
 
     const pct = document.createElement("span");
     pct.className = "marquee-color-pct";
     pct.textContent = `${color.percentage}%`;
 
     swatch.appendChild(colorBlock);
-    swatch.appendChild(label);
+    swatch.appendChild(hexSpan);
+
+    if (colorLabel) {
+      const nameSpan = document.createElement("span");
+      nameSpan.className = "marquee-color-name";
+      nameSpan.textContent = colorLabel;
+      nameSpan.title = "Click to copy name";
+      nameSpan.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(colorLabel).then(() => {
+            showToast(`Copied: ${colorLabel}`);
+          }).catch(() => {});
+        }
+      });
+      swatch.appendChild(nameSpan);
+    }
+
     swatch.appendChild(pct);
 
     swatch.addEventListener("mouseenter", () => {
@@ -155,23 +211,6 @@ function renderPanel(colors) {
     swatch.addEventListener("mouseleave", () => {
       state.eyedropperHighlightColor = null;
       render();
-    });
-
-    swatch.addEventListener("click", (e) => {
-      if (e.shiftKey) {
-        // Copy hex to clipboard
-        const upper = color.hex.toUpperCase();
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(upper).then(() => {
-            showToast(`Copied: ${upper}`);
-          }).catch(() => {});
-        }
-      } else {
-        // Select color and push to history
-        pushColorToHistory(color.hex);
-        if (_onColorSelect) _onColorSelect(color.hex);
-        showToast(`Color: ${color.hex.toUpperCase()}`);
-      }
     });
 
     _swatchContainer.appendChild(swatch);

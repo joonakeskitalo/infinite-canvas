@@ -11,6 +11,7 @@ import { undo, redo } from "./history.js";
 import { groupSelection, ungroupSelection, toggleLockSelection, selectAllElements, duplicateSelection } from "./selection.js";
 import { saveFile, saveAs, openFile } from "./persistence.js";
 import { showToast } from "./utils.js";
+import { getCustomColors } from "./custom-colors.js";
 
 let _render = null;
 let paletteEl = null;
@@ -74,6 +75,7 @@ function getCommands() {
     { id: "edit-group", label: "Group", shortcut: "\u2318G", category: "Edit", action: () => { groupSelection(); render(); } },
     { id: "edit-ungroup", label: "Ungroup", shortcut: "\u21E7\u2318G", category: "Edit", action: () => { ungroupSelection(); render(); } },
     { id: "edit-lock", label: "Lock / Unlock Selection", shortcut: "\u2318L", category: "Edit", action: () => { toggleLockSelection(); render(); } },
+    { id: "edit-copy-color-labels", label: "Copy Color Labels (Hex, RGB & Name)", shortcut: "", category: "Edit", action: () => copyColorLabels() },
 
     // --- View ---
     { id: "view-center", label: "Center View", shortcut: "", category: "View", action: () => document.getElementById("center-canvas-btn")?.click() },
@@ -123,6 +125,37 @@ function switchTool(toolId) {
   updateToolbarUI();
   updateCursor();
   render();
+}
+
+function copyColorLabels() {
+  // Find all text elements with bgColor (color picker labels inserted via shift-click)
+  const colorLabels = state.drawings.filter((el) => el.type === "text" && el.bgColor);
+  if (colorLabels.length === 0) {
+    showToast("No color labels found on canvas");
+    return;
+  }
+  const customColors = getCustomColors();
+  const lines = colorLabels.map((el) => {
+    const hex = el.bgColor.toUpperCase();
+    // Parse hex to RGB
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    const rgb = `rgb(${r}, ${g}, ${b})`;
+    // Look up custom color label
+    const match = customColors.find((c) => c.hex.toLowerCase() === hex.toLowerCase());
+    const label = (match && match.label && match.label.toLowerCase() !== match.hex.toLowerCase())
+      ? match.label : null;
+    return label ? `${hex}  ${rgb}  ${label}` : `${hex}  ${rgb}`;
+  });
+  // Deduplicate
+  const unique = [...new Set(lines)];
+  const text = unique.join("\n");
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      showToast(`Copied ${unique.length} color label(s)`);
+    }).catch(() => {});
+  }
 }
 
 function clickAlignBtn(alignType) {
