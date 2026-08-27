@@ -19,7 +19,9 @@ const QUANTIZE_BITS = 0; // No quantization — rely on MIN_PIXEL_COUNT_RATIO to
 let _panel = null;
 let _swatchContainer = null;
 let _countLabel = null;
+let _copyBtn = null;
 let _onColorSelect = null;
+let _currentColors = []; // Store rendered colors for copy-all
 
 /**
  * Inject dependency for color selection callback.
@@ -35,11 +37,50 @@ export function initMarqueeColors() {
   _panel = document.getElementById("marquee-colors-panel");
   _swatchContainer = document.getElementById("marquee-colors-swatches");
   _countLabel = document.getElementById("marquee-colors-count");
+  _copyBtn = document.getElementById("marquee-colors-copy-btn");
 
   // Prevent mousedown on the panel from propagating to the canvas container
   if (_panel) {
     _panel.addEventListener("mousedown", (e) => {
       e.stopPropagation();
+    });
+  }
+
+  if (_copyBtn) {
+    _copyBtn.addEventListener("click", () => {
+      if (_currentColors.length === 0) {
+        showToast("No colors to copy");
+        return;
+      }
+      const customColors = getCustomColors();
+      const lines = _currentColors.map((color) => {
+        const hex = color.hex.toUpperCase();
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        const rgb = `rgb(${r}, ${g}, ${b})`;
+        // Fuzzy label match
+        let label = null;
+        let bestDist = Infinity;
+        for (const cc of customColors) {
+          if (!cc.label || cc.label.toLowerCase() === cc.hex.toLowerCase()) continue;
+          const hr = parseInt(cc.hex.slice(1, 3), 16);
+          const hg = parseInt(cc.hex.slice(3, 5), 16);
+          const hb = parseInt(cc.hex.slice(5, 7), 16);
+          const dist = Math.abs(r - hr) + Math.abs(g - hg) + Math.abs(b - hb);
+          if (dist < bestDist && dist <= 8) {
+            bestDist = dist;
+            label = cc.label;
+          }
+        }
+        return label ? `${hex}  ${rgb}  ${label}` : `${hex}  ${rgb}`;
+      });
+      const text = lines.join("\n");
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+          showToast(`Copied ${lines.length} color(s)`);
+        }).catch(() => {});
+      }
     });
   }
 }
@@ -150,6 +191,7 @@ export function analyzeMarqueeColors() {
 function renderPanel(colors) {
   if (!_panel || !_swatchContainer || !_countLabel) return;
 
+  _currentColors = colors;
   _swatchContainer.innerHTML = "";
   _countLabel.textContent = `${colors.length} color${colors.length !== 1 ? "s" : ""} found`;
 

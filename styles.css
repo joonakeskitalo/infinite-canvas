@@ -2467,6 +2467,24 @@ input[type="color"]::-webkit-color-swatch {
   border-top: 1px solid #333;
 }
 
+.marquee-colors-copy-btn {
+  font-size: 9px;
+  color: #888;
+  background: none;
+  border: 1px solid #555;
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.marquee-colors-copy-btn:hover {
+  color: #fff;
+  border-color: #888;
+  background: rgba(255, 255, 255, 0.1);
+}
+
 /* --- Accessibility Preview Panel --- */
 
 .accessibility-preview-panel {
