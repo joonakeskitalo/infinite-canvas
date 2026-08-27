@@ -14,7 +14,7 @@ import { render } from "./rendering.js";
 
 const MAX_COLORS = 24;
 const MIN_PIXEL_COUNT_RATIO = 0.003; // Minimum 0.3% of pixels to be considered a real color (filters out antialiasing artifacts)
-const QUANTIZE_BITS = 4; // Reduce color precision to group similar colors (shift right by this)
+const QUANTIZE_BITS = 0; // No quantization — rely on MIN_PIXEL_COUNT_RATIO to filter noise
 
 let _panel = null;
 let _swatchContainer = null;
@@ -101,8 +101,34 @@ export function analyzeMarqueeColors() {
   const minCount = totalPixels * MIN_PIXEL_COUNT_RATIO;
   const filtered = sorted.filter(([, count]) => count >= minCount);
 
+  // Merge very similar colors (within 8 per channel) into the most frequent representative
+  const MERGE_DIST = 8;
+  const merged = [];
+  const used = new Set();
+  const source = filtered.length > 0 ? filtered : sorted;
+  for (const [key, count] of source) {
+    if (used.has(key)) continue;
+    const r1 = (key >> 16) & 0xff;
+    const g1 = (key >> 8) & 0xff;
+    const b1 = key & 0xff;
+    let totalCount = count;
+    // Absorb nearby colors
+    for (const [key2, count2] of source) {
+      if (key2 === key || used.has(key2)) continue;
+      const r2 = (key2 >> 16) & 0xff;
+      const g2 = (key2 >> 8) & 0xff;
+      const b2 = key2 & 0xff;
+      if (Math.abs(r1 - r2) <= MERGE_DIST && Math.abs(g1 - g2) <= MERGE_DIST && Math.abs(b1 - b2) <= MERGE_DIST) {
+        totalCount += count2;
+        used.add(key2);
+      }
+    }
+    used.add(key);
+    merged.push([key, totalCount]);
+  }
+
   // Take top colors
-  const topColors = (filtered.length > 0 ? filtered : sorted).slice(0, MAX_COLORS);
+  const topColors = merged.slice(0, MAX_COLORS);
 
   // Convert to hex and calculate percentages
   const totalCounted = topColors.reduce((sum, [, count]) => sum + count, 0);
@@ -136,7 +162,7 @@ function renderPanel(colors) {
     const cr = parseInt(color.hex.slice(1, 3), 16);
     const cg = parseInt(color.hex.slice(3, 5), 16);
     const cb = parseInt(color.hex.slice(5, 7), 16);
-    const MATCH_THRESHOLD = 24; // max channel distance to consider a match (quantization can shift by up to 16)
+    const MATCH_THRESHOLD = 8; // max channel distance to consider a label match
     let colorLabel = null;
     let bestDist = Infinity;
     for (const cc of customColors) {
