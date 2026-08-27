@@ -2357,8 +2357,8 @@ input[type="color"]::-webkit-color-swatch {
   border: 1px solid #444;
   border-radius: 10px;
   padding: 14px 18px;
-  min-width: 260px;
-  max-width: 400px;
+  min-width: 320px;
+  max-width: 480px;
   max-height: 360px;
   z-index: 200;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
