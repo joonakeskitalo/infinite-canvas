@@ -1661,13 +1661,6 @@ function _doRender(targetCtx, isExporting) {
     const pos = state.splitLineWorldPos;
     const lineWidth = (state.currentLineWidth / 4) / transform.zoom;
 
-    // Draw a highlight border around the hovered image
-    targetCtx.strokeStyle = "rgba(255, 100, 0, 0.6)";
-    targetCtx.lineWidth = 1.5 / transform.zoom;
-    targetCtx.setLineDash([6 / transform.zoom, 4 / transform.zoom]);
-    targetCtx.strokeRect(img.x, img.y, img.w, img.h);
-    targetCtx.setLineDash([]);
-
     // Draw the split line preview (matches committed line: selected color, 1/4 line width, 50% opacity)
     targetCtx.globalAlpha = 0.5;
     targetCtx.strokeStyle = state.drawColor;
