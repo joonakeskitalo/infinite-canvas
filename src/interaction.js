@@ -3673,7 +3673,64 @@ function setupMouseHandlers() {
 
       if (clickedElement) {
         state.isRegionSelecting = false;
-        if (e.metaKey && !e.shiftKey && !e.ctrlKey) {
+        if (e.metaKey && e.shiftKey && !e.ctrlKey) {
+          // Cmd+Shift-click: add the clicked image + drawings on top of it to current selection
+          let targetImage = null;
+          if (clickedElement.elementType === "image") {
+            targetImage = clickedElement;
+          } else {
+            // If a drawing was clicked, find the image underneath it
+            const elBounds = getShapeBounds(clickedElement);
+            const centerX = elBounds.x + elBounds.w / 2;
+            const centerY = elBounds.y + elBounds.h / 2;
+            for (let i = state.images.length - 1; i >= 0; i--) {
+              const img = state.images[i];
+              if (img.locked) continue;
+              if (centerX >= img.x && centerX <= img.x + img.w &&
+                  centerY >= img.y && centerY <= img.y + img.h) {
+                targetImage = img;
+                break;
+              }
+            }
+          }
+          if (targetImage) {
+            const imgBounds = {
+              minX: targetImage.x, minY: targetImage.y,
+              maxX: targetImage.x + targetImage.w, maxY: targetImage.y + targetImage.h,
+            };
+            const candidates = spatialIndex.queryRect(imgBounds);
+            const toAdd = [];
+            // Add the image itself
+            if (!targetImage.locked) {
+              targetImage.elementType = "image";
+              toAdd.push(targetImage);
+            }
+            // Add drawings whose center is within the image bounds
+            for (const el of candidates) {
+              if (el.locked) continue;
+              if (el.elementType === "image") continue;
+              const elBounds = getShapeBounds(el);
+              const cx = elBounds.x + elBounds.w / 2;
+              const cy = elBounds.y + elBounds.h / 2;
+              if (cx >= targetImage.x && cx <= targetImage.x + targetImage.w &&
+                  cy >= targetImage.y && cy <= targetImage.y + targetImage.h) {
+                if (el.type !== "text") el.elementType = "drawing";
+                toAdd.push(el);
+              }
+            }
+            // Add to current selection (avoid duplicates)
+            for (const el of toAdd) {
+              if (!state.selectedElements.some((s) => s.id === el.id)) {
+                state.selectedElements.push(el);
+              }
+            }
+          } else {
+            // No image found — just toggle the clicked element as a regular modifier click
+            const idx = state.selectedElements.findIndex((el) => el.id === clickedElement.id);
+            if (idx !== -1) state.selectedElements.splice(idx, 1);
+            else state.selectedElements.push(clickedElement);
+          }
+        } else if (e.metaKey && !e.shiftKey && !e.ctrlKey) {
           // Cmd-click: select the clicked element plus all elements overlapping its bounds
           const clickedBounds = clickedElement.elementType === "image"
             ? { x: clickedElement.x, y: clickedElement.y, w: clickedElement.w, h: clickedElement.h }
