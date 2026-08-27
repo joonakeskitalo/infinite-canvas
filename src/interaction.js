@@ -2395,7 +2395,44 @@ function setupKeyboardHandlers() {
       }
       targetTool = "split-line";
     }
-    if (key === "w" && e.shiftKey) targetTool = "split-line";
+
+    // Shift+W: cycle line dash style (solid → dashed → dotted → dash-dot)
+    if (key === "w" && e.shiftKey) {
+      e.preventDefault();
+      if (state.currentTool === "split-line") {
+        // Cycle split-line dash pattern
+        const patterns = ["solid", "dashed", "dotted", "dash-dot"];
+        const idx = patterns.indexOf(state.splitLineDash);
+        state.splitLineDash = patterns[(idx + 1) % patterns.length];
+        const dashSelect = document.getElementById("split-line-dash-select");
+        if (dashSelect) dashSelect.value = state.splitLineDash;
+        const labels = { solid: "Solid", dashed: "Dashed", dotted: "Dotted", "dash-dot": "Dash-dot" };
+        showToast(`Split line: ${labels[state.splitLineDash]}`);
+        render();
+      } else {
+        // Cycle general line dash style
+        const dashOptions = ["solid", "dashed", "dotted", "dash-dot"];
+        const idx = dashOptions.indexOf(state.currentLineDash);
+        state.currentLineDash = dashOptions[(idx + 1) % dashOptions.length];
+        const lineDashSelect = document.getElementById("line-dash-select");
+        if (lineDashSelect) lineDashSelect.value = state.currentLineDash;
+        // Also apply to selected elements
+        if (state.selectedElements.length > 0) {
+          let changed = false;
+          state.selectedElements.forEach((el) => {
+            if (el.elementType === "drawing" && el.type !== "text") {
+              el.dash = state.currentLineDash;
+              changed = true;
+            }
+          });
+          if (changed) render();
+        }
+        const labels = { solid: "Solid line", dashed: "Dashed line", dotted: "Dotted line", "dash-dot": "Dash-dot line" };
+        showToast(labels[state.currentLineDash]);
+        updateToolbarUI();
+      }
+      return;
+    }
 
     // [ / ] keys: adjust split line length when split-line tool is active
     if ((key === "[" || key === "]") && state.currentTool === "split-line") {
