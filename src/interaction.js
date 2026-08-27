@@ -2464,6 +2464,15 @@ function setupKeyboardHandlers() {
       return;
     }
 
+    // F key: toggle full-width mode when split-line tool is active
+    if (key === "f" && state.currentTool === "split-line") {
+      e.preventDefault();
+      state.splitLineFullWidth = !state.splitLineFullWidth;
+      showToast(state.splitLineFullWidth ? "Full-width split line" : "Image-bound split line");
+      render();
+      return;
+    }
+
     // , key: toggle dashed/solid line for general drawing tools
     if (key === ",") {
       e.preventDefault();
@@ -3059,12 +3068,22 @@ function setupMouseHandlers() {
           break;
         }
       }
-      const changed = hoveredImage !== state.splitLineHoveredImage ||
-        (hoveredImage && (state.splitLineWorldPos === null ||
-          state.splitLineWorldPos.x !== mouseWorld.x || state.splitLineWorldPos.y !== mouseWorld.y));
-      state.splitLineHoveredImage = hoveredImage;
-      state.splitLineWorldPos = hoveredImage ? { x: mouseWorld.x, y: mouseWorld.y } : null;
-      if (changed) render();
+      if (state.splitLineFullWidth) {
+        // In full-width mode, always track cursor position regardless of image hover
+        const changed = state.splitLineWorldPos === null ||
+          state.splitLineWorldPos.x !== mouseWorld.x || state.splitLineWorldPos.y !== mouseWorld.y ||
+          hoveredImage !== state.splitLineHoveredImage;
+        state.splitLineHoveredImage = hoveredImage;
+        state.splitLineWorldPos = { x: mouseWorld.x, y: mouseWorld.y };
+        if (changed) render();
+      } else {
+        const changed = hoveredImage !== state.splitLineHoveredImage ||
+          (hoveredImage && (state.splitLineWorldPos === null ||
+            state.splitLineWorldPos.x !== mouseWorld.x || state.splitLineWorldPos.y !== mouseWorld.y));
+        state.splitLineHoveredImage = hoveredImage;
+        state.splitLineWorldPos = hoveredImage ? { x: mouseWorld.x, y: mouseWorld.y } : null;
+        if (changed) render();
+      }
     }
 
     // Accessibility preview cursor (move/resize handles)
@@ -3295,7 +3314,95 @@ function setupMouseHandlers() {
     }
 
     if (state.currentTool === "split-line") {
-      if (state.splitLineHoveredImage && state.splitLineWorldPos) {
+      if (state.splitLineFullWidth && state.splitLineWorldPos) {
+        // Full-width mode: create a line that extends far beyond the viewport
+        const pos = state.splitLineWorldPos;
+        const dashPattern = state.splitLineDash;
+        const EXTENT = 100000; // large value to simulate infinite line
+
+        pushUndo();
+
+        if (state.isCtrlPressed) {
+          // Both orientations
+          let lx = pos.x;
+          let ly = pos.y;
+          if (e.shiftKey && state.splitLineHoveredImage) {
+            const img = state.splitLineHoveredImage;
+            lx = snapSplitLinePos(lx, img.x, img.w);
+            ly = snapSplitLinePos(ly, img.y, img.h);
+          }
+          const vLine = {
+            id: "draw_" + state.elementIdCounter++,
+            elementType: "drawing",
+            type: "line",
+            isSplitLine: true,
+            isFullWidth: true,
+            color: state.drawColor,
+            width: state.currentLineWidth / 4,
+            opacity: 0.7,
+            dash: dashPattern,
+            start: { x: lx, y: -EXTENT },
+            end: { x: lx, y: EXTENT },
+          };
+          const hLine = {
+            id: "draw_" + state.elementIdCounter++,
+            elementType: "drawing",
+            type: "line",
+            isSplitLine: true,
+            isFullWidth: true,
+            color: state.drawColor,
+            width: state.currentLineWidth / 4,
+            opacity: 0.7,
+            dash: dashPattern,
+            start: { x: -EXTENT, y: ly },
+            end: { x: EXTENT, y: ly },
+          };
+          state.drawings.push(vLine);
+          spatialInsert(vLine);
+          state.drawings.push(hLine);
+          spatialInsert(hLine);
+        } else {
+          const effectiveOrientation = e.metaKey
+            ? (state.splitLineOrientation === "vertical" ? "horizontal" : "vertical")
+            : state.splitLineOrientation;
+          let lx = pos.x;
+          let ly = pos.y;
+          if (e.shiftKey && state.splitLineHoveredImage) {
+            const img = state.splitLineHoveredImage;
+            if (effectiveOrientation === "vertical") {
+              lx = snapSplitLinePos(lx, img.x, img.w);
+            } else {
+              ly = snapSplitLinePos(ly, img.y, img.h);
+            }
+          }
+          let start, end;
+          if (effectiveOrientation === "vertical") {
+            start = { x: lx, y: -EXTENT };
+            end = { x: lx, y: EXTENT };
+          } else {
+            start = { x: -EXTENT, y: ly };
+            end = { x: EXTENT, y: ly };
+          }
+          const lineEl = {
+            id: "draw_" + state.elementIdCounter++,
+            elementType: "drawing",
+            type: "line",
+            isSplitLine: true,
+            isFullWidth: true,
+            color: state.drawColor,
+            width: state.currentLineWidth / 4,
+            opacity: 0.7,
+            dash: dashPattern,
+            start,
+            end,
+          };
+          state.drawings.push(lineEl);
+          spatialInsert(lineEl);
+        }
+
+        scheduleSave();
+        render();
+      } else if (state.splitLineHoveredImage && state.splitLineWorldPos) {
         const img = state.splitLineHoveredImage;
         const pos = state.splitLineWorldPos;
         const lengthPct = state.splitLineLength / 100; // 0.1..2.0

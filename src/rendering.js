@@ -1652,23 +1652,20 @@ function _doRender(targetCtx, isExporting) {
   }
 
   // 5. Draw split-line tool overlay
-  if (!isExporting && state.currentTool === "split-line" && state.splitLineHoveredImage && state.splitLineWorldPos) {
+  if (!isExporting && state.currentTool === "split-line" && state.splitLineWorldPos &&
+      (state.splitLineHoveredImage || state.splitLineFullWidth)) {
     targetCtx.save();
     targetCtx.translate(transform.x, transform.y);
     targetCtx.scale(transform.zoom, transform.zoom);
 
-    const img = state.splitLineHoveredImage;
     const pos = state.splitLineWorldPos;
     const lineWidth = (state.currentLineWidth / 4) / transform.zoom;
 
-    // Draw the split line preview (matches committed line: selected color, 1/4 line width, 50% opacity)
+    // Apply dash pattern to preview
+    const dashScale = 1 / transform.zoom;
     targetCtx.globalAlpha = 0.5;
     targetCtx.strokeStyle = state.drawColor;
     targetCtx.lineWidth = lineWidth;
-    const lengthPct = state.splitLineLength / 100;
-
-    // Apply dash pattern to preview
-    const dashScale = 1 / transform.zoom;
     if (state.splitLineDash === "dashed") {
       targetCtx.setLineDash([8 * dashScale, 4 * dashScale]);
     } else if (state.splitLineDash === "dotted") {
@@ -1679,115 +1676,166 @@ function _doRender(targetCtx, isExporting) {
       targetCtx.setLineDash([]);
     }
 
-    if (state.isCtrlPressed) {
-      // Draw both vertical and horizontal lines when ctrl is held
-      let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
-      let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
-      if (state.isShiftPressed) {
-        lx = snapSplitLinePreviewPos(lx, img.x, img.w);
-        ly = snapSplitLinePreviewPos(ly, img.y, img.h);
-      }
-      // Vertical line
-      const vSpan = img.h * lengthPct;
-      let vSY, vEY;
-      if (lengthPct > 1) {
-        const ext = (vSpan - img.h) / 2;
-        vSY = img.y - ext; vEY = img.y + img.h + ext;
-      } else {
-        vSY = ly - vSpan / 2; vEY = ly + vSpan / 2;
-        if (vSY < img.y) { vSY = img.y; vEY = img.y + vSpan; }
-        if (vEY > img.y + img.h) { vEY = img.y + img.h; vSY = img.y + img.h - vSpan; }
-      }
+    if (state.splitLineFullWidth) {
+      // Full-width mode: line extends across entire visible canvas
+      const canvas = document.getElementById("canvas");
+      const worldLeft = -transform.x / transform.zoom;
+      const worldTop = -transform.y / transform.zoom;
+      const worldRight = (canvas.width - transform.x) / transform.zoom;
+      const worldBottom = (canvas.height - transform.y) / transform.zoom;
+
       targetCtx.beginPath();
-      targetCtx.moveTo(lx, vSY);
-      targetCtx.lineTo(lx, vEY);
-      targetCtx.stroke();
-      // Horizontal line
-      const hSpan = img.w * lengthPct;
-      let hSX, hEX;
-      if (lengthPct > 1) {
-        const ext = (hSpan - img.w) / 2;
-        hSX = img.x - ext; hEX = img.x + img.w + ext;
-      } else {
-        hSX = lx - hSpan / 2; hEX = lx + hSpan / 2;
-        if (hSX < img.x) { hSX = img.x; hEX = img.x + hSpan; }
-        if (hEX > img.x + img.w) { hEX = img.x + img.w; hSX = img.x + img.w - hSpan; }
-      }
-      targetCtx.beginPath();
-      targetCtx.moveTo(hSX, ly);
-      targetCtx.lineTo(hEX, ly);
-      targetCtx.stroke();
-    } else if (state.isMetaPressed) {
-      // Draw line in the opposite orientation when meta is held
-      targetCtx.beginPath();
-      if (state.splitLineOrientation === "vertical") {
-        // Opposite: horizontal
-        let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
-        if (state.isShiftPressed) ly = snapSplitLinePreviewPos(ly, img.y, img.h);
-        const span = img.w * lengthPct;
-        let sX, eX;
-        if (lengthPct > 1) {
-          const ext = (span - img.w) / 2;
-          sX = img.x - ext; eX = img.x + img.w + ext;
-        } else {
-          sX = pos.x - span / 2; eX = pos.x + span / 2;
-          if (sX < img.x) { sX = img.x; eX = img.x + span; }
-          if (eX > img.x + img.w) { eX = img.x + img.w; sX = img.x + img.w - span; }
+      if (state.isCtrlPressed) {
+        // Both orientations
+        let lx = pos.x;
+        let ly = pos.y;
+        if (state.isShiftPressed && state.splitLineHoveredImage) {
+          const img = state.splitLineHoveredImage;
+          lx = snapSplitLinePreviewPos(lx, img.x, img.w);
+          ly = snapSplitLinePreviewPos(ly, img.y, img.h);
         }
-        targetCtx.moveTo(sX, ly);
-        targetCtx.lineTo(eX, ly);
+        targetCtx.moveTo(lx, worldTop);
+        targetCtx.lineTo(lx, worldBottom);
+        targetCtx.moveTo(worldLeft, ly);
+        targetCtx.lineTo(worldRight, ly);
       } else {
-        // Opposite: vertical
-        let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
-        if (state.isShiftPressed) lx = snapSplitLinePreviewPos(lx, img.x, img.w);
-        const span = img.h * lengthPct;
-        let sY, eY;
-        if (lengthPct > 1) {
-          const ext = (span - img.h) / 2;
-          sY = img.y - ext; eY = img.y + img.h + ext;
+        const effectiveOrientation = state.isMetaPressed
+          ? (state.splitLineOrientation === "vertical" ? "horizontal" : "vertical")
+          : state.splitLineOrientation;
+        if (effectiveOrientation === "vertical") {
+          let lx = pos.x;
+          if (state.isShiftPressed && state.splitLineHoveredImage) {
+            const img = state.splitLineHoveredImage;
+            lx = snapSplitLinePreviewPos(lx, img.x, img.w);
+          }
+          targetCtx.moveTo(lx, worldTop);
+          targetCtx.lineTo(lx, worldBottom);
         } else {
-          sY = pos.y - span / 2; eY = pos.y + span / 2;
-          if (sY < img.y) { sY = img.y; eY = img.y + span; }
-          if (eY > img.y + img.h) { eY = img.y + img.h; sY = img.y + img.h - span; }
+          let ly = pos.y;
+          if (state.isShiftPressed && state.splitLineHoveredImage) {
+            const img = state.splitLineHoveredImage;
+            ly = snapSplitLinePreviewPos(ly, img.y, img.h);
+          }
+          targetCtx.moveTo(worldLeft, ly);
+          targetCtx.lineTo(worldRight, ly);
         }
-        targetCtx.moveTo(lx, sY);
-        targetCtx.lineTo(lx, eY);
       }
       targetCtx.stroke();
     } else {
-      targetCtx.beginPath();
-      if (state.splitLineOrientation === "vertical") {
+      // Normal mode: line constrained to hovered image
+      const img = state.splitLineHoveredImage;
+      const lengthPct = state.splitLineLength / 100;
+
+      if (state.isCtrlPressed) {
+        // Draw both vertical and horizontal lines when ctrl is held
         let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
-        if (state.isShiftPressed) lx = snapSplitLinePreviewPos(lx, img.x, img.w);
-        const span = img.h * lengthPct;
-        let sY, eY;
-        if (lengthPct > 1) {
-          const ext = (span - img.h) / 2;
-          sY = img.y - ext; eY = img.y + img.h + ext;
-        } else {
-          sY = pos.y - span / 2; eY = pos.y + span / 2;
-          if (sY < img.y) { sY = img.y; eY = img.y + span; }
-          if (eY > img.y + img.h) { eY = img.y + img.h; sY = img.y + img.h - span; }
-        }
-        targetCtx.moveTo(lx, sY);
-        targetCtx.lineTo(lx, eY);
-      } else {
         let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
-        if (state.isShiftPressed) ly = snapSplitLinePreviewPos(ly, img.y, img.h);
-        const span = img.w * lengthPct;
-        let sX, eX;
-        if (lengthPct > 1) {
-          const ext = (span - img.w) / 2;
-          sX = img.x - ext; eX = img.x + img.w + ext;
-        } else {
-          sX = pos.x - span / 2; eX = pos.x + span / 2;
-          if (sX < img.x) { sX = img.x; eX = img.x + span; }
-          if (eX > img.x + img.w) { eX = img.x + img.w; sX = img.x + img.w - span; }
+        if (state.isShiftPressed) {
+          lx = snapSplitLinePreviewPos(lx, img.x, img.w);
+          ly = snapSplitLinePreviewPos(ly, img.y, img.h);
         }
-        targetCtx.moveTo(sX, ly);
-        targetCtx.lineTo(eX, ly);
+        // Vertical line
+        const vSpan = img.h * lengthPct;
+        let vSY, vEY;
+        if (lengthPct > 1) {
+          const ext = (vSpan - img.h) / 2;
+          vSY = img.y - ext; vEY = img.y + img.h + ext;
+        } else {
+          vSY = ly - vSpan / 2; vEY = ly + vSpan / 2;
+          if (vSY < img.y) { vSY = img.y; vEY = img.y + vSpan; }
+          if (vEY > img.y + img.h) { vEY = img.y + img.h; vSY = img.y + img.h - vSpan; }
+        }
+        targetCtx.beginPath();
+        targetCtx.moveTo(lx, vSY);
+        targetCtx.lineTo(lx, vEY);
+        targetCtx.stroke();
+        // Horizontal line
+        const hSpan = img.w * lengthPct;
+        let hSX, hEX;
+        if (lengthPct > 1) {
+          const ext = (hSpan - img.w) / 2;
+          hSX = img.x - ext; hEX = img.x + img.w + ext;
+        } else {
+          hSX = lx - hSpan / 2; hEX = lx + hSpan / 2;
+          if (hSX < img.x) { hSX = img.x; hEX = img.x + hSpan; }
+          if (hEX > img.x + img.w) { hEX = img.x + img.w; hSX = img.x + img.w - hSpan; }
+        }
+        targetCtx.beginPath();
+        targetCtx.moveTo(hSX, ly);
+        targetCtx.lineTo(hEX, ly);
+        targetCtx.stroke();
+      } else if (state.isMetaPressed) {
+        // Draw line in the opposite orientation when meta is held
+        targetCtx.beginPath();
+        if (state.splitLineOrientation === "vertical") {
+          // Opposite: horizontal
+          let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
+          if (state.isShiftPressed) ly = snapSplitLinePreviewPos(ly, img.y, img.h);
+          const span = img.w * lengthPct;
+          let sX, eX;
+          if (lengthPct > 1) {
+            const ext = (span - img.w) / 2;
+            sX = img.x - ext; eX = img.x + img.w + ext;
+          } else {
+            sX = pos.x - span / 2; eX = pos.x + span / 2;
+            if (sX < img.x) { sX = img.x; eX = img.x + span; }
+            if (eX > img.x + img.w) { eX = img.x + img.w; sX = img.x + img.w - span; }
+          }
+          targetCtx.moveTo(sX, ly);
+          targetCtx.lineTo(eX, ly);
+        } else {
+          // Opposite: vertical
+          let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
+          if (state.isShiftPressed) lx = snapSplitLinePreviewPos(lx, img.x, img.w);
+          const span = img.h * lengthPct;
+          let sY, eY;
+          if (lengthPct > 1) {
+            const ext = (span - img.h) / 2;
+            sY = img.y - ext; eY = img.y + img.h + ext;
+          } else {
+            sY = pos.y - span / 2; eY = pos.y + span / 2;
+            if (sY < img.y) { sY = img.y; eY = img.y + span; }
+            if (eY > img.y + img.h) { eY = img.y + img.h; sY = img.y + img.h - span; }
+          }
+          targetCtx.moveTo(lx, sY);
+          targetCtx.lineTo(lx, eY);
+        }
+        targetCtx.stroke();
+      } else {
+        targetCtx.beginPath();
+        if (state.splitLineOrientation === "vertical") {
+          let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
+          if (state.isShiftPressed) lx = snapSplitLinePreviewPos(lx, img.x, img.w);
+          const span = img.h * lengthPct;
+          let sY, eY;
+          if (lengthPct > 1) {
+            const ext = (span - img.h) / 2;
+            sY = img.y - ext; eY = img.y + img.h + ext;
+          } else {
+            sY = pos.y - span / 2; eY = pos.y + span / 2;
+            if (sY < img.y) { sY = img.y; eY = img.y + span; }
+            if (eY > img.y + img.h) { eY = img.y + img.h; sY = img.y + img.h - span; }
+          }
+          targetCtx.moveTo(lx, sY);
+          targetCtx.lineTo(lx, eY);
+        } else {
+          let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
+          if (state.isShiftPressed) ly = snapSplitLinePreviewPos(ly, img.y, img.h);
+          const span = img.w * lengthPct;
+          let sX, eX;
+          if (lengthPct > 1) {
+            const ext = (span - img.w) / 2;
+            sX = img.x - ext; eX = img.x + img.w + ext;
+          } else {
+            sX = pos.x - span / 2; eX = pos.x + span / 2;
+            if (sX < img.x) { sX = img.x; eX = img.x + span; }
+            if (eX > img.x + img.w) { eX = img.x + img.w; sX = img.x + img.w - span; }
+          }
+          targetCtx.moveTo(sX, ly);
+          targetCtx.lineTo(eX, ly);
+        }
+        targetCtx.stroke();
       }
-      targetCtx.stroke();
     }
 
     targetCtx.setLineDash([]);

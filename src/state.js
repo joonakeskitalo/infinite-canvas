@@ -125,6 +125,7 @@ export const state = {
   splitLineOrientation: "vertical", // "vertical" or "horizontal"
   splitLineLength: 100, // percentage of image dimension (10-200), 100 = full span, >100 extends beyond image
   splitLineDash: "solid", // dash pattern: "solid", "dashed", "dotted", "dash-dot"
+  splitLineFullWidth: false, // when true, line extends across full canvas (like a ruler guide)
   splitLineHoveredImage: null,
   splitLineWorldPos: null,
 
