@@ -6,6 +6,7 @@
  */
 
 import { showToast } from "./utils.js";
+import { getCustomColors } from "./custom-colors.js";
 
 const STORAGE_KEY = "jiiris-color-history";
 const MAX_HISTORY = 10;
@@ -100,10 +101,42 @@ export function initColorHistory() {
   }
 
   if (_toolbarClearBtn) {
-    _toolbarClearBtn.addEventListener("click", () => {
-      colorHistory = [];
-      saveToStorage();
-      renderColorHistory();
+    _toolbarClearBtn.addEventListener("click", (e) => {
+      if (e.shiftKey) {
+        // Shift-click: copy recent colors (hex + name if available) to clipboard
+        if (colorHistory.length === 0) {
+          showToast("No recent colors to copy");
+          return;
+        }
+        const customColors = getCustomColors();
+        const lines = colorHistory.map((hex) => {
+          const upper = hex.toUpperCase();
+          const match = customColors.find((c) => c.hex.toLowerCase() === hex.toLowerCase());
+          if (match && match.label && match.label.toLowerCase() !== match.hex.toLowerCase()) {
+            return `${upper} — ${match.label}`;
+          }
+          return upper;
+        });
+        const text = lines.join("\n");
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(() => {
+            showToast(`Copied ${colorHistory.length} color(s)`);
+          }).catch(() => {});
+        }
+      } else {
+        // Regular click: clear history
+        colorHistory = [];
+        saveToStorage();
+        renderColorHistory();
+      }
+    });
+
+    // Toggle shift-held class for label swap
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Shift") _toolbarClearBtn.classList.add("shift-held");
+    });
+    document.addEventListener("keyup", (e) => {
+      if (e.key === "Shift") _toolbarClearBtn.classList.remove("shift-held");
     });
   }
 
