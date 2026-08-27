@@ -399,6 +399,29 @@ input[type="color"]::-webkit-color-swatch {
   color: #888;
   margin-right: 2px;
   white-space: nowrap;
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  border-radius: 3px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.color-history-toolbar-label .label-hover {
+  display: none;
+}
+
+.color-history-toolbar-label:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.color-history-toolbar-label:hover .label-default {
+  display: none;
+}
+
+.color-history-toolbar-label:hover .label-hover {
+  display: inline;
 }
 
 .color-history-toolbar-list {

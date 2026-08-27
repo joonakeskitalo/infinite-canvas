@@ -77,6 +77,7 @@ let _container = null;
 let _section = null;
 let _clearBtn = null;
 let _toolbarContainer = null;
+let _toolbarClearBtn = null;
 
 /**
  * Initialize the color history UI. Call once after DOM is ready.
@@ -87,10 +88,19 @@ export function initColorHistory() {
   _section = document.getElementById("color-history-section");
   _clearBtn = document.getElementById("color-history-clear-btn");
   _toolbarContainer = document.getElementById("color-history-toolbar-list");
+  _toolbarClearBtn = document.getElementById("color-history-toolbar-clear-btn");
   if (!_container) return;
 
   if (_clearBtn) {
     _clearBtn.addEventListener("click", () => {
+      colorHistory = [];
+      saveToStorage();
+      renderColorHistory();
+    });
+  }
+
+  if (_toolbarClearBtn) {
+    _toolbarClearBtn.addEventListener("click", () => {
       colorHistory = [];
       saveToStorage();
       renderColorHistory();
