@@ -3476,24 +3476,21 @@ function setupMouseHandlers() {
         pushUndo();
 
         if (state.isCtrlPressed) {
-          // Create both vertical and horizontal lines when ctrl is held
+          // Create four separate lines radiating from the click point when ctrl
+          // is held (up, down, left, right). Splitting each axis at the click
+          // point lets the arms be erased independently.
           let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
           let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
           if (e.shiftKey) {
             lx = snapSplitLinePos(lx, img.x, img.w);
             ly = snapSplitLinePos(ly, img.y, img.h);
           }
-          // Vertical line: spans along Y axis
-          const cursorY = Math.max(img.y, Math.min(pos.y, img.y + img.h));
-          const vExt = getSplitLineExtent(img.y, img.h, cursorY);
-          const vStartY = vExt.start, vEndY = vExt.end;
+          // Vertical extent (along Y axis), split at the click point ly
+          const vExt = getSplitLineExtent(img.y, img.h, ly);
+          // Horizontal extent (along X axis), split at the click point lx
+          const hExt = getSplitLineExtent(img.x, img.w, lx);
 
-          // Horizontal line: spans along X axis
-          const cursorX = Math.max(img.x, Math.min(pos.x, img.x + img.w));
-          const hExt = getSplitLineExtent(img.x, img.w, cursorX);
-          const hStartX = hExt.start, hEndX = hExt.end;
-
-          const vLine = {
+          const makeSplitLine = (start, end) => ({
             id: "draw_" + state.elementIdCounter++,
             elementType: "drawing",
             type: "line",
@@ -3502,25 +3499,23 @@ function setupMouseHandlers() {
             width: state.currentLineWidth / 4,
             opacity: 0.7,
             dash: dashPattern,
-            start: { x: lx, y: vStartY },
-            end: { x: lx, y: vEndY },
-          };
-          const hLine = {
-            id: "draw_" + state.elementIdCounter++,
-            elementType: "drawing",
-            type: "line",
-            isSplitLine: true,
-            color: state.drawColor,
-            width: state.currentLineWidth / 4,
-            opacity: 0.7,
-            dash: dashPattern,
-            start: { x: hStartX, y: ly },
-            end: { x: hEndX, y: ly },
-          };
-          state.drawings.push(vLine);
-          spatialInsert(vLine);
-          state.drawings.push(hLine);
-          spatialInsert(hLine);
+            start,
+            end,
+          });
+
+          const armSpecs = [
+            [{ x: lx, y: vExt.start }, { x: lx, y: ly }], // up
+            [{ x: lx, y: ly }, { x: lx, y: vExt.end }],   // down
+            [{ x: hExt.start, y: ly }, { x: lx, y: ly }], // left
+            [{ x: lx, y: ly }, { x: hExt.end, y: ly }],   // right
+          ];
+          for (const [start, end] of armSpecs) {
+            // Skip degenerate zero-length arms (click landing on a clamped edge)
+            if (start.x === end.x && start.y === end.y) continue;
+            const arm = makeSplitLine(start, end);
+            state.drawings.push(arm);
+            spatialInsert(arm);
+          }
         } else {
           // Create a single line based on effective orientation
           const effectiveOrientation = e.metaKey
