@@ -1674,6 +1674,36 @@ function _doRender(targetCtx, isExporting) {
     targetCtx.beginPath();
     targetCtx.rect(r.x, r.y, r.w, r.h);
     targetCtx.stroke();
+
+    // Crosshair guide lines through the current cursor point, spanning the whole
+    // visible canvas, shown for the duration of the drag to aid alignment.
+    if (state.splitLineWorldPos) {
+      const canvas = document.getElementById("canvas");
+      const worldLeft = -transform.x / transform.zoom;
+      const worldTop = -transform.y / transform.zoom;
+      const worldRight = (canvas.width - transform.x) / transform.zoom;
+      const worldBottom = (canvas.height - transform.y) / transform.zoom;
+      const gx = state.splitLineWorldPos.x;
+      const gy = state.splitLineWorldPos.y;
+      const boxTop = r.y, boxBottom = r.y + r.h;
+      const boxLeft = r.x, boxRight = r.x + r.w;
+      targetCtx.globalAlpha = 0.35;
+      targetCtx.lineWidth = 1 / transform.zoom;
+      targetCtx.setLineDash([4 * dashScale, 4 * dashScale]);
+      targetCtx.beginPath();
+      // Vertical guide: skip the segment that runs through the box.
+      targetCtx.moveTo(gx, worldTop);
+      targetCtx.lineTo(gx, boxTop);
+      targetCtx.moveTo(gx, boxBottom);
+      targetCtx.lineTo(gx, worldBottom);
+      // Horizontal guide: skip the segment that runs through the box.
+      targetCtx.moveTo(worldLeft, gy);
+      targetCtx.lineTo(boxLeft, gy);
+      targetCtx.moveTo(boxRight, gy);
+      targetCtx.lineTo(worldRight, gy);
+      targetCtx.stroke();
+    }
+
     targetCtx.setLineDash([]);
     targetCtx.restore();
   } else if (!isExporting && state.currentTool === "split-line" && state.splitLineWorldPos &&
