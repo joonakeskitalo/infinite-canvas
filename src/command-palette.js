@@ -58,7 +58,11 @@ function getCommands() {
     { id: "export-png-clipboard", label: "Export PNG to Clipboard", shortcut: "\u2318E", category: "Export", action: () => executePNGExport(1.0) },
     { id: "export-png-clipboard-half", label: "Export PNG to Clipboard (50%)", shortcut: "\u2325\u2318E", category: "Export", action: () => executePNGExport(0.5) },
     { id: "export-png-download", label: "Download PNG", shortcut: "\u21E7\u2318E", category: "Export", action: () => executePNGExport(1.0, { download: true }) },
+    { id: "export-png-download-half", label: "Download PNG (50%)", shortcut: "", category: "Export", action: () => executePNGExport(0.5, { download: true }) },
+    { id: "export-png-download-quarter", label: "Download PNG (25%)", shortcut: "", category: "Export", action: () => executePNGExport(0.25, { download: true }) },
     { id: "export-jpeg-download", label: "Download JPEG", shortcut: "\u21E7\u2318J", category: "Export", action: () => executeJPEGExport(1.0, { download: true }) },
+    { id: "export-jpeg-download-half", label: "Download JPEG (50%)", shortcut: "", category: "Export", action: () => executeJPEGExport(0.5, { download: true }) },
+    { id: "export-jpeg-download-quarter", label: "Download JPEG (25%)", shortcut: "", category: "Export", action: () => executeJPEGExport(0.25, { download: true }) },
     { id: "export-assets-zip", label: "Download Assets as ZIP", shortcut: "", category: "Export", action: () => document.getElementById("download-images-btn")?.click() },
     { id: "import-images", label: "Import Images", shortcut: "", category: "Export", action: () => document.getElementById("import-images-btn")?.click() },
 
