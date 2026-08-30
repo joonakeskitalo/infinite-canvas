@@ -2529,6 +2529,16 @@ function setupKeyboardHandlers() {
       return;
     }
 
+    // . key: toggle split line length unit (percentage <-> pixels)
+    if (key === "." && state.currentTool === "split-line") {
+      e.preventDefault();
+      state.splitLineLengthMode = state.splitLineLengthMode === "pixel" ? "percent" : "pixel";
+      syncSplitLineLengthControl();
+      showToast(state.splitLineLengthMode === "pixel" ? "Length in pixels" : "Length in percent");
+      render();
+      return;
+    }
+
     // F key: toggle full-width mode when split-line tool is active
     if (key === "f" && state.currentTool === "split-line") {
       e.preventDefault();
