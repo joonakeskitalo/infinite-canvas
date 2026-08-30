@@ -18,7 +18,7 @@ import { showToast } from "./utils.js";
 import { pushUndo } from "./history.js";
 import { scheduleSave } from "./persistence.js";
 import { render, drawShape, getFilteredImage, invalidateCropCache } from "./rendering.js";
-import { getShapeBounds, cloneElement, translateElement } from "./elements.js";
+import { getShapeBounds, cloneElement, translateElement, getElementAtWorldPos } from "./elements.js";
 import { serializeClipboardElements } from "./selection.js";
 import { getSnapTargets, snapToElements } from "./snap-guides.js";
 import { hasLaserVisuals, renderLaserTrailsForExport } from "./laser-pointer.js";
@@ -303,6 +303,56 @@ export function marqueeStartSelection(worldPos) {
   state.marqueeCut = false;
   state.marqueeElements = [];
   state.marqueeIsElementMode = false;
+}
+
+/**
+ * Select the image under the given world position with the marquee, sizing the
+ * selection rectangle to that image's bounds. Used for Cmd/Ctrl-click in the
+ * marquee tool. Returns true if an image was selected, false otherwise.
+ */
+export function marqueeSelectImageAt(worldPos) {
+  // Find the top-most image at the click point (ignore vector elements).
+  let img = getElementAtWorldPos(worldPos);
+  if (!img || img.elementType !== "image") {
+    // getElementAtWorldPos may return a vector on top; fall back to the
+    // highest image whose bounds contain the point.
+    img = null;
+    for (let i = state.elementOrder.length - 1; i >= 0; i--) {
+      const id = state.elementOrder[i];
+      const candidate = state.images.find(im => im.id === id);
+      if (!candidate) continue;
+      if (worldPos.x >= candidate.x && worldPos.x <= candidate.x + candidate.w &&
+          worldPos.y >= candidate.y && worldPos.y <= candidate.y + candidate.h) {
+        img = candidate;
+        break;
+      }
+    }
+  }
+  if (!img) return false;
+
+  // Commit any existing marquee selection before starting a fresh one.
+  if (state.marqueeMode) marqueeCommit();
+
+  // Reset marquee state and size the rectangle to the image bounds.
+  state.marqueeIsSelecting = false;
+  state.marqueeStart = null;
+  state.marqueeTarget = null;
+  state.marqueeRect = { x: img.x, y: img.y, w: img.w, h: img.h };
+  state.marqueeOffset = { x: 0, y: 0 };
+  state.marqueePixelCanvas = null;
+  state.marqueeIsDragging = false;
+  state.marqueeDragStart = null;
+  state.marqueeDragMovesContent = false;
+  state.marqueeCut = false;
+
+  state.marqueeElements = [img];
+  state.marqueeIsElementMode = true;
+  state.marqueeMode = true;
+
+  rasterizeMarqueeSelection();
+  startMarchingAnts();
+  render();
+  return true;
 }
 
 /**

@@ -48,7 +48,7 @@ import { showContrastResult, showContrastWaiting, hideContrastPanel, contrastRat
 import {
   marqueeStartSelection, marqueeUpdateSelection, marqueeEndSelection,
   marqueeCut, marqueeCopy, marqueeDuplicate, marqueeCommit, exitMarqueeMode,
-  marqueeExportPNG,
+  marqueeExportPNG, marqueeSelectImageAt,
 } from "./marquee-select.js";
 import {
   addLaserDot, startLaserStroke, extendLaserStroke, finishLaserStroke, clearLaserTrails, commitLaserTrails,
@@ -3290,6 +3290,11 @@ function setupMouseHandlers() {
     }
 
     if (state.currentTool === "marquee") {
+      // Cmd/Ctrl-click selects the image under the cursor, sizing the marquee to
+      // the image's bounds. Falls back to a normal marquee drag if no image is hit.
+      if (e.metaKey || e.ctrlKey) {
+        if (marqueeSelectImageAt(worldPos)) return;
+      }
       marqueeStartSelection(worldPos);
       return;
     }
