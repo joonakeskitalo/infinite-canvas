@@ -557,6 +557,9 @@ export function initEventHandlers() {
           }
         });
         if (changed) render();
+      } else if (state.currentTool === "split-line") {
+        // Refresh the live split-line preview, which uses currentLineWidth
+        render();
       }
     });
   });
@@ -2936,6 +2939,9 @@ function setupKeyboardHandlers() {
             el.width = newWidth;
           }
         });
+        render();
+      } else if (state.currentTool === "split-line") {
+        // Refresh the live split-line preview, which uses currentLineWidth
         render();
       }
       showToast(`Stroke width: ${newWidth}px`);
