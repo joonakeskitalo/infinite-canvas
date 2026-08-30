@@ -214,10 +214,9 @@ function refreshRestoreOptions() {
   _restoreList.innerHTML = "";
   savedStamps.forEach((s) => {
     const opt = document.createElement("option");
-    // The input's value must match option.value to resolve to a stamp, so the
-    // value is the plain name; the element count is shown as the option label.
+    // Only set the value (the stamp name). Setting a differing label makes
+    // browsers render a secondary line, which we don't want.
     opt.value = s.name;
-    opt.label = `${s.name} (${s.clipboard.length})`;
     _restoreList.appendChild(opt);
   });
 }
