@@ -274,17 +274,30 @@ let _saveBtn = null;
 let _restoreInput = null;
 let _restoreList = null;
 let _deleteBtn = null;
+let _modeOptions = null; // NodeList of segmented toggle buttons
+
+/**
+ * Reflect the current stamp mode ("copy" / "paste") on the segmented toggle by
+ * highlighting the active option.
+ */
+export function updateStampModeButton() {
+  if (!_modeOptions) return;
+  _modeOptions.forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.mode === state.stampMode);
+  });
+}
 
 /**
  * Refresh the status label with the current live clipboard size. Called on tool
  * switch and after copy/restore so the panel reflects the current stamp.
  */
 export function updateStampPanel() {
+  updateStampModeButton();
   if (!_statusLabel) return;
   const count = state.stampClipboard ? state.stampClipboard.length : 0;
   _statusLabel.textContent = count > 0
     ? `${count} element${count > 1 ? "s" : ""} ready`
-    : "Empty — Shift+Click an image";
+    : "Empty — copy a stamp first";
 }
 
 function refreshRestoreOptions() {
@@ -392,9 +405,22 @@ export function initSavedStamps() {
   _restoreInput = document.getElementById("stamp-restore-input");
   _restoreList = document.getElementById("stamp-restore-list");
   _deleteBtn = document.getElementById("stamp-delete-btn");
+  _modeOptions = document.querySelectorAll("#stamp-mode-toggle .stamp-mode-option");
 
   if (_saveBtn) {
     _saveBtn.addEventListener("click", openSaveDialog);
+  }
+
+  if (_modeOptions && _modeOptions.length) {
+    _modeOptions.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        state.stampMode = btn.dataset.mode === "copy" ? "copy" : "paste";
+        state.stampPreview = null;
+        updateStampModeButton();
+        btn.blur();
+        if (_onRestore) _onRestore();
+      });
+    });
   }
 
   if (_restoreInput) {

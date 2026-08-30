@@ -200,6 +200,7 @@ export const state = {
   // Stamp clipboard (Shift+W / W): copy non-image elements overlapping a hovered image
   stampClipboard: [],           // cloned non-image elements; positions are absolute pixel offsets from the source image's displayed (visible) top-left corner
   stampSourceBounds: null,      // {x, y, w, h} displayed bounds of the source image at copy time (kept for reference/preview guard)
+  stampMode: "paste",           // active stamp mode: "copy" or "paste"; holding Shift temporarily inverts it
 
   // Stamp marquee (drag to select area and stamp all images within it)
   stampMarqueeActive: false,    // true while drawing the stamp marquee rectangle

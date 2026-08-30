@@ -362,7 +362,7 @@
         class="tool-btn"
         id="tool-stamp"
         data-tool="stamp"
-        title="Stamp Tool [S] — Shift+Click to copy elements from image, Click to paste onto image, ⌘/Ctrl+Click to remove drawings from image"
+        title="Stamp Tool [S] — Copy/Paste mode toggle in toolbar (hold Shift to invert). Copy grabs drawings from an image, Paste applies them; ⌘/Ctrl+Click removes drawings from an image"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -1043,6 +1043,23 @@
         style="display: none; align-items: center; gap: 6px"
       >
         <span class="align-title">Stamp</span>
+        <div
+          id="stamp-mode-toggle"
+          class="stamp-mode-toggle"
+          role="group"
+          title="Stamp mode. Click to switch between Copy and Paste. Hold Shift to temporarily use the other mode."
+        >
+          <button
+            type="button"
+            class="stamp-mode-option"
+            data-mode="copy"
+          >Copy</button>
+          <button
+            type="button"
+            class="stamp-mode-option"
+            data-mode="paste"
+          >Paste</button>
+        </div>
         <span
           id="stamp-status-label"
           style="font-size: 11px; color: #aaa; min-width: 96px"

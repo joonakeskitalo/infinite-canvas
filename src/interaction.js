@@ -3080,8 +3080,10 @@ function setupMouseHandlers() {
           break;
         }
       }
+      // Only preview in the effective paste mode (stampMode inverted by Shift).
+      const pasteMode = (state.stampMode === "paste") !== e.shiftKey;
       const prevKey = state.stampPreview ? state.stampPreview.imageId : null;
-      if (hoveredImg && state.stampClipboard && state.stampClipboard.length > 0 && state.stampSourceBounds) {
+      if (pasteMode && hoveredImg && state.stampClipboard && state.stampClipboard.length > 0 && state.stampSourceBounds) {
         state.stampPreview = buildStampPreview(hoveredImg);
       } else {
         state.stampPreview = null;
@@ -3256,8 +3258,11 @@ function setupMouseHandlers() {
         return;
       }
 
-      if (e.shiftKey) {
-        // Shift+Click: copy overlapping non-image elements from hovered image
+      // Effective mode = active stampMode, inverted while Shift is held.
+      const copyMode = (state.stampMode === "copy") !== e.shiftKey;
+
+      if (copyMode) {
+        // Copy mode: copy overlapping non-image elements from the hovered image.
         if (!hoveredImg) {
           showToast("Hover over an image to copy stamp");
           return;
@@ -3291,9 +3296,9 @@ function setupMouseHandlers() {
         updateStampPanel();
         showToast(`Stamp-copied ${overlapping.length} element(s)`);
       } else if (hoveredImg) {
-        // Click on a single image: paste stamp clipboard onto it (existing behavior)
+        // Paste mode on a single image: paste the stamp clipboard onto it.
         if (!state.stampClipboard || state.stampClipboard.length === 0) {
-          showToast("No stamp clipboard — use Shift+Click first");
+          showToast("No stamp clipboard — copy a stamp first");
           return;
         }
         pushUndo();
@@ -3327,10 +3332,10 @@ function setupMouseHandlers() {
         scheduleSave();
         showToast(`Stamped ${newElements.length} element(s) onto image`);
       } else {
-        // Click/drag on empty space: start stamp marquee area select
+        // Paste mode on empty space: start stamp marquee area select.
         // Cmd/Ctrl+drag removes drawings, normal drag stamps (needs clipboard)
         if (!(e.metaKey || e.ctrlKey) && (!state.stampClipboard || state.stampClipboard.length === 0)) {
-          showToast("No stamp clipboard — use Shift+Click on an image first");
+          showToast("No stamp clipboard — copy a stamp first");
           return;
         }
         state.stampMarqueeActive = true;

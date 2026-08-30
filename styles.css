@@ -2800,3 +2800,36 @@ input[type="color"]::-webkit-color-swatch {
   margin-left: 12px;
   white-space: nowrap;
 }
+
+/* --- Stamp mode segmented toggle --- */
+.stamp-mode-toggle {
+  display: inline-flex;
+  border: 1px solid #555;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.stamp-mode-option {
+  background: #2d2d2d;
+  color: #999;
+  border: none;
+  padding: 3px 10px;
+  font-size: 11px;
+  outline: none;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.stamp-mode-option + .stamp-mode-option {
+  border-left: 1px solid #555;
+}
+
+.stamp-mode-option:hover {
+  color: #ddd;
+}
+
+.stamp-mode-option.active {
+  background: #007acc;
+  color: #fff;
+  font-weight: 600;
+}
