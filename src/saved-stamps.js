@@ -15,8 +15,78 @@ import { showToast } from "./utils.js";
 
 const STORAGE_KEY = "jiiris-saved-stamps";
 
-/** @type {Array<{name: string, clipboard: Array<Object>, sourceBounds: {x:number,y:number,w:number,h:number}}>} */
+/** @type {Array<{name: string, clipboard: Array<Object>, sourceBounds: {x:number,y:number,w:number,h:number}, isDefault?: boolean}>} */
 let savedStamps = [];
+
+// --- Built-in device safe-area presets ---
+
+const SAFE_AREA_COLOR = "#00e5ff";
+const SAFE_AREA_WIDTH = 2;
+
+/**
+ * Build a stamp preset that outlines a device's safe area as a rectangle inset
+ * from the image edges. Because stamps are applied as absolute pixel offsets
+ * with no rescaling, the preset is sized to the device's NATIVE pixel resolution
+ * so the outline lines up when stamped onto a full-size screenshot of that
+ * device (screenshots are captured at native pixel resolution, not points).
+ *
+ * Dimensions and insets are given in logical points (or dp); `scale` converts
+ * them to native pixels (e.g. @3x → scale 3). TV presets already use pixels, so
+ * pass scale 1.
+ *
+ * @param {string} name
+ * @param {number} w device width in points/dp
+ * @param {number} h device height in points/dp
+ * @param {{top:number,right:number,bottom:number,left:number}} insets safe-area insets in points/dp
+ * @param {number} scale points→pixels scale factor
+ */
+function makeSafeAreaStamp(name, w, h, insets, scale) {
+  const s = scale || 1;
+  const pxW = w * s;
+  const pxH = h * s;
+  const rect = {
+    elementType: "drawing",
+    type: "rect-border",
+    color: SAFE_AREA_COLOR,
+    width: SAFE_AREA_WIDTH,
+    dash: "solid",
+    // Coordinates are pixel offsets from the image's displayed top-left corner.
+    start: { x: insets.left * s, y: insets.top * s },
+    end: { x: pxW - insets.right * s, y: pxH - insets.bottom * s },
+  };
+  return {
+    name,
+    clipboard: [rect],
+    sourceBounds: { x: 0, y: 0, w: pxW, h: pxH },
+    isDefault: true,
+  };
+}
+
+/**
+ * Common device safe areas at native pixel resolution. iOS insets are given in
+ * points and scaled by the device scale factor; TV presets are already in px.
+ * Values reflect widely used portrait safe-area insets for representative
+ * devices.
+ */
+function buildDefaultStamps() {
+  return [
+    // iPhone 17 / 17 Pro (also 16 Pro) — 402×874 pt @3x → 1206×2622 px
+    makeSafeAreaStamp("iPhone 17 / 17 Pro", 402, 874, { top: 62, right: 0, bottom: 34, left: 0 }, 3),
+    // iPhone with Dynamic Island (15/16/15 Pro) — 393×852 pt @3x → 1179×2556 px
+    makeSafeAreaStamp("iPhone (Dynamic Island)", 393, 852, { top: 59, right: 0, bottom: 34, left: 0 }, 3),
+    // iPhone with notch (13/14) — 390×844 pt @3x → 1170×2532 px
+    makeSafeAreaStamp("iPhone (Notch)", 390, 844, { top: 47, right: 0, bottom: 34, left: 0 }, 3),
+    // iPhone with Home button (SE gen 2/3) — 375×667 pt @2x → 750×1334 px
+    makeSafeAreaStamp("iPhone SE / Home Button", 375, 667, { top: 20, right: 0, bottom: 0, left: 0 }, 2),
+    // Typical Android phone (Pixel-class) — 360×800 dp @3x → 1080×2400 px,
+    // status bar 24dp + gesture nav bar 24dp
+    makeSafeAreaStamp("Android Phone", 360, 800, { top: 24, right: 0, bottom: 24, left: 0 }, 3),
+    // TV action-safe area (5% inset) — 1920×1080 px
+    makeSafeAreaStamp("TV Action-Safe (1080p)", 1920, 1080, { top: 54, right: 96, bottom: 54, left: 96 }, 1),
+    // TV title-safe area (10% inset) — 1920×1080 px
+    makeSafeAreaStamp("TV Title-Safe (1080p)", 1920, 1080, { top: 108, right: 192, bottom: 108, left: 192 }, 1),
+  ];
+}
 
 // Callback invoked after the live clipboard changes (e.g. on restore) so the
 // caller can re-render. Set via setSavedStampsDeps.
@@ -29,12 +99,13 @@ export function setSavedStampsDeps({ onRestore }) {
 // --- Persistence (localStorage) ---
 
 function loadFromStorage() {
+  let userStamps = [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        savedStamps = parsed.filter(
+        userStamps = parsed.filter(
           (s) =>
             s &&
             typeof s.name === "string" &&
@@ -48,11 +119,19 @@ function loadFromStorage() {
   } catch (e) {
     console.warn("Failed to load saved stamps:", e.message);
   }
+
+  // Seed built-in device safe-area presets. A user stamp of the same name takes
+  // precedence, so users can override a default by saving over its name.
+  const userNames = new Set(userStamps.map((s) => s.name.toLowerCase()));
+  const defaults = buildDefaultStamps().filter((d) => !userNames.has(d.name.toLowerCase()));
+  savedStamps = [...defaults, ...userStamps];
 }
 
 function saveToStorage() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(savedStamps));
+    // Never persist built-in defaults; they're re-seeded on load.
+    const persistable = savedStamps.filter((s) => !s.isDefault);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(persistable));
   } catch (e) {
     console.warn("Failed to save stamps:", e.message);
   }
@@ -85,6 +164,7 @@ function saveStamp(name, clipboard, sourceBounds) {
 function removeStampByName(name) {
   const idx = savedStamps.findIndex((s) => s.name === name);
   if (idx < 0) return false;
+  if (savedStamps[idx].isDefault) return false; // built-in defaults can't be deleted
   savedStamps.splice(idx, 1);
   saveToStorage();
   return true;
@@ -239,6 +319,11 @@ export function initSavedStamps() {
       const name = _restoreSelect ? _restoreSelect.value : "";
       if (!name) {
         showToast("Select a saved stamp to delete");
+        return;
+      }
+      const entry = savedStamps.find((s) => s.name === name);
+      if (entry && entry.isDefault) {
+        showToast("Built-in safe-area stamps can't be deleted");
         return;
       }
       if (removeStampByName(name)) {
