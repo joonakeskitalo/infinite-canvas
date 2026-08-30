@@ -22,6 +22,10 @@ let isOpen = false;
 let selectedIndex = 0;
 let filteredCommands = [];
 let isKeyboardNavigating = false;
+// When drilled into a submenu, holds that submenu's parent command; null at top level.
+let currentSubmenu = null;
+
+const SUBMENU_BACK_ID = "__submenu_back__";
 
 export function setCommandPaletteDeps({ render: renderFn }) {
   _render = renderFn;
@@ -62,22 +66,27 @@ function getCommands() {
     // "no margin" variants render a tight crop with no surrounding background.
     // When a marquee selection is active, exports target the marquee region instead
     // of the whole canvas / element selection.
-    { id: "export-png-clipboard", label: "Copy PNG to Clipboard", shortcut: "\u2318E", category: "Export", action: () => exportPNG(1.0, { download: false }) },
-    { id: "export-png-clipboard-half", label: "Copy PNG to Clipboard (50%)", shortcut: "\u2325\u2318E", category: "Export", action: () => exportPNG(0.5, { download: false }) },
-    { id: "export-png-clipboard-nomargin", label: "Copy PNG to Clipboard (no margin)", shortcut: "", category: "Export", action: () => exportPNG(1.0, { download: false, noMargin: true }) },
-    { id: "export-png-download", label: "Download PNG", shortcut: "\u21E7\u2318E", category: "Export", action: () => exportPNG(1.0, { download: true }) },
-    { id: "export-png-download-half", label: "Download PNG (50%)", shortcut: "", category: "Export", action: () => exportPNG(0.5, { download: true }) },
-    { id: "export-png-download-quarter", label: "Download PNG (25%)", shortcut: "", category: "Export", action: () => exportPNG(0.25, { download: true }) },
-    { id: "export-png-download-nomargin", label: "Download PNG (no margin)", shortcut: "", category: "Export", action: () => exportPNG(1.0, { download: true, noMargin: true }) },
-    { id: "export-png-download-half-nomargin", label: "Download PNG (50%, no margin)", shortcut: "", category: "Export", action: () => exportPNG(0.5, { download: true, noMargin: true }) },
-    { id: "export-png-download-quarter-nomargin", label: "Download PNG (25%, no margin)", shortcut: "", category: "Export", action: () => exportPNG(0.25, { download: true, noMargin: true }) },
-    { id: "export-jpeg-download", label: "Download JPEG", shortcut: "\u21E7\u2318J", category: "Export", action: () => exportJPEG(1.0, { download: true }) },
-    { id: "export-jpeg-download-half", label: "Download JPEG (50%)", shortcut: "", category: "Export", action: () => exportJPEG(0.5, { download: true }) },
-    { id: "export-jpeg-download-quarter", label: "Download JPEG (25%)", shortcut: "", category: "Export", action: () => exportJPEG(0.25, { download: true }) },
-    { id: "export-jpeg-download-nomargin", label: "Download JPEG (no margin)", shortcut: "", category: "Export", action: () => exportJPEG(1.0, { download: true, noMargin: true }) },
-    { id: "export-jpeg-download-half-nomargin", label: "Download JPEG (50%, no margin)", shortcut: "", category: "Export", action: () => exportJPEG(0.5, { download: true, noMargin: true }) },
-    { id: "export-jpeg-download-quarter-nomargin", label: "Download JPEG (25%, no margin)", shortcut: "", category: "Export", action: () => exportJPEG(0.25, { download: true, noMargin: true }) },
-    { id: "export-assets-zip", label: "Download Assets as ZIP", shortcut: "", category: "Export", action: () => document.getElementById("download-images-btn")?.click() },
+    {
+      id: "export-menu", label: "Export\u2026", shortcut: "", category: "Export",
+      submenu: [
+        { id: "export-png-clipboard", label: "Copy PNG to Clipboard", shortcut: "\u2318E", category: "Export", action: () => exportPNG(1.0, { download: false }) },
+        { id: "export-png-clipboard-half", label: "Copy PNG to Clipboard (50%)", shortcut: "\u2325\u2318E", category: "Export", action: () => exportPNG(0.5, { download: false }) },
+        { id: "export-png-clipboard-nomargin", label: "Copy PNG to Clipboard (no margin)", shortcut: "", category: "Export", action: () => exportPNG(1.0, { download: false, noMargin: true }) },
+        { id: "export-png-download", label: "Download PNG", shortcut: "\u21E7\u2318E", category: "Export", action: () => exportPNG(1.0, { download: true }) },
+        { id: "export-png-download-half", label: "Download PNG (50%)", shortcut: "", category: "Export", action: () => exportPNG(0.5, { download: true }) },
+        { id: "export-png-download-quarter", label: "Download PNG (25%)", shortcut: "", category: "Export", action: () => exportPNG(0.25, { download: true }) },
+        { id: "export-png-download-nomargin", label: "Download PNG (no margin)", shortcut: "", category: "Export", action: () => exportPNG(1.0, { download: true, noMargin: true }) },
+        { id: "export-png-download-half-nomargin", label: "Download PNG (50%, no margin)", shortcut: "", category: "Export", action: () => exportPNG(0.5, { download: true, noMargin: true }) },
+        { id: "export-png-download-quarter-nomargin", label: "Download PNG (25%, no margin)", shortcut: "", category: "Export", action: () => exportPNG(0.25, { download: true, noMargin: true }) },
+        { id: "export-jpeg-download", label: "Download JPEG", shortcut: "\u21E7\u2318J", category: "Export", action: () => exportJPEG(1.0, { download: true }) },
+        { id: "export-jpeg-download-half", label: "Download JPEG (50%)", shortcut: "", category: "Export", action: () => exportJPEG(0.5, { download: true }) },
+        { id: "export-jpeg-download-quarter", label: "Download JPEG (25%)", shortcut: "", category: "Export", action: () => exportJPEG(0.25, { download: true }) },
+        { id: "export-jpeg-download-nomargin", label: "Download JPEG (no margin)", shortcut: "", category: "Export", action: () => exportJPEG(1.0, { download: true, noMargin: true }) },
+        { id: "export-jpeg-download-half-nomargin", label: "Download JPEG (50%, no margin)", shortcut: "", category: "Export", action: () => exportJPEG(0.5, { download: true, noMargin: true }) },
+        { id: "export-jpeg-download-quarter-nomargin", label: "Download JPEG (25%, no margin)", shortcut: "", category: "Export", action: () => exportJPEG(0.25, { download: true, noMargin: true }) },
+        { id: "export-assets-zip", label: "Download Assets as ZIP", shortcut: "", category: "Export", action: () => document.getElementById("download-images-btn")?.click() },
+      ],
+    },
     { id: "import-images", label: "Import Images", shortcut: "", category: "Export", action: () => document.getElementById("import-images-btn")?.click() },
 
     // --- File ---
@@ -305,12 +314,29 @@ function fuzzyMatch(query, target) {
   return score;
 }
 
+/**
+ * Build a synthetic "back" command shown at the top of a submenu.
+ */
+function makeBackCommand() {
+  return {
+    id: SUBMENU_BACK_ID,
+    label: `\u2190 Back${currentSubmenu ? ` (${currentSubmenu.label.replace(/\u2026$/, "")})` : ""}`,
+    shortcut: "Esc",
+    category: currentSubmenu ? currentSubmenu.category : "",
+    isBack: true,
+  };
+}
+
 function filterCommands(query) {
-  const commands = getCommands();
-  if (!query) return commands;
+  // Within a submenu, browse that submenu's items; otherwise browse the top level.
+  const baseCommands = currentSubmenu ? currentSubmenu.submenu : getCommands();
+
+  if (!query) {
+    return currentSubmenu ? [makeBackCommand(), ...baseCommands] : baseCommands;
+  }
 
   const results = [];
-  for (const cmd of commands) {
+  for (const cmd of baseCommands) {
     const labelScore = fuzzyMatch(query, cmd.label);
     const catScore = fuzzyMatch(query, cmd.category);
     const score = labelScore >= 0 ? labelScore : (catScore >= 0 ? catScore + 100 : -1);
@@ -319,7 +345,8 @@ function filterCommands(query) {
     }
   }
   results.sort((a, b) => a._score - b._score);
-  return results;
+  // Keep a back affordance available while filtering inside a submenu.
+  return currentSubmenu ? [makeBackCommand(), ...results] : results;
 }
 
 function highlightMatch(text, query) {
@@ -378,7 +405,13 @@ function renderList() {
 
     item.appendChild(labelSpan);
 
-    if (cmd.shortcut) {
+    if (cmd.submenu) {
+      // Indicate this item opens a submenu.
+      const chevron = document.createElement("span");
+      chevron.className = "cmd-palette-item-shortcut";
+      chevron.textContent = "\u203A";
+      item.appendChild(chevron);
+    } else if (cmd.shortcut) {
       const kbdSpan = document.createElement("span");
       kbdSpan.className = "cmd-palette-item-shortcut";
       kbdSpan.textContent = cmd.shortcut;
@@ -409,11 +442,47 @@ function renderList() {
 }
 
 function executeSelected() {
-  if (filteredCommands[selectedIndex]) {
-    const cmd = filteredCommands[selectedIndex];
-    close();
-    cmd.action();
+  const cmd = filteredCommands[selectedIndex];
+  if (!cmd) return;
+
+  // "Back" entry: return to the top level of the palette.
+  if (cmd.isBack) {
+    exitSubmenu();
+    return;
   }
+
+  // Submenu parent: drill into it instead of closing the palette.
+  if (cmd.submenu) {
+    enterSubmenu(cmd);
+    return;
+  }
+
+  close();
+  cmd.action();
+}
+
+/**
+ * Drill into a submenu: swap the visible list to the submenu's items and reset the query.
+ */
+function enterSubmenu(cmd) {
+  currentSubmenu = cmd;
+  selectedIndex = 0;
+  if (inputEl) inputEl.value = "";
+  filteredCommands = filterCommands("");
+  renderList();
+  if (inputEl) inputEl.focus();
+}
+
+/**
+ * Leave the current submenu and return to the top level.
+ */
+function exitSubmenu() {
+  currentSubmenu = null;
+  selectedIndex = 0;
+  if (inputEl) inputEl.value = "";
+  filteredCommands = filterCommands("");
+  renderList();
+  if (inputEl) inputEl.focus();
 }
 
 export function open() {
@@ -429,6 +498,7 @@ export function open() {
   paletteEl.style.display = "flex";
   inputEl.value = "";
   selectedIndex = 0;
+  currentSubmenu = null;
   filteredCommands = filterCommands("");
   renderList();
 
@@ -439,6 +509,7 @@ export function open() {
 export function close() {
   if (!isOpen) return;
   isOpen = false;
+  currentSubmenu = null;
   if (paletteEl) paletteEl.style.display = "none";
   if (inputEl) inputEl.value = "";
 }
@@ -484,7 +555,16 @@ export function initCommandPalette() {
       executeSelected();
     } else if (e.key === "Escape") {
       e.preventDefault();
-      close();
+      // Escape backs out of a submenu first, then closes the palette.
+      if (currentSubmenu) {
+        exitSubmenu();
+      } else {
+        close();
+      }
+    } else if (e.key === "Backspace" && currentSubmenu && inputEl.value === "") {
+      // Backspace on an empty query inside a submenu returns to the top level.
+      e.preventDefault();
+      exitSubmenu();
     }
   });
 
