@@ -2489,19 +2489,23 @@ function setupKeyboardHandlers() {
       return;
     }
 
-    // [ / ] keys: adjust split line length when split-line tool is active
-    if ((key === "[" || key === "]") && state.currentTool === "split-line") {
+    // [ / ] keys: adjust split line length when split-line tool is active.
+    // With Shift held, browsers report the shifted characters "{" / "}", so
+    // match both the plain and shifted forms.
+    const isDecreaseLen = key === "[" || key === "{";
+    const isIncreaseLen = key === "]" || key === "}";
+    if ((isDecreaseLen || isIncreaseLen) && state.currentTool === "split-line") {
       e.preventDefault();
       if (state.splitLineLengthMode === "pixel") {
-        const step = e.shiftKey ? 10 : 50;
-        if (key === "[") {
+        const step = e.shiftKey ? 100 : 50;
+        if (isDecreaseLen) {
           state.splitLineLengthPx = Math.max(10, state.splitLineLengthPx - step);
         } else {
           state.splitLineLengthPx = Math.min(2000, state.splitLineLengthPx + step);
         }
       } else {
         const step = e.shiftKey ? 5 : 10;
-        if (key === "[") {
+        if (isDecreaseLen) {
           state.splitLineLength = Math.max(10, state.splitLineLength - step);
         } else {
           state.splitLineLength = Math.min(200, state.splitLineLength + step);
