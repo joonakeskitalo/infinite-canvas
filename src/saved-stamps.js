@@ -21,7 +21,7 @@ let savedStamps = [];
 // --- Built-in device safe-area presets ---
 
 const SAFE_AREA_COLOR = "#00e5ff";
-const SAFE_AREA_WIDTH = 2;
+const SAFE_AREA_WIDTH = 0.5;
 
 /**
  * Build a stamp preset that outlines a device's safe area as a rectangle inset
