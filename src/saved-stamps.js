@@ -76,11 +76,21 @@ function buildDefaultStamps() {
     makeSafeAreaStamp("iPhone (Dynamic Island)", 393, 852, { top: 59, right: 0, bottom: 34, left: 0 }, 3),
     // iPhone with notch (13/14) — 390×844 pt @3x → 1170×2532 px
     makeSafeAreaStamp("iPhone (Notch)", 390, 844, { top: 47, right: 0, bottom: 34, left: 0 }, 3),
+    // iPhone mini (13 mini / 12 mini) — 375×812 pt, native scale 2.88 → 1080×2340 px
+    makeSafeAreaStamp("iPhone mini (13/12 mini)", 375, 812, { top: 50, right: 0, bottom: 34, left: 0 }, 2.88),
     // iPhone with Home button (SE gen 2/3) — 375×667 pt @2x → 750×1334 px
     makeSafeAreaStamp("iPhone SE / Home Button", 375, 667, { top: 20, right: 0, bottom: 0, left: 0 }, 2),
     // Typical Android phone (Pixel-class) — 360×800 dp @3x → 1080×2400 px,
     // status bar 24dp + gesture nav bar 24dp
     makeSafeAreaStamp("Android Phone", 360, 800, { top: 24, right: 0, bottom: 24, left: 0 }, 3),
+    // Google Pixel 9 — 1080×2424 px, status bar + gesture nav ~24dp @3x (72 px)
+    makeSafeAreaStamp("Pixel 9", 1080, 2424, { top: 72, right: 0, bottom: 72, left: 0 }, 1),
+    // Google Pixel 8 — 1080×2400 px
+    makeSafeAreaStamp("Pixel 8", 1080, 2400, { top: 72, right: 0, bottom: 72, left: 0 }, 1),
+    // Samsung Galaxy S24 — 1080×2340 px
+    makeSafeAreaStamp("Samsung Galaxy S24", 1080, 2340, { top: 72, right: 0, bottom: 72, left: 0 }, 1),
+    // Samsung Galaxy S24 Ultra — 1440×3120 px (~4x density → ~96 px bars)
+    makeSafeAreaStamp("Samsung Galaxy S24 Ultra", 1440, 3120, { top: 96, right: 0, bottom: 96, left: 0 }, 1),
     // TV action-safe area (5% inset) — 1920×1080 px
     makeSafeAreaStamp("TV Action-Safe (1080p)", 1920, 1080, { top: 54, right: 96, bottom: 54, left: 96 }, 1),
     // TV title-safe area (10% inset) — 1920×1080 px
@@ -183,7 +193,8 @@ function getStampPreset(name) {
 
 let _statusLabel = null;
 let _saveBtn = null;
-let _restoreSelect = null;
+let _restoreInput = null;
+let _restoreList = null;
 let _deleteBtn = null;
 
 /**
@@ -199,22 +210,36 @@ export function updateStampPanel() {
 }
 
 function refreshRestoreOptions() {
-  if (!_restoreSelect) return;
-  const prev = _restoreSelect.value;
-  _restoreSelect.innerHTML = "";
-  const placeholder = document.createElement("option");
-  placeholder.value = "";
-  placeholder.textContent = savedStamps.length ? "Restore saved…" : "No saved stamps";
-  _restoreSelect.appendChild(placeholder);
+  if (!_restoreList) return;
+  _restoreList.innerHTML = "";
   savedStamps.forEach((s) => {
     const opt = document.createElement("option");
+    // The input's value must match option.value to resolve to a stamp, so the
+    // value is the plain name; the element count is shown as the option label.
     opt.value = s.name;
-    opt.textContent = `${s.name} (${s.clipboard.length})`;
-    _restoreSelect.appendChild(opt);
+    opt.label = `${s.name} (${s.clipboard.length})`;
+    _restoreList.appendChild(opt);
   });
-  // Keep the previous selection if it still exists, else reset to placeholder.
-  if (savedStamps.some((s) => s.name === prev)) _restoreSelect.value = prev;
-  else _restoreSelect.value = "";
+}
+
+/**
+ * Restore a stamp by name (case-insensitive). Returns true if a matching stamp
+ * was found and applied.
+ */
+function restoreStampByName(name) {
+  const trimmed = (name || "").trim();
+  if (!trimmed) return false;
+  const match = savedStamps.find((s) => s.name.toLowerCase() === trimmed.toLowerCase());
+  if (!match) return false;
+  const preset = getStampPreset(match.name);
+  if (!preset) return false;
+  state.stampClipboard = preset.clipboard;
+  state.stampSourceBounds = preset.sourceBounds;
+  state.stampPreview = null;
+  showToast(`Restored stamp "${match.name}"`);
+  updateStampPanel();
+  if (_onRestore) _onRestore();
+  return true;
 }
 
 // --- Save dialog (prompt for a name) ---
@@ -262,7 +287,7 @@ function openSaveDialog() {
     if (saveStamp(name, state.stampClipboard, state.stampSourceBounds)) {
       showToast(`Saved stamp "${name}"`);
       refreshRestoreOptions();
-      if (_restoreSelect) _restoreSelect.value = name;
+      if (_restoreInput) _restoreInput.value = name;
       close();
     }
   };
@@ -287,47 +312,85 @@ export function initSavedStamps() {
 
   _statusLabel = document.getElementById("stamp-status-label");
   _saveBtn = document.getElementById("stamp-save-btn");
-  _restoreSelect = document.getElementById("stamp-restore-select");
+  _restoreInput = document.getElementById("stamp-restore-input");
+  _restoreList = document.getElementById("stamp-restore-list");
   _deleteBtn = document.getElementById("stamp-delete-btn");
 
   if (_saveBtn) {
     _saveBtn.addEventListener("click", openSaveDialog);
   }
 
-  if (_restoreSelect) {
-    _restoreSelect.addEventListener("change", () => {
-      const name = _restoreSelect.value;
-      // Release focus from the <select> so canvas keyboard shortcuts work again
-      // immediately after picking a stamp (keydown handlers ignore events whose
-      // target is a SELECT element).
-      _restoreSelect.blur();
-      if (!name) return;
-      const preset = getStampPreset(name);
-      if (preset) {
-        state.stampClipboard = preset.clipboard;
-        state.stampSourceBounds = preset.sourceBounds;
-        state.stampPreview = null;
-        showToast(`Restored stamp "${name}"`);
-        updateStampPanel();
-        if (_onRestore) _onRestore();
+  if (_restoreInput) {
+    // Text shown before focusing, temporarily cleared on focus so the full
+    // datalist (not just the single matching entry) is shown. Restored on blur
+    // if the user didn't pick anything. null means "nothing stashed".
+    let _stashedValue = null;
+
+    // Restore when a datalist option is chosen. Picking from a datalist fires an
+    // "input" event with the option's value; typing then pressing Enter should
+    // also restore. We resolve the typed/selected text to a stamp by name.
+    const tryRestore = () => {
+      const name = _restoreInput.value.trim();
+      const match = savedStamps.find((s) => s.name.toLowerCase() === name.toLowerCase());
+      if (match && restoreStampByName(match.name)) {
+        // A selection was made — drop the stashed value so blur won't override
+        // it, and keep the selected stamp's name (normalized) in the field.
+        _stashedValue = null;
+        _restoreInput.value = match.name;
+        // Release focus so canvas keyboard shortcuts work again immediately
+        // (keydown handlers ignore events whose target is an INPUT element).
+        _restoreInput.blur();
+      }
+    };
+
+    _restoreInput.addEventListener("focus", () => {
+      // Temporarily clear so the browser shows the full list of options.
+      _stashedValue = _restoreInput.value;
+      _restoreInput.value = "";
+    });
+    _restoreInput.addEventListener("blur", () => {
+      // If the user left without selecting, put the original text back.
+      if (_stashedValue !== null) {
+        if (_restoreInput.value.trim() === "") _restoreInput.value = _stashedValue;
+        _stashedValue = null;
+      }
+    });
+
+    _restoreInput.addEventListener("input", () => {
+      // A datalist selection sets the value to an exact option value; only act
+      // on an exact match so partial typing doesn't prematurely restore.
+      const name = _restoreInput.value.trim();
+      if (savedStamps.some((s) => s.name.toLowerCase() === name.toLowerCase())) {
+        tryRestore();
+      }
+    });
+    _restoreInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        tryRestore();
       }
     });
   }
 
   if (_deleteBtn) {
     _deleteBtn.addEventListener("click", () => {
-      const name = _restoreSelect ? _restoreSelect.value : "";
+      const name = _restoreInput ? _restoreInput.value.trim() : "";
       if (!name) {
-        showToast("Select a saved stamp to delete");
+        showToast("Type or pick a saved stamp to delete");
         return;
       }
-      const entry = savedStamps.find((s) => s.name === name);
-      if (entry && entry.isDefault) {
+      const entry = savedStamps.find((s) => s.name.toLowerCase() === name.toLowerCase());
+      if (!entry) {
+        showToast(`No saved stamp named "${name}"`);
+        return;
+      }
+      if (entry.isDefault) {
         showToast("Built-in safe-area stamps can't be deleted");
         return;
       }
-      if (removeStampByName(name)) {
-        showToast(`Deleted stamp "${name}"`);
+      if (removeStampByName(entry.name)) {
+        _restoreInput.value = "";
+        showToast(`Deleted stamp "${entry.name}"`);
         refreshRestoreOptions();
       }
     });
