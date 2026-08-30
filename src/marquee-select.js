@@ -285,6 +285,7 @@ export function marqueeStartSelection(worldPos) {
       // Start dragging the selected region
       state.marqueeIsDragging = true;
       state.marqueeDragStart = { x: worldPos.x, y: worldPos.y, ox: state.marqueeOffset.x, oy: state.marqueeOffset.y };
+      state.marqueeDragMovesContent = false;
       return;
     }
     // Clicked outside the current marquee — commit current selection and start fresh
@@ -316,6 +317,10 @@ export function marqueeUpdateSelection(worldPos, shiftKey) {
       x: state.marqueeDragStart.ox + dx,
       y: state.marqueeDragStart.oy + dy,
     };
+
+    // Shift-drag moves the selected content (with snapping); a plain drag moves
+    // only the selection box, re-targeting whatever lands under it on release.
+    state.marqueeDragMovesContent = !!shiftKey;
 
     if (shiftKey) {
       // Snap the moved marquee position (position changes, size stays fixed)
@@ -400,8 +405,19 @@ export function marqueeUpdateSelection(worldPos, shiftKey) {
  */
 export function marqueeEndSelection() {
   if (state.marqueeIsDragging) {
+    const movesContent = state.marqueeDragMovesContent;
     state.marqueeIsDragging = false;
     state.marqueeDragStart = null;
+    state.marqueeDragMovesContent = false;
+    state.activeSnapGuides = [];
+
+    if (!movesContent) {
+      // Box-only move: relocate the selection rectangle and re-capture whatever
+      // is now under it, leaving the underlying content untouched.
+      moveMarqueeBox();
+    }
+    // For content moves the offset is preserved so marqueeCommit relocates the
+    // pixels/elements when the selection is committed.
     return;
   }
 
@@ -431,6 +447,45 @@ export function marqueeEndSelection() {
   rasterizeMarqueeSelection();
 
   startMarchingAnts();
+  render();
+}
+
+/**
+ * Move only the selection box (the marching-ants rectangle) to its dragged
+ * position without touching the underlying content. The offset is baked into
+ * the rectangle and whatever now sits under it is re-captured, so subsequent
+ * copy/cut/move operations act on the new area.
+ */
+function moveMarqueeBox() {
+  const rect = state.marqueeRect;
+  if (!rect) return;
+
+  const ox = state.marqueeOffset.x;
+  const oy = state.marqueeOffset.y;
+
+  // Nothing to do if the box didn't actually move.
+  if (ox === 0 && oy === 0) return;
+
+  // Relocate the rectangle and clear the drag offset.
+  state.marqueeRect = { x: rect.x + ox, y: rect.y + oy, w: rect.w, h: rect.h };
+  state.marqueeOffset = { x: 0, y: 0 };
+
+  // Re-capture the elements now under the box.
+  const { vectors, images } = getElementsInRect(state.marqueeRect);
+  state.marqueeElements = [...vectors, ...images];
+  // Cut state only applies to the previously selected content; a relocated box
+  // starts fresh over new content.
+  state.marqueeCut = false;
+
+  if (state.marqueeElements.length > 0) {
+    state.marqueeIsElementMode = true;
+    rasterizeMarqueeSelection();
+  } else {
+    // Empty selection area — keep the box visible and movable, but nothing to preview.
+    state.marqueeIsElementMode = false;
+    state.marqueePixelCanvas = null;
+  }
+
   render();
 }
 
@@ -1289,6 +1344,7 @@ export function exitMarqueeMode() {
   state.marqueeOffset = { x: 0, y: 0 };
   state.marqueeIsDragging = false;
   state.marqueeDragStart = null;
+  state.marqueeDragMovesContent = false;
   state.marqueeIsSelecting = false;
   state.marqueeStart = null;
   state.marqueeCut = false;
@@ -1331,8 +1387,11 @@ export function renderMarquee(ctx, transform) {
     ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
   }
 
-  // Show preview of what's being moved
-  if ((ox !== 0 || oy !== 0) && state.marqueePixelCanvas) {
+  // Show preview of what's being moved — only when the drag actually relocates
+  // content (Shift-drag). A plain drag moves just the selection box, so the
+  // content stays put and only the outline follows the cursor.
+  const previewingContent = !(state.marqueeIsDragging && !state.marqueeDragMovesContent);
+  if ((ox !== 0 || oy !== 0) && state.marqueePixelCanvas && previewingContent) {
     ctx.save();
     ctx.globalAlpha = state.marqueeCut ? 0.9 : 0.6;
     ctx.drawImage(state.marqueePixelCanvas, rect.x + ox, rect.y + oy, rect.w, rect.h);

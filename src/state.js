@@ -170,6 +170,7 @@ export const state = {
   marqueeOffset: { x: 0, y: 0 }, // offset from original position while dragging
   marqueeIsDragging: false,   // true while moving the selected region
   marqueeDragStart: null,     // {x, y} world-coords where drag started
+  marqueeDragMovesContent: false, // true when the current drag moves selected content (Shift-drag); false moves only the selection box
   marqueeIsSelecting: false,  // true while drawing the marquee rectangle
   marqueeStart: null,         // {x, y} world-coords where rectangle drawing started
   marqueeCut: false,          // true if elements have been cut from the canvas
