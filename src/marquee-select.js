@@ -579,16 +579,20 @@ function cropImageToRect(imgEl, rect) {
   const natW = srcImg.naturalWidth || srcImg.width;
   const natH = srcImg.naturalHeight || srcImg.height;
 
-  // Map world intersection to source pixel coordinates
-  const scaleX = natW / imgEl.w;
-  const scaleY = natH / imgEl.h;
+  // The visible display size (imgEl.w/h) maps to only the cropped sub-region of
+  // the source, not the full natural image. Scale world units to the number of
+  // source pixels that region actually covers.
+  const cropW = imgEl.crop ? imgEl.crop.w * natW : natW;
+  const cropH = imgEl.crop ? imgEl.crop.h * natH : natH;
+  const scaleX = cropW / imgEl.w;
+  const scaleY = cropH / imgEl.h;
 
   let sx = (ix - imgEl.x) * scaleX;
   let sy = (iy - imgEl.y) * scaleY;
   let sw = iw * scaleX;
   let sh = ih * scaleY;
 
-  // Handle crop offset
+  // Offset into the source by the crop origin
   if (imgEl.crop) {
     sx += imgEl.crop.x * natW;
     sy += imgEl.crop.y * natH;
@@ -851,34 +855,40 @@ function clearImageRect(imgEl, rect) {
   const ih = iy2 - iy;
   if (iw <= 0 || ih <= 0) return;
 
-  const scaleX = natW / imgEl.w;
-  const scaleY = natH / imgEl.h;
+  // Source region actually shown by this element. For an uncropped image this is
+  // the whole natural image; for a cropped image it's the crop sub-rectangle.
+  const regionX = imgEl.crop ? imgEl.crop.x * natW : 0;
+  const regionY = imgEl.crop ? imgEl.crop.y * natH : 0;
+  const regionW = imgEl.crop ? imgEl.crop.w * natW : natW;
+  const regionH = imgEl.crop ? imgEl.crop.h * natH : natH;
+
+  // Work in a canvas sized to the displayed region so all pixel<->world mapping
+  // is consistent regardless of crop.
+  const canvasW = Math.max(1, Math.round(regionW));
+  const canvasH = Math.max(1, Math.round(regionH));
+  const scaleX = canvasW / imgEl.w;
+  const scaleY = canvasH / imgEl.h;
 
   let sx = (ix - imgEl.x) * scaleX;
   let sy = (iy - imgEl.y) * scaleY;
   let sw = iw * scaleX;
   let sh = ih * scaleY;
 
-  if (imgEl.crop) {
-    sx += imgEl.crop.x * natW;
-    sy += imgEl.crop.y * natH;
-  }
-
   sx = Math.max(0, Math.round(sx));
   sy = Math.max(0, Math.round(sy));
-  sw = Math.round(Math.min(sw, natW - sx));
-  sh = Math.round(Math.min(sh, natH - sy));
+  sw = Math.round(Math.min(sw, canvasW - sx));
+  sh = Math.round(Math.min(sh, canvasH - sy));
 
   if (sw <= 0 || sh <= 0) return;
 
-  // Redraw the full image with the intersection cleared
-  const { canvas: fullCanvas, ctx: fullCtx } = createOffscreen(natW, natH);
-  fullCtx.drawImage(srcImg, 0, 0);
+  // Draw only the displayed region into the working canvas, then clear the intersection
+  const { canvas: fullCanvas, ctx: fullCtx } = createOffscreen(canvasW, canvasH);
+  fullCtx.drawImage(srcImg, regionX, regionY, regionW, regionH, 0, 0, canvasW, canvasH);
   fullCtx.clearRect(sx, sy, sw, sh);
 
   // Find bounding box of remaining non-transparent pixels
-  const imageData = fullCtx.getImageData(0, 0, natW, natH);
-  const trimBounds = findOpaqueBounds(imageData, natW, natH);
+  const imageData = fullCtx.getImageData(0, 0, canvasW, canvasH);
+  const trimBounds = findOpaqueBounds(imageData, canvasW, canvasH);
 
   if (!trimBounds) {
     // Entire image is now transparent — remove it
@@ -891,15 +901,16 @@ function clearImageRect(imgEl, rect) {
   const { canvas: trimmedCanvas, ctx: trimmedCtx } = createOffscreen(trimBounds.w, trimBounds.h);
   trimmedCtx.drawImage(fullCanvas, trimBounds.x, trimBounds.y, trimBounds.w, trimBounds.h, 0, 0, trimBounds.w, trimBounds.h);
 
-  // Update element world-space bounds to match trimmed region
-  const invScaleX = imgEl.w / natW;
-  const invScaleY = imgEl.h / natH;
+  // Update element world-space bounds to match trimmed region.
+  // invScale maps working-canvas pixels back to world units.
+  const invScaleX = imgEl.w / canvasW;
+  const invScaleY = imgEl.h / canvasH;
   imgEl.x = imgEl.x + trimBounds.x * invScaleX;
   imgEl.y = imgEl.y + trimBounds.y * invScaleY;
   imgEl.w = trimBounds.w * invScaleX;
   imgEl.h = trimBounds.h * invScaleY;
 
-  // Clear any crop data since we've baked the image to new bounds
+  // Clear any crop data since we've baked the displayed pixels into a new canvas
   delete imgEl.crop;
   delete imgEl.fullBounds;
 
@@ -1120,19 +1131,23 @@ function moveImagePixels(imgEl, rect, dx, dy) {
   const destRect = { x: destWorldX, y: destWorldY, w: iw, h: ih };
   const imgRect = { x: imgEl.x, y: imgEl.y, w: imgEl.w, h: imgEl.h };
 
-  // Source pixels in image pixel space
-  const scaleX = natW / imgEl.w;
-  const scaleY = natH / imgEl.h;
+  // Source region actually displayed by this element (crop sub-rectangle, or the
+  // whole natural image when uncropped). Work in this region's pixel space so all
+  // math is crop-agnostic.
+  const regionX = imgEl.crop ? imgEl.crop.x * natW : 0;
+  const regionY = imgEl.crop ? imgEl.crop.y * natH : 0;
+  const regionW = imgEl.crop ? imgEl.crop.w * natW : natW;
+  const regionH = imgEl.crop ? imgEl.crop.h * natH : natH;
 
-  let sx = (ix - imgEl.x) * scaleX;
-  let sy = (iy - imgEl.y) * scaleY;
+  // Scale: world units -> displayed-region pixels
+  const scaleX = regionW / imgEl.w;
+  const scaleY = regionH / imgEl.h;
+
+  // Source pixels of the intersection, expressed in NATURAL source coordinates
+  let sx = regionX + (ix - imgEl.x) * scaleX;
+  let sy = regionY + (iy - imgEl.y) * scaleY;
   let sw = iw * scaleX;
   let sh = ih * scaleY;
-
-  if (imgEl.crop) {
-    sx += imgEl.crop.x * natW;
-    sy += imgEl.crop.y * natH;
-  }
 
   sx = Math.max(0, Math.round(sx));
   sy = Math.max(0, Math.round(sy));
@@ -1159,16 +1174,19 @@ function moveImagePixels(imgEl, rect, dx, dy) {
     const newWorldW = newWorldX2 - newWorldX;
     const newWorldH = newWorldY2 - newWorldY;
 
-    // New pixel dimensions (use original scale factor for consistency)
+    // New pixel dimensions (use the displayed-region scale for consistency)
     const newPixW = Math.round(newWorldW * scaleX);
     const newPixH = Math.round(newWorldH * scaleY);
 
     const { canvas: fullCanvas, ctx: fullCtx } = createOffscreen(newPixW, newPixH);
 
-    // Draw original image at its offset within the new canvas
+    // Draw the currently displayed region (not the full natural image) at the
+    // element's offset within the new canvas.
     const origOffX = Math.round((imgEl.x - newWorldX) * scaleX);
     const origOffY = Math.round((imgEl.y - newWorldY) * scaleY);
-    fullCtx.drawImage(srcImg, 0, 0, natW, natH, origOffX, origOffY, natW, natH);
+    const origPixW = Math.round(imgEl.w * scaleX);
+    const origPixH = Math.round(imgEl.h * scaleY);
+    fullCtx.drawImage(srcImg, regionX, regionY, regionW, regionH, origOffX, origOffY, origPixW, origPixH);
 
     // Clear the source area (in the new coordinate system)
     const clearX = Math.round((ix - newWorldX) * scaleX);
@@ -1187,7 +1205,7 @@ function moveImagePixels(imgEl, rect, dx, dy) {
     imgEl.y = newWorldY;
     imgEl.w = newWorldW;
     imgEl.h = newWorldH;
-    // Clear crop since we've baked everything into a new canvas
+    // Clear crop since we've baked the displayed pixels into a new canvas
     if (imgEl.crop) delete imgEl.crop;
     if (imgEl.fullBounds) delete imgEl.fullBounds;
     invalidateCropCache(imgEl);
@@ -1200,14 +1218,21 @@ function moveImagePixels(imgEl, rect, dx, dy) {
       scheduleSave();
     });
   } else {
-    // Destination is fully detached — clear source and create a new element
-
-    // Clear source pixels from original image — use canvas directly to avoid flicker
-    const { canvas: clearedCanvas, ctx: clearedCtx } = createOffscreen(natW, natH);
-    clearedCtx.drawImage(srcImg, 0, 0);
-    clearedCtx.clearRect(sx, sy, sw, sh);
+    // Destination is fully detached — clear source and create a new element.
+    // Bake the displayed region into a new canvas so the cleared image no longer
+    // depends on the original crop rectangle.
+    const regionPixW = Math.max(1, Math.round(regionW));
+    const regionPixH = Math.max(1, Math.round(regionH));
+    const { canvas: clearedCanvas, ctx: clearedCtx } = createOffscreen(regionPixW, regionPixH);
+    clearedCtx.drawImage(srcImg, regionX, regionY, regionW, regionH, 0, 0, regionPixW, regionPixH);
+    // Clear the intersection in the region's local pixel space
+    clearedCtx.clearRect(sx - regionX, sy - regionY, sw, sh);
 
     imgEl.img = clearedCanvas;
+    if (imgEl.crop) delete imgEl.crop;
+    if (imgEl.fullBounds) delete imgEl.fullBounds;
+    invalidateCropCache(imgEl);
+    spatialUpdate(imgEl);
     render();
 
     // Convert to proper Image for persistence
