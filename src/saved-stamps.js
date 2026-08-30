@@ -217,6 +217,10 @@ export function initSavedStamps() {
   if (_restoreSelect) {
     _restoreSelect.addEventListener("change", () => {
       const name = _restoreSelect.value;
+      // Release focus from the <select> so canvas keyboard shortcuts work again
+      // immediately after picking a stamp (keydown handlers ignore events whose
+      // target is a SELECT element).
+      _restoreSelect.blur();
       if (!name) return;
       const preset = getStampPreset(name);
       if (preset) {
