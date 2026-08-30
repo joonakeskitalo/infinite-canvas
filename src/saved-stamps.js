@@ -20,7 +20,7 @@ let savedStamps = [];
 
 // --- Built-in device safe-area presets ---
 
-const SAFE_AREA_COLOR = "#00e5ff";
+const SAFE_AREA_COLOR = "#ff2d94"; // vivid pink, visible on light and dark backgrounds
 const SAFE_AREA_WIDTH = 0.5;
 
 /**
@@ -62,6 +62,76 @@ function makeSafeAreaStamp(name, w, h, insets, scale) {
   };
 }
 
+// Apple Human Interface Guidelines layout metrics (points, portrait).
+// Note: statusBar height is device-specific (44pt on notch devices, 54pt on
+// Dynamic Island devices, 20pt on Home-button devices) and is passed per preset.
+const HIG_METRICS = {
+  navBar: 44,          // standard (thin) navigation bar height (below status bar)
+  largeTitleNav: 96,   // large-title navigation bar total height (below status bar)
+  tabBar: 49,          // tab bar height (above home indicator)
+  homeIndicator: 34,   // home indicator height
+  sideMargin: 16,      // default layout side margin
+};
+
+const HIG_COLOR = SAFE_AREA_COLOR; // same cyan as safe-area stamps
+
+function higLine(x1, y1, x2, y2, groupId) {
+  return {
+    elementType: "drawing",
+    type: "line",
+    color: HIG_COLOR,
+    width: SAFE_AREA_WIDTH,
+    dash: "dashed",
+    groupId,
+    start: { x: x1, y: y1 },
+    end: { x: x2, y: y2 },
+  };
+}
+
+/**
+ * Build a stamp that marks the standard Apple HIG layout zones for a device:
+ * full-width horizontal guides at the bottom edge of each top bar (status bar,
+ * thin nav bar, large-title nav bar) and the top edge of each bottom element
+ * (tab bar, home indicator), plus vertical side-margin guides. All metrics are
+ * in points, scaled to the device's native pixel resolution.
+ *
+ * The status bar height is device-specific, so it's passed in explicitly
+ * (44pt notch, 54pt Dynamic Island, 20pt Home button). The nav bar and large
+ * title bar are measured relative to the bottom of the status bar.
+ *
+ * @param {string} name
+ * @param {number} w device width in points
+ * @param {number} h device height in points
+ * @param {number} scale points→pixels scale factor
+ * @param {number} statusBar status bar height in points
+ */
+function makeLayoutGuideStamp(name, w, h, scale, statusBar) {
+  const s = scale || 1;
+  const pxW = w * s;
+  const pxH = h * s;
+  const m = HIG_METRICS;
+  const sb = statusBar;
+  const g = "group_hig_" + name.replace(/\s+/g, "_");
+  const lines = [
+    // Top-anchored horizontal guides (bottom edge of each top bar)
+    higLine(0, sb * s, pxW, sb * s, g),                                    // status bar bottom
+    higLine(0, (sb + m.navBar) * s, pxW, (sb + m.navBar) * s, g),          // thin nav bar bottom
+    higLine(0, (sb + m.largeTitleNav) * s, pxW, (sb + m.largeTitleNav) * s, g), // large-title nav bar bottom
+    // Bottom-anchored horizontal guides (top edge of each bottom element)
+    higLine(0, pxH - m.homeIndicator * s, pxW, pxH - m.homeIndicator * s, g),          // home indicator top
+    higLine(0, pxH - (m.homeIndicator + m.tabBar) * s, pxW, pxH - (m.homeIndicator + m.tabBar) * s, g), // tab bar top
+    // Side layout margins
+    higLine(m.sideMargin * s, 0, m.sideMargin * s, pxH, g),                            // left margin
+    higLine(pxW - m.sideMargin * s, 0, pxW - m.sideMargin * s, pxH, g),                // right margin
+  ];
+  return {
+    name,
+    clipboard: lines,
+    sourceBounds: { x: 0, y: 0, w: pxW, h: pxH },
+    isDefault: true,
+  };
+}
+
 /**
  * Common device safe areas at native pixel resolution. iOS insets are given in
  * points and scaled by the device scale factor; TV presets are already in px.
@@ -72,8 +142,8 @@ function buildDefaultStamps() {
   return [
     // iPhone 17 / 17 Pro (also 16 Pro) — 402×874 pt @3x → 1206×2622 px
     makeSafeAreaStamp("iPhone 17 / 17 Pro", 402, 874, { top: 62, right: 0, bottom: 34, left: 0 }, 3),
-    // iPhone with Dynamic Island (15/16/15 Pro) — 393×852 pt @3x → 1179×2556 px
-    makeSafeAreaStamp("iPhone (Dynamic Island)", 393, 852, { top: 59, right: 0, bottom: 34, left: 0 }, 3),
+    // iPhone 15 / 16 (15 Pro) — 393×852 pt @3x → 1179×2556 px
+    makeSafeAreaStamp("iPhone 15 / 16", 393, 852, { top: 59, right: 0, bottom: 34, left: 0 }, 3),
     // iPhone with notch (13/14) — 390×844 pt @3x → 1170×2532 px
     makeSafeAreaStamp("iPhone (Notch)", 390, 844, { top: 47, right: 0, bottom: 34, left: 0 }, 3),
     // iPhone mini (13 mini / 12 mini) — 375×812 pt, native scale 2.88 → 1080×2340 px
@@ -95,6 +165,14 @@ function buildDefaultStamps() {
     makeSafeAreaStamp("TV Action-Safe (1080p)", 1920, 1080, { top: 54, right: 96, bottom: 54, left: 96 }, 1),
     // TV title-safe area (10% inset) — 1920×1080 px
     makeSafeAreaStamp("TV Title-Safe (1080p)", 1920, 1080, { top: 108, right: 192, bottom: 108, left: 192 }, 1),
+    // Apple HIG layout guides (status/nav/tab bars, home indicator, side margins).
+    // These reflect the classic fixed bar heights (pre-iOS 26). Under iOS 26's
+    // Liquid Glass, nav/tab bars float and resize dynamically, so treat these as
+    // approximate reserved zones. Dynamic Island devices use a 54pt status bar.
+    // iPhone 17 / 17 Pro (16 Pro) — 402×874 pt @3x
+    makeLayoutGuideStamp("iPhone HIG Guides (17/17 Pro, classic bars)", 402, 874, 3, 54),
+    // iPhone 15 / 16 — 393×852 pt @3x
+    makeLayoutGuideStamp("iPhone HIG Guides (15/16, classic bars)", 393, 852, 3, 54),
   ];
 }
 
