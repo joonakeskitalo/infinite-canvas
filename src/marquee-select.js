@@ -625,14 +625,19 @@ function cropImageToRect(imgEl, rect) {
 }
 
 /**
- * Export the marquee selection as PNG — either to the clipboard or as a downloaded file.
+ * Export the marquee selection as an image — either to the clipboard or as a downloaded file.
  * Behaves like the regular selection export: bounds are computed from the captured elements
  * (not the marquee rectangle itself), with padding, and rendered with the canvas background.
  *
  * @param {number} scaleFactor - Export scale (1.0 = full, 0.5 = half).
- * @param {{download?: boolean}} options - If download is true, triggers a file download instead of clipboard copy.
+ * @param {{download?: boolean, padding?: number, format?: "png"|"jpeg", quality?: number}} options
+ *   - download: if true, triggers a file download instead of clipboard copy.
+ *   - padding: margin around the content (defaults to 50; pass 0 for a tight crop).
+ *   - format: output image format. "jpeg" cannot be written to the clipboard in most
+ *     browsers, so a JPEG clipboard request falls back to a file download.
+ *   - quality: JPEG quality in [0..1] (default 0.92; ignored for PNG).
  */
-export function marqueeExportPNG(scaleFactor = 1.0, { download = false, padding: customPadding } = {}) {
+export function marqueeExportPNG(scaleFactor = 1.0, { download = false, padding: customPadding, format = "png", quality = 0.92 } = {}) {
   if (!state.marqueeMode || !state.marqueeRect) {
     showToast("No marquee selection active");
     return;
@@ -747,30 +752,41 @@ export function marqueeExportPNG(scaleFactor = 1.0, { download = false, padding:
   const scaleLabel = scaleFactor === 0.5 ? " at 50%" : "";
   const count = elements.length;
 
-  if (download) {
-    // Download as file
-    const doDownload = (blob) => {
+  const isJpeg = format === "jpeg";
+  const mimeType = isJpeg ? "image/jpeg" : "image/png";
+  const fileExt = isJpeg ? "jpg" : "png";
+  // JPEG cannot be written to the clipboard in most browsers, so force a download.
+  const shouldDownload = download || isJpeg;
+
+  // Convert the export canvas to a Blob, handling both OffscreenCanvas and regular canvas.
+  const toBlob = (cb) => {
+    if (exportCanvas instanceof OffscreenCanvas) {
+      const opts = isJpeg ? { type: mimeType, quality } : { type: mimeType };
+      exportCanvas.convertToBlob(opts).then(cb);
+    } else if (isJpeg) {
+      exportCanvas.toBlob(cb, mimeType, quality);
+    } else {
+      exportCanvas.toBlob(cb, mimeType);
+    }
+  };
+
+  if (shouldDownload) {
+    toBlob((blob) => {
       if (!blob) { showToast("Failed to export marquee selection"); return; }
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       const now = new Date();
       const dtPrefix = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`;
       a.href = url;
-      a.download = `${dtPrefix}_marquee_export.png`;
+      a.download = `${dtPrefix}_marquee_export.${fileExt}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       showToast(`Marquee selection (${count} elements) downloaded${scaleLabel}!`);
-    };
-
-    if (exportCanvas instanceof OffscreenCanvas) {
-      exportCanvas.convertToBlob({ type: "image/png" }).then(doDownload);
-    } else {
-      exportCanvas.toBlob(doDownload, "image/png");
-    }
+    });
   } else {
-    // Copy to clipboard
+    // Copy to clipboard (PNG only)
     copyCanvasToClipboard(exportCanvas, `Marquee selection (${count} elements) copied${scaleLabel}!`);
   }
 }

@@ -7,6 +7,7 @@
 import { state } from "./state.js";
 import { updateToolbarUI, updateCursor, toggleAlignmentPanelVisibility } from "./toolbar.js";
 import { render, executePNGExport, executeJPEGExport } from "./rendering.js";
+import { marqueeExportPNG } from "./marquee-select.js";
 import { undo, redo } from "./history.js";
 import { groupSelection, ungroupSelection, toggleLockSelection, selectAllElements, duplicateSelection } from "./selection.js";
 import { saveFile, saveAs, openFile } from "./persistence.js";
@@ -55,14 +56,27 @@ function getCommands() {
     { id: "tool-accessibility-preview", label: "Accessibility Preview", shortcut: "J", category: "Tools", action: () => switchTool("accessibility-preview") },
 
     // --- Export ---
-    { id: "export-png-clipboard", label: "Export PNG to Clipboard", shortcut: "\u2318E", category: "Export", action: () => executePNGExport(1.0) },
-    { id: "export-png-clipboard-half", label: "Export PNG to Clipboard (50%)", shortcut: "\u2325\u2318E", category: "Export", action: () => executePNGExport(0.5) },
-    { id: "export-png-download", label: "Download PNG", shortcut: "\u21E7\u2318E", category: "Export", action: () => executePNGExport(1.0, { download: true }) },
-    { id: "export-png-download-half", label: "Download PNG (50%)", shortcut: "", category: "Export", action: () => executePNGExport(0.5, { download: true }) },
-    { id: "export-png-download-quarter", label: "Download PNG (25%)", shortcut: "", category: "Export", action: () => executePNGExport(0.25, { download: true }) },
-    { id: "export-jpeg-download", label: "Download JPEG", shortcut: "\u21E7\u2318J", category: "Export", action: () => executeJPEGExport(1.0, { download: true }) },
-    { id: "export-jpeg-download-half", label: "Download JPEG (50%)", shortcut: "", category: "Export", action: () => executeJPEGExport(0.5, { download: true }) },
-    { id: "export-jpeg-download-quarter", label: "Download JPEG (25%)", shortcut: "", category: "Export", action: () => executeJPEGExport(0.25, { download: true }) },
+    // Export options. "Copy to Clipboard" and "Download" render the same image and
+    // differ only in destination (system clipboard vs. a saved file).
+    // The default variants include a background margin around the content; the
+    // "no margin" variants render a tight crop with no surrounding background.
+    // When a marquee selection is active, exports target the marquee region instead
+    // of the whole canvas / element selection.
+    { id: "export-png-clipboard", label: "Copy PNG to Clipboard", shortcut: "\u2318E", category: "Export", action: () => exportPNG(1.0, { download: false }) },
+    { id: "export-png-clipboard-half", label: "Copy PNG to Clipboard (50%)", shortcut: "\u2325\u2318E", category: "Export", action: () => exportPNG(0.5, { download: false }) },
+    { id: "export-png-clipboard-nomargin", label: "Copy PNG to Clipboard (no margin)", shortcut: "", category: "Export", action: () => exportPNG(1.0, { download: false, noMargin: true }) },
+    { id: "export-png-download", label: "Download PNG", shortcut: "\u21E7\u2318E", category: "Export", action: () => exportPNG(1.0, { download: true }) },
+    { id: "export-png-download-half", label: "Download PNG (50%)", shortcut: "", category: "Export", action: () => exportPNG(0.5, { download: true }) },
+    { id: "export-png-download-quarter", label: "Download PNG (25%)", shortcut: "", category: "Export", action: () => exportPNG(0.25, { download: true }) },
+    { id: "export-png-download-nomargin", label: "Download PNG (no margin)", shortcut: "", category: "Export", action: () => exportPNG(1.0, { download: true, noMargin: true }) },
+    { id: "export-png-download-half-nomargin", label: "Download PNG (50%, no margin)", shortcut: "", category: "Export", action: () => exportPNG(0.5, { download: true, noMargin: true }) },
+    { id: "export-png-download-quarter-nomargin", label: "Download PNG (25%, no margin)", shortcut: "", category: "Export", action: () => exportPNG(0.25, { download: true, noMargin: true }) },
+    { id: "export-jpeg-download", label: "Download JPEG", shortcut: "\u21E7\u2318J", category: "Export", action: () => exportJPEG(1.0, { download: true }) },
+    { id: "export-jpeg-download-half", label: "Download JPEG (50%)", shortcut: "", category: "Export", action: () => exportJPEG(0.5, { download: true }) },
+    { id: "export-jpeg-download-quarter", label: "Download JPEG (25%)", shortcut: "", category: "Export", action: () => exportJPEG(0.25, { download: true }) },
+    { id: "export-jpeg-download-nomargin", label: "Download JPEG (no margin)", shortcut: "", category: "Export", action: () => exportJPEG(1.0, { download: true, noMargin: true }) },
+    { id: "export-jpeg-download-half-nomargin", label: "Download JPEG (50%, no margin)", shortcut: "", category: "Export", action: () => exportJPEG(0.5, { download: true, noMargin: true }) },
+    { id: "export-jpeg-download-quarter-nomargin", label: "Download JPEG (25%, no margin)", shortcut: "", category: "Export", action: () => exportJPEG(0.25, { download: true, noMargin: true }) },
     { id: "export-assets-zip", label: "Download Assets as ZIP", shortcut: "", category: "Export", action: () => document.getElementById("download-images-btn")?.click() },
     { id: "import-images", label: "Import Images", shortcut: "", category: "Export", action: () => document.getElementById("import-images-btn")?.click() },
 
@@ -129,6 +143,36 @@ function switchTool(toolId) {
   updateToolbarUI();
   updateCursor();
   render();
+}
+
+/**
+ * Export as PNG, dispatching to the marquee exporter when a marquee selection is
+ * active. `noMargin` renders a tight crop (padding 0); otherwise the default
+ * background margin is used.
+ */
+function exportPNG(scaleFactor, { download = false, noMargin = false } = {}) {
+  const opts = { download };
+  if (noMargin) opts.padding = 0;
+  if (state.marqueeMode && state.marqueeRect) {
+    marqueeExportPNG(scaleFactor, opts);
+  } else {
+    executePNGExport(scaleFactor, opts);
+  }
+}
+
+/**
+ * Export as JPEG, dispatching to the marquee exporter when a marquee selection is
+ * active. JPEG cannot be written to the clipboard in most browsers, so the marquee
+ * exporter downloads the JPEG file instead.
+ */
+function exportJPEG(scaleFactor, { download = false, noMargin = false } = {}) {
+  const opts = { download };
+  if (noMargin) opts.padding = 0;
+  if (state.marqueeMode && state.marqueeRect) {
+    marqueeExportPNG(scaleFactor, { ...opts, format: "jpeg" });
+  } else {
+    executeJPEGExport(scaleFactor, opts);
+  }
 }
 
 function copyColorLabels() {

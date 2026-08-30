@@ -1857,8 +1857,8 @@ export async function executePNGExport(scaleFactor = 1.0, { download = false, pa
   return executeImageExport(scaleFactor, { download, format: "png", padding });
 }
 
-export async function executeJPEGExport(scaleFactor = 1.0, { download = false, quality = 0.92 } = {}) {
-  return executeImageExport(scaleFactor, { download, format: "jpeg", quality });
+export async function executeJPEGExport(scaleFactor = 1.0, { download = false, quality = 0.92, padding } = {}) {
+  return executeImageExport(scaleFactor, { download, format: "jpeg", quality, padding });
 }
 
 async function executeImageExport(scaleFactor = 1.0, { download = false, format = "png", quality = 0.92, padding: customPadding } = {}) {
@@ -1922,7 +1922,7 @@ async function executeImageExport(scaleFactor = 1.0, { download = false, format 
     const selectedIds = new Set(state.selectedElements.map(e => e.id));
     exportElements = getElementsInZOrder().filter(e => selectedIds.has(e.id));
   } else {
-    bounds = getCanvasContentBounds();
+    bounds = getCanvasContentBounds(customPadding);
     exportElements = getElementsInZOrder();
   }
 
@@ -2028,7 +2028,7 @@ async function executeImageExport(scaleFactor = 1.0, { download = false, format 
   }, ...blobArgs);
 }
 
-function getCanvasContentBounds() {
+function getCanvasContentBounds(customPadding) {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   function expandBounds(x, y) {
     if (x < minX) minX = x;
@@ -2060,6 +2060,6 @@ function getCanvasContentBounds() {
       expandBounds(p.x, p.y);
     });
   }
-  const padding = 100;
+  const padding = customPadding != null ? customPadding : 100;
   return { minX: minX - padding, minY: minY - padding, maxX: maxX + padding, maxY: maxY + padding };
 }
