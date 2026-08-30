@@ -2498,11 +2498,16 @@ function setupKeyboardHandlers() {
       e.preventDefault();
       if (state.splitLineLengthMode === "pixel") {
         const step = e.shiftKey ? 100 : 50;
+        const cur = state.splitLineLengthPx;
+        let next;
         if (isDecreaseLen) {
-          state.splitLineLengthPx = Math.max(10, state.splitLineLengthPx - step);
+          // Snap down to the previous multiple of `step`
+          next = (Math.ceil(cur / step) - 1) * step;
         } else {
-          state.splitLineLengthPx = Math.min(2000, state.splitLineLengthPx + step);
+          // Snap up to the next multiple of `step`
+          next = (Math.floor(cur / step) + 1) * step;
         }
+        state.splitLineLengthPx = Math.max(step, Math.min(2000, next));
       } else {
         const step = e.shiftKey ? 5 : 10;
         if (isDecreaseLen) {
