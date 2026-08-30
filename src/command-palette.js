@@ -44,7 +44,6 @@ function getCommands() {
     { id: "tool-measure", label: "Measure Tool", shortcut: "Y", category: "Tools", action: () => switchTool("measure") },
     { id: "tool-split-line", label: "Split Line Tool", shortcut: "W", category: "Tools", action: () => switchTool("split-line") },
     { id: "tool-pen", label: "Pen Tool", shortcut: "B", category: "Tools", action: () => switchTool("pen") },
-    { id: "tool-bezier-pen", label: "Vector Pen Tool", shortcut: "Q", category: "Tools", action: () => switchTool("bezier-pen") },
     { id: "tool-laser", label: "Laser Pointer", shortcut: "P", category: "Tools", action: () => switchTool("laser") },
     { id: "tool-line", label: "Line Tool", shortcut: "L", category: "Tools", action: () => switchTool("line") },
     { id: "tool-arrow", label: "Arrow Tool", shortcut: "A", category: "Tools", action: () => switchTool("arrow") },

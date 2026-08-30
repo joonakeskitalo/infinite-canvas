@@ -30,7 +30,6 @@ function restoreState(snapshot) {
   state.drawings = snapshot.drawings.map((el) => {
     const d = { ...el };
     if (d.type === "pen") d.points = el.points.map((p) => ({ ...p }));
-    else if (d.type === "bezier-path") d.points = el.points.map((p) => ({ ...p }));
     else if (d.start) d.start = { ...el.start };
     if (d.end) d.end = { ...el.end };
     if (d.type === "connector") {

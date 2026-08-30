@@ -31,13 +31,6 @@ export function updateToolbarUI() {
     state.eyedropperMarqueeActive = false;
     state.eyedropperMarqueePixels = null;
   }
-  // Show/hide bezier fill control
-  const bezierFillGroup = document.getElementById("bezier-fill-group");
-  if (bezierFillGroup) {
-    const show = state.currentTool === "bezier-pen" ||
-      (state.currentTool === "select" && state.selectedElements.some((el) => el.type === "bezier-path"));
-    bezierFillGroup.style.display = show ? "" : "none";
-  }
   // Show/hide split-line length control
   const splitLineLengthGroup = document.getElementById("split-line-length-group");
   if (splitLineLengthGroup) {
@@ -59,28 +52,6 @@ export function updateToolbarUI() {
 export function toggleAlignmentPanelVisibility() {
   const dom = getDom();
   const alignmentGroup = document.getElementById("alignment-group");
-
-  // Update bezier fill control visibility on selection changes
-  const bezierFillGroupEl = document.getElementById("bezier-fill-group");
-  if (bezierFillGroupEl) {
-    const show = state.currentTool === "bezier-pen" ||
-      (state.currentTool === "select" && state.selectedElements.some((el) => el.type === "bezier-path"));
-    bezierFillGroupEl.style.display = show ? "" : "none";
-    // Sync fill swatch with selected element's fill
-    if (show && state.selectedElements.length > 0) {
-      const bezEl = state.selectedElements.find((el) => el.type === "bezier-path");
-      if (bezEl) {
-        const inner = document.getElementById("bezier-fill-swatch-inner");
-        if (bezEl.fillColor) {
-          state.bezierFillColor = bezEl.fillColor;
-          if (inner) { inner.style.background = bezEl.fillColor; inner.style.border = "none"; }
-        } else {
-          state.bezierFillColor = null;
-          if (inner) { inner.style.background = "transparent"; inner.style.border = "2px dashed #999"; }
-        }
-      }
-    }
-  }
 
   // When overlays are hidden, never show the secondary toolbar
   if (state.overlaysHidden) {
@@ -125,7 +96,7 @@ export function toggleAlignmentPanelVisibility() {
     alignmentGroup.style.display = "none";
   } else {
     // Show secondary toolbar for drawing tools that use line thickness
-    const lineTools = ["pen", "bezier-pen", "line", "arrow", "connector", "rect-border"];
+    const lineTools = ["pen", "line", "arrow", "connector", "rect-border"];
     if (lineTools.includes(state.currentTool)) {
       dom.alignmentPanel.style.display = "flex";
     } else {
@@ -137,9 +108,9 @@ export function toggleAlignmentPanelVisibility() {
   // Show line-width controls for relevant tools
   const lineWidthGroup = document.getElementById("line-width-group");
   if (lineWidthGroup) {
-    const lineWidthTools = ["pen", "bezier-pen", "line", "arrow", "connector", "rect-border", "split-line"];
+    const lineWidthTools = ["pen", "line", "arrow", "connector", "rect-border", "split-line"];
     const hasStrokeElement = state.currentTool === "select" && state.selectedElements.length > 0 &&
-      state.selectedElements.some((el) => el.type === "line" || el.type === "arrow" || el.type === "connector" || el.type === "rect-border" || el.type === "drawing" || el.type === "bezier-path");
+      state.selectedElements.some((el) => el.type === "line" || el.type === "arrow" || el.type === "connector" || el.type === "rect-border" || el.type === "drawing");
     if (lineWidthTools.includes(state.currentTool) || hasStrokeElement) {
       lineWidthGroup.style.display = "flex";
       if (dom.alignmentPanel.style.display !== "flex") {
@@ -153,9 +124,9 @@ export function toggleAlignmentPanelVisibility() {
   // Show line dash/style controls for relevant tools
   const lineDashGroup = document.getElementById("line-dash-group");
   if (lineDashGroup) {
-    const lineDashTools = ["pen", "bezier-pen", "line", "arrow", "connector", "rect-border"];
+    const lineDashTools = ["pen", "line", "arrow", "connector", "rect-border"];
     const hasStrokeEl = state.currentTool === "select" && state.selectedElements.length > 0 &&
-      state.selectedElements.some((el) => el.type === "line" || el.type === "arrow" || el.type === "connector" || el.type === "rect-border" || el.type === "drawing" || el.type === "bezier-path");
+      state.selectedElements.some((el) => el.type === "line" || el.type === "arrow" || el.type === "connector" || el.type === "rect-border" || el.type === "drawing");
     if (lineDashTools.includes(state.currentTool) || hasStrokeEl) {
       lineDashGroup.style.display = "flex";
       syncLineDashFromSelection();
@@ -167,7 +138,7 @@ export function toggleAlignmentPanelVisibility() {
   // Show color picker for tools that draw with color
   const colorPickerGroup = document.getElementById("color-picker-group");
   if (colorPickerGroup) {
-    const colorTools = ["pen", "bezier-pen", "line", "arrow", "connector", "rect-border", "rect-fill", "text", "text-element", "split-line", "eyedropper"];
+    const colorTools = ["pen", "line", "arrow", "connector", "rect-border", "rect-fill", "text", "text-element", "split-line", "eyedropper"];
     const hasColorElement = state.currentTool === "select" && state.selectedElements.length > 0 &&
       state.selectedElements.some((el) => el.elementType !== "image");
     if (colorTools.includes(state.currentTool) || hasColorElement) {
@@ -559,7 +530,6 @@ export function updateCursor() {
   else if (state.currentTool === "marquee") container.style.cursor = "crosshair";
   else if (state.currentTool === "contrast") container.style.cursor = "crosshair";
   else if (state.currentTool === "measure") container.style.cursor = "crosshair";
-  else if (state.currentTool === "bezier-pen") container.style.cursor = "crosshair";
   else if (state.currentTool === "split-line") container.style.cursor = "crosshair";
   else if (state.currentTool === "stamp") container.style.cursor = "copy";
   else if (state.currentTool === "accessibility-preview") container.style.cursor = "crosshair";

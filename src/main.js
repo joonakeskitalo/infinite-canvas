@@ -20,7 +20,6 @@ import { initCustomColors, setCustomColorsToast } from "./custom-colors.js";
 import { initColorHistory } from "./color-history.js";
 import { initSavedStamps, setSavedStampsDeps } from "./saved-stamps.js";
 import { setLaserRenderFn } from "./laser-pointer.js";
-import { setBezierPenDeps } from "./bezier-pen.js";
 import { initMarqueeColors, setMarqueeColorsDeps } from "./marquee-colors.js";
 import { initCommandPalette } from "./command-palette.js";
 
@@ -44,7 +43,6 @@ setPersistenceDeps({
 
 setRenderFn(render);
 setLaserRenderFn(render);
-setBezierPenDeps({ render, scheduleSave, toggleAlignmentPanelVisibility });
 
 // --- Hook rulers into the render cycle ---
 setPostRenderHook(() => {
