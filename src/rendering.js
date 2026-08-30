@@ -1652,7 +1652,31 @@ function _doRender(targetCtx, isExporting) {
   }
 
   // 5. Draw split-line tool overlay
-  if (!isExporting && state.currentTool === "split-line" && state.splitLineWorldPos &&
+  if (!isExporting && state.currentTool === "split-line" && state.splitLineIsDragging && state.splitLineDragRect) {
+    // Box (marquee) drag preview: outline the rectangle being swept out.
+    const r = state.splitLineDragRect;
+    targetCtx.save();
+    targetCtx.translate(transform.x, transform.y);
+    targetCtx.scale(transform.zoom, transform.zoom);
+    const dashScale = 1 / transform.zoom;
+    targetCtx.globalAlpha = 0.5;
+    targetCtx.strokeStyle = state.drawColor;
+    targetCtx.lineWidth = (state.currentLineWidth / 4) / transform.zoom;
+    if (state.splitLineDash === "dashed") {
+      targetCtx.setLineDash([8 * dashScale, 4 * dashScale]);
+    } else if (state.splitLineDash === "dotted") {
+      targetCtx.setLineDash([2 * dashScale, 3 * dashScale]);
+    } else if (state.splitLineDash === "dash-dot") {
+      targetCtx.setLineDash([8 * dashScale, 3 * dashScale, 2 * dashScale, 3 * dashScale]);
+    } else {
+      targetCtx.setLineDash([]);
+    }
+    targetCtx.beginPath();
+    targetCtx.rect(r.x, r.y, r.w, r.h);
+    targetCtx.stroke();
+    targetCtx.setLineDash([]);
+    targetCtx.restore();
+  } else if (!isExporting && state.currentTool === "split-line" && state.splitLineWorldPos &&
       (state.splitLineHoveredImage || state.splitLineFullWidth)) {
     targetCtx.save();
     targetCtx.translate(transform.x, transform.y);

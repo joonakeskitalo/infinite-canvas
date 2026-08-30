@@ -130,6 +130,13 @@ export const state = {
   splitLineFullWidth: false, // when true, line extends across full canvas (like a ruler guide)
   splitLineHoveredImage: null,
   splitLineWorldPos: null,
+  // Drag-to-box: when the user presses and drags with the split-line tool, a
+  // rectangular box guide (four connected split lines) is swept out instead of
+  // placing a single line. A plain click (no drag) still places a single line.
+  splitLineDragStart: null,   // {x, y} world-coords where the drag began (mousedown on an image)
+  splitLineDragImage: null,   // the image element the drag started on (box is clamped to it)
+  splitLineDragRect: null,    // {x, y, w, h} world-coords of the box being swept (for preview)
+  splitLineIsDragging: false, // true once the drag passes the movement threshold
 
 
   // Contrast checker tool

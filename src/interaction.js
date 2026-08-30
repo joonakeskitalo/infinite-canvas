@@ -94,6 +94,142 @@ function snapSplitLinePos(pos, origin, size) {
   return pos;
 }
 
+/**
+ * Create a split-line drawing element. Shared by single-line placement and the
+ * box (marquee) placement so they stay visually identical.
+ */
+function makeSplitLineEl(start, end, dashPattern) {
+  return {
+    id: "draw_" + state.elementIdCounter++,
+    elementType: "drawing",
+    type: "line",
+    isSplitLine: true,
+    color: state.drawColor,
+    width: state.currentLineWidth / 4,
+    opacity: 0.7,
+    dash: dashPattern,
+    start,
+    end,
+  };
+}
+
+/**
+ * Place split line(s) for a plain click on an image (no drag). Preserves the
+ * original behavior: Ctrl → four arms radiating from the click point,
+ * otherwise a single line in the effective orientation (Meta flips it, Shift
+ * snaps to image fractions).
+ */
+function placeSplitLineClick(img, pos, e) {
+  const dashPattern = state.splitLineDash;
+  pushUndo();
+
+  if (state.isCtrlPressed) {
+    // Create four separate lines radiating from the click point when ctrl
+    // is held (up, down, left, right). Splitting each axis at the click
+    // point lets the arms be erased independently.
+    let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
+    let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
+    if (e.shiftKey) {
+      lx = snapSplitLinePos(lx, img.x, img.w);
+      ly = snapSplitLinePos(ly, img.y, img.h);
+    }
+    // Vertical extent (along Y axis), split at the click point ly
+    const vExt = getSplitLineExtent(img.y, img.h, ly);
+    // Horizontal extent (along X axis), split at the click point lx
+    const hExt = getSplitLineExtent(img.x, img.w, lx);
+
+    const armSpecs = [
+      [{ x: lx, y: vExt.start }, { x: lx, y: ly }], // up
+      [{ x: lx, y: ly }, { x: lx, y: vExt.end }],   // down
+      [{ x: hExt.start, y: ly }, { x: lx, y: ly }], // left
+      [{ x: lx, y: ly }, { x: hExt.end, y: ly }],   // right
+    ];
+    for (const [start, end] of armSpecs) {
+      // Skip degenerate zero-length arms (click landing on a clamped edge)
+      if (start.x === end.x && start.y === end.y) continue;
+      const arm = makeSplitLineEl(start, end, dashPattern);
+      state.drawings.push(arm);
+      spatialInsert(arm);
+    }
+  } else {
+    // Create a single line based on effective orientation
+    const effectiveOrientation = e.metaKey
+      ? (state.splitLineOrientation === "vertical" ? "horizontal" : "vertical")
+      : state.splitLineOrientation;
+    let start, end;
+    if (effectiveOrientation === "vertical") {
+      let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
+      if (e.shiftKey) lx = snapSplitLinePos(lx, img.x, img.w);
+      const ext = getSplitLineExtent(img.y, img.h, pos.y);
+      start = { x: lx, y: ext.start };
+      end = { x: lx, y: ext.end };
+    } else {
+      let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
+      if (e.shiftKey) ly = snapSplitLinePos(ly, img.y, img.h);
+      const ext = getSplitLineExtent(img.x, img.w, pos.x);
+      start = { x: ext.start, y: ly };
+      end = { x: ext.end, y: ly };
+    }
+    const lineEl = makeSplitLineEl(start, end, dashPattern);
+    state.drawings.push(lineEl);
+    spatialInsert(lineEl);
+  }
+
+  scheduleSave();
+  render();
+}
+
+/**
+ * Compute the box rectangle (in world coords) swept between two points, clamped
+ * to the image bounds. Optionally snaps each edge to image fractions (Shift).
+ * Returns null when the rectangle is degenerate (< 1px on either axis).
+ */
+function computeSplitLineBoxRect(img, startPos, endPos, snap) {
+  let x0 = Math.max(img.x, Math.min(startPos.x, img.x + img.w));
+  let y0 = Math.max(img.y, Math.min(startPos.y, img.y + img.h));
+  let x1 = Math.max(img.x, Math.min(endPos.x, img.x + img.w));
+  let y1 = Math.max(img.y, Math.min(endPos.y, img.y + img.h));
+  if (snap) {
+    x0 = snapSplitLinePos(x0, img.x, img.w);
+    y0 = snapSplitLinePos(y0, img.y, img.h);
+    x1 = snapSplitLinePos(x1, img.x, img.w);
+    y1 = snapSplitLinePos(y1, img.y, img.h);
+  }
+  const left = Math.min(x0, x1);
+  const right = Math.max(x0, x1);
+  const top = Math.min(y0, y1);
+  const bottom = Math.max(y0, y1);
+  if (right - left < 1 || bottom - top < 1) return null;
+  return { x: left, y: top, w: right - left, h: bottom - top };
+}
+
+/**
+ * Place a rectangular box guide (four connected split lines) spanning the given
+ * world-coords rectangle. Each edge is an independent split line so it can be
+ * erased/selected separately, consistent with the Ctrl "cross" placement.
+ */
+function placeSplitLineBox(rect) {
+  const dashPattern = state.splitLineDash;
+  const left = rect.x, top = rect.y;
+  const right = rect.x + rect.w, bottom = rect.y + rect.h;
+
+  pushUndo();
+  const edgeSpecs = [
+    [{ x: left, y: top }, { x: right, y: top }],       // top
+    [{ x: left, y: bottom }, { x: right, y: bottom }], // bottom
+    [{ x: left, y: top }, { x: left, y: bottom }],     // left
+    [{ x: right, y: top }, { x: right, y: bottom }],   // right
+  ];
+  for (const [start, end] of edgeSpecs) {
+    if (start.x === end.x && start.y === end.y) continue;
+    const edge = makeSplitLineEl(start, end, dashPattern);
+    state.drawings.push(edge);
+    spatialInsert(edge);
+  }
+  scheduleSave();
+  render();
+}
+
 // Slider bounds for each split-line length mode
 const SPLIT_LINE_PERCENT_RANGE = { min: 10, max: 200, step: 5 };
 const SPLIT_LINE_PIXEL_RANGE = { min: 10, max: 2000, step: 10 };
@@ -322,7 +458,11 @@ export function initEventHandlers() {
       if (state.currentTool !== "select") { state.swapHoveredElement = null; state.isSwapDragging = false; state.swapSourceElement = null; state.swapDragWorldPos = null; state.swapTargetElement = null; }
       if (state.currentTool !== "measure") { state.measureHoverGuides = []; state.activeMeasureLine = null; }
       if (state.currentTool !== "marquee" && state.marqueeMode) { marqueeCommit(); }
-      if (state.currentTool !== "split-line") { state.splitLineHoveredImage = null; state.splitLineWorldPos = null; }
+      if (state.currentTool !== "split-line") {
+        state.splitLineHoveredImage = null; state.splitLineWorldPos = null;
+        state.splitLineDragStart = null; state.splitLineDragImage = null;
+        state.splitLineDragRect = null; state.splitLineIsDragging = false;
+      }
       if (state.currentTool === "accessibility-preview") { activateAccessibilityPreview(); }
       else { deactivateAccessibilityPreview(); }
       if (state.currentTool === "contrast") { state.contrastClickCount = 0; state.contrastColor1 = null; state.contrastColor2 = null; state.contrastWorldPos1 = null; state.activeContrastLine = null; showContrastWaiting(1); }
@@ -3494,90 +3634,15 @@ function setupMouseHandlers() {
         scheduleSave();
         render();
       } else if (state.splitLineHoveredImage && state.splitLineWorldPos) {
-        const img = state.splitLineHoveredImage;
-        const pos = state.splitLineWorldPos;
-        const dashPattern = state.splitLineDash;
-
-        pushUndo();
-
-        if (state.isCtrlPressed) {
-          // Create four separate lines radiating from the click point when ctrl
-          // is held (up, down, left, right). Splitting each axis at the click
-          // point lets the arms be erased independently.
-          let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
-          let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
-          if (e.shiftKey) {
-            lx = snapSplitLinePos(lx, img.x, img.w);
-            ly = snapSplitLinePos(ly, img.y, img.h);
-          }
-          // Vertical extent (along Y axis), split at the click point ly
-          const vExt = getSplitLineExtent(img.y, img.h, ly);
-          // Horizontal extent (along X axis), split at the click point lx
-          const hExt = getSplitLineExtent(img.x, img.w, lx);
-
-          const makeSplitLine = (start, end) => ({
-            id: "draw_" + state.elementIdCounter++,
-            elementType: "drawing",
-            type: "line",
-            isSplitLine: true,
-            color: state.drawColor,
-            width: state.currentLineWidth / 4,
-            opacity: 0.7,
-            dash: dashPattern,
-            start,
-            end,
-          });
-
-          const armSpecs = [
-            [{ x: lx, y: vExt.start }, { x: lx, y: ly }], // up
-            [{ x: lx, y: ly }, { x: lx, y: vExt.end }],   // down
-            [{ x: hExt.start, y: ly }, { x: lx, y: ly }], // left
-            [{ x: lx, y: ly }, { x: hExt.end, y: ly }],   // right
-          ];
-          for (const [start, end] of armSpecs) {
-            // Skip degenerate zero-length arms (click landing on a clamped edge)
-            if (start.x === end.x && start.y === end.y) continue;
-            const arm = makeSplitLine(start, end);
-            state.drawings.push(arm);
-            spatialInsert(arm);
-          }
-        } else {
-          // Create a single line based on effective orientation
-          const effectiveOrientation = e.metaKey
-            ? (state.splitLineOrientation === "vertical" ? "horizontal" : "vertical")
-            : state.splitLineOrientation;
-          let start, end;
-          if (effectiveOrientation === "vertical") {
-            let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
-            if (e.shiftKey) lx = snapSplitLinePos(lx, img.x, img.w);
-            const ext = getSplitLineExtent(img.y, img.h, pos.y);
-            start = { x: lx, y: ext.start };
-            end = { x: lx, y: ext.end };
-          } else {
-            let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
-            if (e.shiftKey) ly = snapSplitLinePos(ly, img.y, img.h);
-            const ext = getSplitLineExtent(img.x, img.w, pos.x);
-            start = { x: ext.start, y: ly };
-            end = { x: ext.end, y: ly };
-          }
-          const lineEl = {
-            id: "draw_" + state.elementIdCounter++,
-            elementType: "drawing",
-            type: "line",
-            isSplitLine: true,
-            color: state.drawColor,
-            width: state.currentLineWidth / 4,
-            opacity: 0.7,
-            dash: dashPattern,
-            start,
-            end,
-          };
-          state.drawings.push(lineEl);
-          spatialInsert(lineEl);
-        }
-
-        scheduleSave();
-        render();
+        // Defer placement: a plain click (mouseup with no meaningful drag) places
+        // a single split line (existing behavior), while a press-and-drag sweeps
+        // out a rectangular box guide. The actual work happens in mousemove /
+        // mouseup so we keep isInteracting = true here.
+        state.splitLineDragStart = { x: state.splitLineWorldPos.x, y: state.splitLineWorldPos.y };
+        state.splitLineDragImage = state.splitLineHoveredImage;
+        state.splitLineDragRect = null;
+        state.splitLineIsDragging = false;
+        return;
       }
       state.isInteracting = false;
       return;
@@ -3945,6 +4010,24 @@ function setupMouseHandlers() {
         w: Math.abs(worldPos.x - startX),
         h: Math.abs(worldPos.y - startY),
       };
+      render();
+      return;
+    }
+
+    // Split-line box drag: sweep out a rectangular guide box on the source image.
+    if (state.currentTool === "split-line" && state.splitLineDragStart && state.splitLineDragImage) {
+      const screenDx = e.clientX - state.startX;
+      const screenDy = e.clientY - state.startY;
+      if (!state.splitLineIsDragging &&
+          Math.sqrt(screenDx * screenDx + screenDy * screenDy) < CONSTANTS.MIN_DRAW_DISTANCE) {
+        return; // not enough movement yet — still a potential click
+      }
+      state.splitLineIsDragging = true;
+      state.splitLineDragRect = computeSplitLineBoxRect(
+        state.splitLineDragImage, state.splitLineDragStart, worldPos, e.shiftKey
+      );
+      // Keep the crosshair preview position in sync so hover overlay stays hidden.
+      state.splitLineWorldPos = { x: worldPos.x, y: worldPos.y };
       render();
       return;
     }
@@ -4592,6 +4675,32 @@ function setupMouseHandlers() {
       state.cropDragEdge = null;
       state.cropDragStart = null;
       render(); return;
+    }
+
+    // Split-line tool mouseup: a drag places a box guide, a plain click places
+    // a single split line (existing behavior).
+    if (state.currentTool === "split-line" && state.splitLineDragStart) {
+      const img = state.splitLineDragImage;
+      const wasDrag = state.splitLineIsDragging;
+      const dragRect = state.splitLineDragRect;
+      const clickPos = state.splitLineDragStart;
+      // Clear drag state before placing so a re-render doesn't show stale preview.
+      state.splitLineDragStart = null;
+      state.splitLineDragImage = null;
+      state.splitLineDragRect = null;
+      state.splitLineIsDragging = false;
+
+      if (wasDrag) {
+        if (dragRect) {
+          placeSplitLineBox(dragRect);
+        } else {
+          render();
+        }
+      } else if (img) {
+        // No meaningful movement — treat as a click at the press point.
+        placeSplitLineClick(img, clickPos, e);
+      }
+      return;
     }
 
     // Bézier pen tool mouseup
