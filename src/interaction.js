@@ -3314,6 +3314,49 @@ function setupMouseHandlers() {
           break;
         }
       }
+      if ((e.metaKey || e.ctrlKey) && hoveredImg) {
+        // Cmd/Ctrl+Click on an image: remove all non-image drawings overlapping it
+        const rect = { x: hoveredImg.x, y: hoveredImg.y, w: hoveredImg.w, h: hoveredImg.h };
+        const toRemove = [];
+        for (let i = state.drawings.length - 1; i >= 0; i--) {
+          const shape = state.drawings[i];
+          if (shape.locked) continue;
+          const b = getShapeBounds(shape);
+          // Remove drawings whose bounding box intersects the image bounds
+          if (b.x < rect.x + rect.w && b.x + b.w > rect.x &&
+              b.y < rect.y + rect.h && b.y + b.h > rect.y) {
+            toRemove.push(i);
+          }
+        }
+        if (toRemove.length === 0) {
+          showToast("No drawings on this image");
+          return;
+        }
+        pushUndo();
+        const removedIds = [];
+        for (const idx of toRemove) {
+          const el = state.drawings[idx];
+          removedIds.push(el.id);
+          spatialRemove(el);
+          state.drawings.splice(idx, 1);
+        }
+        // Clean up connector references pointing to removed elements
+        for (const shape of state.drawings) {
+          if (shape.type !== "connector") continue;
+          if (shape.startConn && removedIds.includes(shape.startConn.elementId)) {
+            shape.startConn = null;
+          }
+          if (shape.endConn && removedIds.includes(shape.endConn.elementId)) {
+            shape.endConn = null;
+          }
+        }
+        state.stampPreview = null;
+        render();
+        scheduleSave();
+        showToast(`Removed ${toRemove.length} drawing(s) from image`);
+        return;
+      }
+
       if (e.shiftKey) {
         // Shift+Click: copy overlapping non-image elements from hovered image
         if (!hoveredImg) {
