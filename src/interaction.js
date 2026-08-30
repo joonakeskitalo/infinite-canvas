@@ -1808,21 +1808,18 @@ function buildStampPreview(targetImg) {
   if (!targetImg || !state.stampClipboard || state.stampClipboard.length === 0 || !state.stampSourceBounds) {
     return null;
   }
-  const srcW = state.stampSourceBounds.w;
-  const srcH = state.stampSourceBounds.h;
-  if (!srcW || !srcH) return null;
-  const scaleX = targetImg.w / srcW;
-  const scaleY = targetImg.h / srcH;
+  // Preview using the same absolute-offset model as copy/paste: re-apply the
+  // stored pixel offsets relative to the target's displayed origin, no scaling.
   const elements = state.stampClipboard.map((srcEl) => {
     const clone = JSON.parse(JSON.stringify(srcEl));
     if (clone.type === "pen" && clone.points) {
       clone.points = clone.points.map((p) => ({
-        x: p.x * scaleX + targetImg.x,
-        y: p.y * scaleY + targetImg.y,
+        x: p.x + targetImg.x,
+        y: p.y + targetImg.y,
       }));
     } else if (clone.start) {
-      clone.start = { x: clone.start.x * scaleX + targetImg.x, y: clone.start.y * scaleY + targetImg.y };
-      if (clone.end) clone.end = { x: clone.end.x * scaleX + targetImg.x, y: clone.end.y * scaleY + targetImg.y };
+      clone.start = { x: clone.start.x + targetImg.x, y: clone.start.y + targetImg.y };
+      if (clone.end) clone.end = { x: clone.end.x + targetImg.x, y: clone.end.y + targetImg.y };
     }
     return clone;
   });
@@ -3272,6 +3269,10 @@ function setupMouseHandlers() {
           showToast("No overlapping elements found");
           return;
         }
+        // Store each element's ABSOLUTE pixel offset from the image's displayed
+        // (visible) top-left corner. On paste the same offset is re-applied with
+        // no rescaling, so annotations keep their exact position and size on the
+        // visible image regardless of how the source or target image is cropped.
         state.stampClipboard = overlapping.map(el => {
           const clone = JSON.parse(JSON.stringify(el, (key, value) => {
             if (key === "img" && value instanceof HTMLImageElement) return undefined;
@@ -3296,10 +3297,8 @@ function setupMouseHandlers() {
           return;
         }
         pushUndo();
-        const srcW = state.stampSourceBounds.w;
-        const srcH = state.stampSourceBounds.h;
-        const scaleX = hoveredImg.w / srcW;
-        const scaleY = hoveredImg.h / srcH;
+        // Re-apply the stored absolute pixel offsets relative to the target
+        // image's displayed origin, with no rescaling.
         const newElements = [];
         const groupIdMap = new Map();
         state.stampClipboard.forEach(srcEl => {
@@ -3313,12 +3312,12 @@ function setupMouseHandlers() {
           }
           if (clone.type === "pen" && clone.points) {
             clone.points = clone.points.map(p => ({
-              x: p.x * scaleX + hoveredImg.x,
-              y: p.y * scaleY + hoveredImg.y,
+              x: p.x + hoveredImg.x,
+              y: p.y + hoveredImg.y,
             }));
           } else if (clone.start) {
-            clone.start = { x: clone.start.x * scaleX + hoveredImg.x, y: clone.start.y * scaleY + hoveredImg.y };
-            if (clone.end) clone.end = { x: clone.end.x * scaleX + hoveredImg.x, y: clone.end.y * scaleY + hoveredImg.y };
+            clone.start = { x: clone.start.x + hoveredImg.x, y: clone.start.y + hoveredImg.y };
+            if (clone.end) clone.end = { x: clone.end.x + hoveredImg.x, y: clone.end.y + hoveredImg.y };
           }
           state.drawings.push(clone);
           spatialInsert(clone);
@@ -4616,12 +4615,10 @@ function setupMouseHandlers() {
         return;
       }
       pushUndo();
-      const srcW = state.stampSourceBounds.w;
-      const srcH = state.stampSourceBounds.h;
       let totalStamped = 0;
       hitImages.forEach(targetImg => {
-        const scaleX = targetImg.w / srcW;
-        const scaleY = targetImg.h / srcH;
+        // Re-apply stored absolute offsets relative to each target's displayed
+        // origin, with no rescaling.
         const groupIdMap = new Map();
         state.stampClipboard.forEach(srcEl => {
           const clone = JSON.parse(JSON.stringify(srcEl));
@@ -4634,12 +4631,12 @@ function setupMouseHandlers() {
           }
           if (clone.type === "pen" && clone.points) {
             clone.points = clone.points.map(p => ({
-              x: p.x * scaleX + targetImg.x,
-              y: p.y * scaleY + targetImg.y,
+              x: p.x + targetImg.x,
+              y: p.y + targetImg.y,
             }));
           } else if (clone.start) {
-            clone.start = { x: clone.start.x * scaleX + targetImg.x, y: clone.start.y * scaleY + targetImg.y };
-            if (clone.end) clone.end = { x: clone.end.x * scaleX + targetImg.x, y: clone.end.y * scaleY + targetImg.y };
+            clone.start = { x: clone.start.x + targetImg.x, y: clone.start.y + targetImg.y };
+            if (clone.end) clone.end = { x: clone.end.x + targetImg.x, y: clone.end.y + targetImg.y };
           }
           state.drawings.push(clone);
           spatialInsert(clone);
