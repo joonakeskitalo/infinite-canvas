@@ -4438,13 +4438,29 @@ function setupMouseHandlers() {
             state.activeProximityGuides = [];
             state.activeSpacingGuides = [];
           } else {
-            const targets = getSnapTargets(excludeIds, groupBounds);
+            // When the selection contains more than one image, align it by the
+            // outer dimensions of the whole selection (edges + center) against
+            // nearby elements. The per-element spacing/proximity computations
+            // ("internal alignment options") are O(neighbors^2) and re-scan the
+            // canvas every frame, which freezes the drag when many cropped
+            // images are selected — so they're skipped for this case.
+            const imageCount = state.selectedElements.reduce(
+              (n, el) => (el.elementType === "image" ? n + 1 : n), 0
+            );
+            const outerDimensionsOnly = imageCount > 1;
+
+            const excludeSet = _dragExcludeIdSet || new Set(excludeIds);
+            const targets = getSnapTargets(excludeSet, groupBounds,
+              outerDimensionsOnly ? { skipQuarterPoints: true } : undefined);
             const threshold = CONSTANTS.SNAP_THRESHOLD / state.transform.zoom;
             const snap = snapToElements(groupBounds, targets, threshold);
-            const spacingSnap = snapToSpacing(groupBounds, excludeIds, threshold);
+
             let finalDx = snap.dx, finalDy = snap.dy;
-            if (Math.abs(spacingSnap.dx) > 0 && (Math.abs(snap.dx) === 0 || Math.abs(spacingSnap.dx) < Math.abs(snap.dx))) finalDx = spacingSnap.dx;
-            if (Math.abs(spacingSnap.dy) > 0 && (Math.abs(snap.dy) === 0 || Math.abs(spacingSnap.dy) < Math.abs(snap.dy))) finalDy = spacingSnap.dy;
+            if (!outerDimensionsOnly) {
+              const spacingSnap = snapToSpacing(groupBounds, excludeSet, threshold);
+              if (Math.abs(spacingSnap.dx) > 0 && (Math.abs(snap.dx) === 0 || Math.abs(spacingSnap.dx) < Math.abs(snap.dx))) finalDx = spacingSnap.dx;
+              if (Math.abs(spacingSnap.dy) > 0 && (Math.abs(snap.dy) === 0 || Math.abs(spacingSnap.dy) < Math.abs(snap.dy))) finalDy = spacingSnap.dy;
+            }
             if (finalDx !== 0 || finalDy !== 0) {
               state.selectedElements.forEach((el) => {
                 if (el.elementType === "image") { el.x += finalDx; el.y += finalDy; }
@@ -4462,7 +4478,12 @@ function setupMouseHandlers() {
             groupBounds = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
             state.activeSnapGuides = snap.guides;
             state.activeProximityGuides = [];
-            state.activeSpacingGuides = getSpacingGuides(groupBounds, excludeIds);
+            // Spacing guides are only meaningful (and only affordable) for small
+            // selections; skip the per-neighbour recomputation for multi-image
+            // selections that align by their outer bounds.
+            state.activeSpacingGuides = outerDimensionsOnly
+              ? []
+              : getSpacingGuides(groupBounds, excludeSet);
           }
         } else {
           // No guides unless Shift is held — improves performance during drag

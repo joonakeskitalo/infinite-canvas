@@ -11,7 +11,9 @@ import { getShapeBounds, getElementBounds } from "./elements.js";
 const SPATIAL_INDEX_THRESHOLD = 50;
 
 export function getClosestElements(bounds, excludeIds, maxCount, options) {
-  const excluded = new Set(excludeIds);
+  // Accept either an array of ids or a pre-built Set (avoids rebuilding a large
+  // Set every drag frame when many elements are selected).
+  const excluded = excludeIds instanceof Set ? excludeIds : new Set(excludeIds);
   const skipSplitLines = options && options.excludeSplitLines;
   const myCx = bounds.x + bounds.w / 2;
   const myCy = bounds.y + bounds.h / 2;
@@ -85,8 +87,12 @@ export function getClosestElements(bounds, excludeIds, maxCount, options) {
 
 export function getSnapTargets(excludeIds, bounds, options) {
   const targets = { x: [], y: [] };
-  const excluded = new Set(excludeIds);
+  const excluded = excludeIds instanceof Set ? excludeIds : new Set(excludeIds);
   const skipSplitLines = options && options.excludeSplitLines;
+  // For large multi-element selections, snapping to per-image quarter points
+  // (and iterating every image on the canvas each frame) is both expensive and
+  // not useful — the selection is aligned by its outer edges/center instead.
+  const skipQuarterPoints = options && options.skipQuarterPoints;
 
   for (const guide of state.guides) {
     if (guide.axis === "x") targets.x.push(guide.position);
@@ -95,7 +101,7 @@ export function getSnapTargets(excludeIds, bounds, options) {
 
   let elementBounds;
   if (bounds) {
-    elementBounds = getClosestElements(bounds, excludeIds, CONSTANTS.MAX_GUIDE_NEIGHBORS, options);
+    elementBounds = getClosestElements(bounds, excluded, CONSTANTS.MAX_GUIDE_NEIGHBORS, options);
   } else {
     const groupBoundsMap = new Map();
     elementBounds = [];
@@ -137,11 +143,14 @@ export function getSnapTargets(excludeIds, bounds, options) {
     targets.y.push(b.y, b.y + b.h, b.y + b.h / 2);
   }
 
-  // Add 25% increment snap points for images
-  for (const img of state.images) {
-    if (excluded.has(img.id)) continue;
-    targets.x.push(img.x + img.w * 0.25, img.x + img.w * 0.75);
-    targets.y.push(img.y + img.h * 0.25, img.y + img.h * 0.75);
+  // Add 25% increment snap points for images. Skipped for large selections,
+  // where scanning every image each frame causes drag stutter.
+  if (!skipQuarterPoints) {
+    for (const img of state.images) {
+      if (excluded.has(img.id)) continue;
+      targets.x.push(img.x + img.w * 0.25, img.x + img.w * 0.75);
+      targets.y.push(img.y + img.h * 0.25, img.y + img.h * 0.75);
+    }
   }
 
   return targets;
