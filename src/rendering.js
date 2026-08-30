@@ -4,7 +4,7 @@
  * Main render loop, shape drawing, measurement lines, and PNG export.
  */
 
-import { state, CONSTANTS, getDom, getElementsInZOrder, spatialIndex } from "./state.js";
+import { state, CONSTANTS, getDom, getElementsInZOrder, spatialIndex, getSplitLineExtent } from "./state.js";
 import { getViewportBounds, isRectInViewport, worldToScreen, screenToWorld } from "./utils.js";
 import { applyFilterToImageData } from "./filter-kernels.js";
 import {
@@ -1724,7 +1724,6 @@ function _doRender(targetCtx, isExporting) {
     } else {
       // Normal mode: line constrained to hovered image
       const img = state.splitLineHoveredImage;
-      const lengthPct = state.splitLineLength / 100;
 
       if (state.isCtrlPressed) {
         // Draw both vertical and horizontal lines when ctrl is held
@@ -1735,34 +1734,16 @@ function _doRender(targetCtx, isExporting) {
           ly = snapSplitLinePreviewPos(ly, img.y, img.h);
         }
         // Vertical line
-        const vSpan = img.h * lengthPct;
-        let vSY, vEY;
-        if (lengthPct > 1) {
-          const ext = (vSpan - img.h) / 2;
-          vSY = img.y - ext; vEY = img.y + img.h + ext;
-        } else {
-          vSY = ly - vSpan / 2; vEY = ly + vSpan / 2;
-          if (vSY < img.y) { vSY = img.y; vEY = img.y + vSpan; }
-          if (vEY > img.y + img.h) { vEY = img.y + img.h; vSY = img.y + img.h - vSpan; }
-        }
+        const v = getSplitLineExtent(img.y, img.h, ly);
         targetCtx.beginPath();
-        targetCtx.moveTo(lx, vSY);
-        targetCtx.lineTo(lx, vEY);
+        targetCtx.moveTo(lx, v.start);
+        targetCtx.lineTo(lx, v.end);
         targetCtx.stroke();
         // Horizontal line
-        const hSpan = img.w * lengthPct;
-        let hSX, hEX;
-        if (lengthPct > 1) {
-          const ext = (hSpan - img.w) / 2;
-          hSX = img.x - ext; hEX = img.x + img.w + ext;
-        } else {
-          hSX = lx - hSpan / 2; hEX = lx + hSpan / 2;
-          if (hSX < img.x) { hSX = img.x; hEX = img.x + hSpan; }
-          if (hEX > img.x + img.w) { hEX = img.x + img.w; hSX = img.x + img.w - hSpan; }
-        }
+        const h = getSplitLineExtent(img.x, img.w, lx);
         targetCtx.beginPath();
-        targetCtx.moveTo(hSX, ly);
-        targetCtx.lineTo(hEX, ly);
+        targetCtx.moveTo(h.start, ly);
+        targetCtx.lineTo(h.end, ly);
         targetCtx.stroke();
       } else if (state.isMetaPressed) {
         // Draw line in the opposite orientation when meta is held
@@ -1771,34 +1752,16 @@ function _doRender(targetCtx, isExporting) {
           // Opposite: horizontal
           let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
           if (state.isShiftPressed) ly = snapSplitLinePreviewPos(ly, img.y, img.h);
-          const span = img.w * lengthPct;
-          let sX, eX;
-          if (lengthPct > 1) {
-            const ext = (span - img.w) / 2;
-            sX = img.x - ext; eX = img.x + img.w + ext;
-          } else {
-            sX = pos.x - span / 2; eX = pos.x + span / 2;
-            if (sX < img.x) { sX = img.x; eX = img.x + span; }
-            if (eX > img.x + img.w) { eX = img.x + img.w; sX = img.x + img.w - span; }
-          }
-          targetCtx.moveTo(sX, ly);
-          targetCtx.lineTo(eX, ly);
+          const h = getSplitLineExtent(img.x, img.w, pos.x);
+          targetCtx.moveTo(h.start, ly);
+          targetCtx.lineTo(h.end, ly);
         } else {
           // Opposite: vertical
           let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
           if (state.isShiftPressed) lx = snapSplitLinePreviewPos(lx, img.x, img.w);
-          const span = img.h * lengthPct;
-          let sY, eY;
-          if (lengthPct > 1) {
-            const ext = (span - img.h) / 2;
-            sY = img.y - ext; eY = img.y + img.h + ext;
-          } else {
-            sY = pos.y - span / 2; eY = pos.y + span / 2;
-            if (sY < img.y) { sY = img.y; eY = img.y + span; }
-            if (eY > img.y + img.h) { eY = img.y + img.h; sY = img.y + img.h - span; }
-          }
-          targetCtx.moveTo(lx, sY);
-          targetCtx.lineTo(lx, eY);
+          const v = getSplitLineExtent(img.y, img.h, pos.y);
+          targetCtx.moveTo(lx, v.start);
+          targetCtx.lineTo(lx, v.end);
         }
         targetCtx.stroke();
       } else {
@@ -1806,33 +1769,15 @@ function _doRender(targetCtx, isExporting) {
         if (state.splitLineOrientation === "vertical") {
           let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
           if (state.isShiftPressed) lx = snapSplitLinePreviewPos(lx, img.x, img.w);
-          const span = img.h * lengthPct;
-          let sY, eY;
-          if (lengthPct > 1) {
-            const ext = (span - img.h) / 2;
-            sY = img.y - ext; eY = img.y + img.h + ext;
-          } else {
-            sY = pos.y - span / 2; eY = pos.y + span / 2;
-            if (sY < img.y) { sY = img.y; eY = img.y + span; }
-            if (eY > img.y + img.h) { eY = img.y + img.h; sY = img.y + img.h - span; }
-          }
-          targetCtx.moveTo(lx, sY);
-          targetCtx.lineTo(lx, eY);
+          const v = getSplitLineExtent(img.y, img.h, pos.y);
+          targetCtx.moveTo(lx, v.start);
+          targetCtx.lineTo(lx, v.end);
         } else {
           let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
           if (state.isShiftPressed) ly = snapSplitLinePreviewPos(ly, img.y, img.h);
-          const span = img.w * lengthPct;
-          let sX, eX;
-          if (lengthPct > 1) {
-            const ext = (span - img.w) / 2;
-            sX = img.x - ext; eX = img.x + img.w + ext;
-          } else {
-            sX = pos.x - span / 2; eX = pos.x + span / 2;
-            if (sX < img.x) { sX = img.x; eX = img.x + span; }
-            if (eX > img.x + img.w) { eX = img.x + img.w; sX = img.x + img.w - span; }
-          }
-          targetCtx.moveTo(sX, ly);
-          targetCtx.lineTo(eX, ly);
+          const h = getSplitLineExtent(img.x, img.w, pos.x);
+          targetCtx.moveTo(h.start, ly);
+          targetCtx.lineTo(h.end, ly);
         }
         targetCtx.stroke();
       }

@@ -1018,32 +1018,6 @@
         >
       </div>
       <div
-        id="split-line-length-group"
-        style="display: none; align-items: center; gap: 4px"
-      >
-        <span class="align-title">Length</span>
-        <input
-          type="range"
-          id="split-line-length-slider"
-          min="10"
-          max="200"
-          value="100"
-          step="5"
-          title="Split line length (% of image dimension). 100% = full span, >100% extends beyond. Use [ / ] keys."
-          style="width: 160px; accent-color: #ff6400; cursor: pointer"
-        />
-        <span
-          id="split-line-length-val"
-          style="
-            font-size: 11px;
-            color: #aaa;
-            min-width: 36px;
-            text-align: right;
-          "
-          >100%</span
-        >
-      </div>
-      <div
         id="split-line-dash-group"
         style="display: none; align-items: center; gap: 4px"
       >
@@ -1067,6 +1041,48 @@
           <option value="dotted">Dotted</option>
           <option value="dash-dot">Dash-Dot</option>
         </select>
+      </div>
+      <div
+        id="split-line-length-group"
+        style="display: none; align-items: center; gap: 4px"
+      >
+        <span class="align-title">Length</span>
+        <button
+          id="split-line-length-mode"
+          type="button"
+          title="Toggle length unit between percentage of image and absolute pixels."
+          style="
+            background: #2d2d2d;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-size: 11px;
+            min-width: 30px;
+            outline: none;
+            cursor: pointer;
+          "
+        >%</button>
+        <input
+          type="range"
+          id="split-line-length-slider"
+          min="10"
+          max="200"
+          value="100"
+          step="5"
+          title="Split line length (% of image dimension). 100% = full span, >100% extends beyond. Use [ / ] keys."
+          style="width: 280px; accent-color: #ff6400; cursor: pointer"
+        />
+        <span
+          id="split-line-length-val"
+          style="
+            font-size: 11px;
+            color: #aaa;
+            min-width: 44px;
+            text-align: right;
+          "
+          >100%</span
+        >
       </div>
       <div
         id="text-align-group"

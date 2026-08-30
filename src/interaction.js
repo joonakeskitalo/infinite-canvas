@@ -4,7 +4,7 @@
  * Sets up all event listeners for the canvas application.
  */
 
-import { state, CONSTANTS, getDom, spatialInsert, spatialRemove, spatialUpdate, spatialIndex, rebuildSpatialIndex } from "./state.js";
+import { state, CONSTANTS, getDom, spatialInsert, spatialRemove, spatialUpdate, spatialIndex, rebuildSpatialIndex, getSplitLineExtent } from "./state.js";
 import { screenToWorld, worldToScreen, showToast, showColorToast, constraintToAngle } from "./utils.js";
 import {
   getShapeBounds, isPointHittingShape, getElementResizeHandles,
@@ -92,6 +92,46 @@ function snapSplitLinePos(pos, origin, size) {
     }
   }
   return pos;
+}
+
+// Slider bounds for each split-line length mode
+const SPLIT_LINE_PERCENT_RANGE = { min: 10, max: 200, step: 5 };
+const SPLIT_LINE_PIXEL_RANGE = { min: 10, max: 2000, step: 10 };
+
+/**
+ * Update only the value display and mode-button label for the split-line
+ * length control (used during slider input, cheap).
+ */
+export function updateSplitLineLengthDisplay() {
+  const valEl = document.getElementById("split-line-length-val");
+  const modeEl = document.getElementById("split-line-length-mode");
+  if (state.splitLineLengthMode === "pixel") {
+    if (valEl) valEl.textContent = state.splitLineLengthPx + "px";
+    if (modeEl) modeEl.textContent = "px";
+  } else {
+    if (valEl) valEl.textContent = state.splitLineLength + "%";
+    if (modeEl) modeEl.textContent = "%";
+  }
+}
+
+/**
+ * Reconfigure the shared split-line length slider (min/max/step/value) to
+ * match the current mode, then refresh the display. Called when the mode
+ * toggles or when the value changes via keyboard.
+ */
+export function syncSplitLineLengthControl() {
+  const slider = document.getElementById("split-line-length-slider");
+  if (slider) {
+    const range = state.splitLineLengthMode === "pixel" ? SPLIT_LINE_PIXEL_RANGE : SPLIT_LINE_PERCENT_RANGE;
+    slider.min = range.min;
+    slider.max = range.max;
+    slider.step = range.step;
+    slider.value = state.splitLineLengthMode === "pixel" ? state.splitLineLengthPx : state.splitLineLength;
+    slider.title = state.splitLineLengthMode === "pixel"
+      ? "Split line length in pixels. Use [ / ] keys."
+      : "Split line length (% of image dimension). 100% = full span, >100% extends beyond. Use [ / ] keys.";
+  }
+  updateSplitLineLengthDisplay();
 }
 
 /**
@@ -678,19 +718,34 @@ export function initEventHandlers() {
   opacitySlider.addEventListener("mousedown", (e) => { e.stopPropagation(); opacityUndoPushed = false; });
   opacitySlider.addEventListener("change", () => { opacityUndoPushed = false; });
 
-  // --- Split line length slider ---
+  // --- Split line length slider (shared between percent and pixel modes) ---
   const splitLineLengthSlider = document.getElementById("split-line-length-slider");
   const splitLineLengthVal = document.getElementById("split-line-length-val");
+  const splitLineLengthMode = document.getElementById("split-line-length-mode");
   if (splitLineLengthSlider) {
     splitLineLengthSlider.addEventListener("input", (e) => {
       const val = parseInt(e.target.value);
-      state.splitLineLength = val;
-      splitLineLengthVal.textContent = val + "%";
+      if (state.splitLineLengthMode === "pixel") {
+        state.splitLineLengthPx = val;
+      } else {
+        state.splitLineLength = val;
+      }
+      updateSplitLineLengthDisplay();
       render();
     });
     splitLineLengthSlider.addEventListener("change", () => { splitLineLengthSlider.blur(); });
     splitLineLengthSlider.addEventListener("mousedown", (e) => { e.stopPropagation(); });
   }
+  if (splitLineLengthMode) {
+    splitLineLengthMode.addEventListener("click", (e) => {
+      e.stopPropagation();
+      state.splitLineLengthMode = state.splitLineLengthMode === "pixel" ? "percent" : "pixel";
+      syncSplitLineLengthControl();
+      render();
+    });
+  }
+  // Initialize the shared length control to match current state.
+  syncSplitLineLengthControl();
 
   // --- Split line dash pattern select ---
   const splitLineDashSelect = document.getElementById("split-line-dash-select");
@@ -2437,17 +2492,23 @@ function setupKeyboardHandlers() {
     // [ / ] keys: adjust split line length when split-line tool is active
     if ((key === "[" || key === "]") && state.currentTool === "split-line") {
       e.preventDefault();
-      const step = e.shiftKey ? 5 : 10;
-      if (key === "[") {
-        state.splitLineLength = Math.max(10, state.splitLineLength - step);
+      if (state.splitLineLengthMode === "pixel") {
+        const step = e.shiftKey ? 10 : 50;
+        if (key === "[") {
+          state.splitLineLengthPx = Math.max(10, state.splitLineLengthPx - step);
+        } else {
+          state.splitLineLengthPx = Math.min(2000, state.splitLineLengthPx + step);
+        }
       } else {
-        state.splitLineLength = Math.min(200, state.splitLineLength + step);
+        const step = e.shiftKey ? 5 : 10;
+        if (key === "[") {
+          state.splitLineLength = Math.max(10, state.splitLineLength - step);
+        } else {
+          state.splitLineLength = Math.min(200, state.splitLineLength + step);
+        }
       }
       // Sync the slider UI
-      const slider = document.getElementById("split-line-length-slider");
-      const valDisplay = document.getElementById("split-line-length-val");
-      if (slider) slider.value = state.splitLineLength;
-      if (valDisplay) valDisplay.textContent = state.splitLineLength + "%";
+      syncSplitLineLengthControl();
       render();
       return;
     }
@@ -3410,7 +3471,6 @@ function setupMouseHandlers() {
       } else if (state.splitLineHoveredImage && state.splitLineWorldPos) {
         const img = state.splitLineHoveredImage;
         const pos = state.splitLineWorldPos;
-        const lengthPct = state.splitLineLength / 100; // 0.1..2.0
         const dashPattern = state.splitLineDash;
 
         pushUndo();
@@ -3425,35 +3485,13 @@ function setupMouseHandlers() {
           }
           // Vertical line: spans along Y axis
           const cursorY = Math.max(img.y, Math.min(pos.y, img.y + img.h));
-          const vSpan = img.h * lengthPct;
-          let vStartY, vEndY;
-          if (lengthPct > 1) {
-            // Extend symmetrically from image edges
-            const ext = (vSpan - img.h) / 2;
-            vStartY = img.y - ext;
-            vEndY = img.y + img.h + ext;
-          } else {
-            vStartY = cursorY - vSpan / 2;
-            vEndY = cursorY + vSpan / 2;
-            if (vStartY < img.y) { vStartY = img.y; vEndY = img.y + vSpan; }
-            if (vEndY > img.y + img.h) { vEndY = img.y + img.h; vStartY = img.y + img.h - vSpan; }
-          }
+          const vExt = getSplitLineExtent(img.y, img.h, cursorY);
+          const vStartY = vExt.start, vEndY = vExt.end;
 
           // Horizontal line: spans along X axis
           const cursorX = Math.max(img.x, Math.min(pos.x, img.x + img.w));
-          const hSpan = img.w * lengthPct;
-          let hStartX, hEndX;
-          if (lengthPct > 1) {
-            // Extend symmetrically from image edges
-            const ext = (hSpan - img.w) / 2;
-            hStartX = img.x - ext;
-            hEndX = img.x + img.w + ext;
-          } else {
-            hStartX = cursorX - hSpan / 2;
-            hEndX = cursorX + hSpan / 2;
-            if (hStartX < img.x) { hStartX = img.x; hEndX = img.x + hSpan; }
-            if (hEndX > img.x + img.w) { hEndX = img.x + img.w; hStartX = img.x + img.w - hSpan; }
-          }
+          const hExt = getSplitLineExtent(img.x, img.w, cursorX);
+          const hStartX = hExt.start, hEndX = hExt.end;
 
           const vLine = {
             id: "draw_" + state.elementIdCounter++,
@@ -3492,37 +3530,15 @@ function setupMouseHandlers() {
           if (effectiveOrientation === "vertical") {
             let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
             if (e.shiftKey) lx = snapSplitLinePos(lx, img.x, img.w);
-            const span = img.h * lengthPct;
-            let sY, eY;
-            if (lengthPct > 1) {
-              const ext = (span - img.h) / 2;
-              sY = img.y - ext;
-              eY = img.y + img.h + ext;
-            } else {
-              sY = pos.y - span / 2;
-              eY = pos.y + span / 2;
-              if (sY < img.y) { sY = img.y; eY = img.y + span; }
-              if (eY > img.y + img.h) { eY = img.y + img.h; sY = img.y + img.h - span; }
-            }
-            start = { x: lx, y: sY };
-            end = { x: lx, y: eY };
+            const ext = getSplitLineExtent(img.y, img.h, pos.y);
+            start = { x: lx, y: ext.start };
+            end = { x: lx, y: ext.end };
           } else {
             let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
             if (e.shiftKey) ly = snapSplitLinePos(ly, img.y, img.h);
-            const span = img.w * lengthPct;
-            let sX, eX;
-            if (lengthPct > 1) {
-              const ext = (span - img.w) / 2;
-              sX = img.x - ext;
-              eX = img.x + img.w + ext;
-            } else {
-              sX = pos.x - span / 2;
-              eX = pos.x + span / 2;
-              if (sX < img.x) { sX = img.x; eX = img.x + span; }
-              if (eX > img.x + img.w) { eX = img.x + img.w; sX = img.x + img.w - span; }
-            }
-            start = { x: sX, y: ly };
-            end = { x: eX, y: ly };
+            const ext = getSplitLineExtent(img.x, img.w, pos.x);
+            start = { x: ext.start, y: ly };
+            end = { x: ext.end, y: ly };
           }
           const lineEl = {
             id: "draw_" + state.elementIdCounter++,

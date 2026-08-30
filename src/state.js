@@ -123,7 +123,9 @@ export const state = {
 
   // Split-line tool
   splitLineOrientation: "vertical", // "vertical" or "horizontal"
+  splitLineLengthMode: "percent", // "percent" (of image dimension) or "pixel" (absolute px length)
   splitLineLength: 100, // percentage of image dimension (10-200), 100 = full span, >100 extends beyond image
+  splitLineLengthPx: 200, // absolute length in pixels when splitLineLengthMode === "pixel" (10-2000)
   splitLineDash: "solid", // dash pattern: "solid", "dashed", "dotted", "dash-dot"
   splitLineFullWidth: false, // when true, line extends across full canvas (like a ruler guide)
   splitLineHoveredImage: null,
@@ -378,6 +380,45 @@ export function spatialRemove(el) {
  */
 export function spatialUpdate(el) {
   spatialIndex.update(el, getElementSpatialBounds(el));
+}
+
+// --- Split-line span helpers ---
+
+/**
+ * Compute the desired span length (in world units) for a split line given the
+ * dimension of the parent image along the span axis.
+ * In "percent" mode the span is a fraction of the image dimension.
+ * In "pixel" mode the span is an absolute length in pixels.
+ */
+export function getSplitLineSpan(imgDim) {
+  if (state.splitLineLengthMode === "pixel") {
+    return state.splitLineLengthPx;
+  }
+  return imgDim * (state.splitLineLength / 100);
+}
+
+/**
+ * Compute the start/end coordinates of a split line along a single axis.
+ * Replicates the clamping / symmetric-extension behavior used everywhere the
+ * split line is drawn or placed.
+ *
+ * @param {number} origin - image origin along the axis (img.x or img.y)
+ * @param {number} size - image size along the axis (img.w or img.h)
+ * @param {number} cursor - cursor position along the axis
+ * @returns {{ start: number, end: number }}
+ */
+export function getSplitLineExtent(origin, size, cursor) {
+  const span = getSplitLineSpan(size);
+  if (span > size) {
+    // Extend symmetrically beyond the image edges
+    const ext = (span - size) / 2;
+    return { start: origin - ext, end: origin + size + ext };
+  }
+  let start = cursor - span / 2;
+  let end = cursor + span / 2;
+  if (start < origin) { start = origin; end = origin + span; }
+  if (end > origin + size) { end = origin + size; start = origin + size - span; }
+  return { start, end };
 }
 
 // --- DOM element references (lazily cached) ---
