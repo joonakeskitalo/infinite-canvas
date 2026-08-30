@@ -1391,6 +1391,20 @@ function _doRender(targetCtx, isExporting) {
       }
     }
 
+    // Stamp tool live hover preview — ghost of the clipboard over the hovered image
+    if (!isExporting && state.currentTool === "stamp" && state.stampPreview &&
+        state.stampPreview.elements && state.stampPreview.elements.length > 0) {
+      const previewTarget = state.images.find((img) => img.id === state.stampPreview.imageId);
+      if (previewTarget) {
+        targetCtx.save();
+        targetCtx.globalAlpha = 0.5;
+        for (const el of state.stampPreview.elements) {
+          drawShape(targetCtx, el, false);
+        }
+        targetCtx.restore();
+      }
+    }
+
     // Stamp marquee selection rectangle (while dragging to select area)
     if (state.stampMarqueeActive && state.stampMarqueeRect) {
       const rect = state.stampMarqueeRect;

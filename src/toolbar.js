@@ -48,6 +48,11 @@ export function updateToolbarUI() {
   if (splitLineDashGroup) {
     splitLineDashGroup.style.display = state.currentTool === "split-line" ? "flex" : "none";
   }
+  // Show/hide stamp panel (save/restore saved stamps)
+  const stampPanelGroup = document.getElementById("stamp-panel-group");
+  if (stampPanelGroup) {
+    stampPanelGroup.style.display = state.currentTool === "stamp" ? "flex" : "none";
+  }
   toggleAlignmentPanelVisibility();
 }
 
@@ -113,6 +118,9 @@ export function toggleAlignmentPanelVisibility() {
     dom.alignmentPanel.style.display = "flex";
     alignmentGroup.style.display = "none";
   } else if (state.currentTool === "eyedropper") {
+    dom.alignmentPanel.style.display = "flex";
+    alignmentGroup.style.display = "none";
+  } else if (state.currentTool === "stamp") {
     dom.alignmentPanel.style.display = "flex";
     alignmentGroup.style.display = "none";
   } else {

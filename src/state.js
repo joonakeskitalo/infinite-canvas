@@ -206,6 +206,9 @@ export const state = {
   stampMarqueeStart: null,      // {x, y} world-coords where rectangle drawing started
   stampMarqueeRect: null,       // {x, y, w, h} world-coords of the selection rectangle
 
+  // Stamp live preview (ghost of the clipboard shown on the hovered image)
+  stampPreview: null,           // {imageId, elements: [...]} in world-coords, or null
+
   // Bézier pen tool
   bezierPath: null,             // In-progress path: {id, points: [{x,y,cx1,cy1,cx2,cy2}], closed}
   bezierDragging: false,        // True when dragging to create control handles

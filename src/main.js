@@ -18,6 +18,7 @@ import { initFilterPreviewMode } from "./filter-preview-mode.js";
 import { initWelcomeModal } from "./welcome.js";
 import { initCustomColors, setCustomColorsToast } from "./custom-colors.js";
 import { initColorHistory } from "./color-history.js";
+import { initSavedStamps, setSavedStampsDeps } from "./saved-stamps.js";
 import { setLaserRenderFn } from "./laser-pointer.js";
 import { setBezierPenDeps } from "./bezier-pen.js";
 import { initMarqueeColors, setMarqueeColorsDeps } from "./marquee-colors.js";
@@ -85,6 +86,8 @@ initWelcomeModal();
 setCustomColorsToast(showToast);
 initCustomColors();
 initColorHistory();
+setSavedStampsDeps({ onRestore: render });
+initSavedStamps();
 initMarqueeColors();
 setMarqueeColorsDeps({
   onColorSelect: (hex) => {

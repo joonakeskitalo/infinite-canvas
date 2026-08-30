@@ -1085,6 +1085,64 @@
         >%</button>
       </div>
       <div
+        id="stamp-panel-group"
+        style="display: none; align-items: center; gap: 6px"
+      >
+        <span class="align-title">Stamp</span>
+        <span
+          id="stamp-status-label"
+          style="font-size: 11px; color: #aaa; min-width: 96px"
+          title="Current stamp clipboard"
+        >Empty — Shift+Click an image</span>
+        <button
+          id="stamp-save-btn"
+          type="button"
+          title="Save the current stamp with a name"
+          style="
+            background: #2d2d2d;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 3px 10px;
+            font-size: 11px;
+            outline: none;
+            cursor: pointer;
+          "
+        >Save…</button>
+        <select
+          id="stamp-restore-select"
+          title="Restore a saved stamp"
+          style="
+            background: #2d2d2d;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 3px 4px;
+            font-size: 11px;
+            outline: none;
+            cursor: pointer;
+            max-width: 180px;
+          "
+        >
+          <option value="">Restore saved…</option>
+        </select>
+        <button
+          id="stamp-delete-btn"
+          type="button"
+          title="Delete the selected saved stamp"
+          style="
+            background: #2d2d2d;
+            color: #ff8080;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 3px 8px;
+            font-size: 11px;
+            outline: none;
+            cursor: pointer;
+          "
+        >Delete</button>
+      </div>
+      <div
         id="text-align-group"
         style="display: none; align-items: center; gap: 4px"
       >

@@ -67,6 +67,7 @@ import {
 } from "./bezier-pen.js";
 import { analyzeMarqueeColors, hideMarqueeColors } from "./marquee-colors.js";
 import { toggle as toggleCommandPalette } from "./command-palette.js";
+import { updateStampPanel } from "./saved-stamps.js";
 
 // --- PERFORMANCE: Throttle proximity/spacing guide computation during drag ---
 const GUIDE_COMPUTE_INTERVAL_MS = 60; // ms between expensive guide recalculations
@@ -467,6 +468,8 @@ export function initEventHandlers() {
         state.splitLineDragStart = null; state.splitLineDragImage = null;
         state.splitLineDragRect = null; state.splitLineIsDragging = false;
       }
+      if (state.currentTool !== "stamp") { state.stampPreview = null; }
+      else { updateStampPanel(); }
       if (state.currentTool === "accessibility-preview") { activateAccessibilityPreview(); }
       else { deactivateAccessibilityPreview(); }
       if (state.currentTool === "contrast") { state.contrastClickCount = 0; state.contrastColor1 = null; state.contrastColor2 = null; state.contrastWorldPos1 = null; state.activeContrastLine = null; showContrastWaiting(1); }
@@ -1875,6 +1878,37 @@ function handleImageFile(file, worldX, worldY) {
   reader.readAsDataURL(file);
 }
 
+/**
+ * Build a ghost preview of the current stamp clipboard positioned onto a target
+ * image, using the same scale/offset math as the actual stamp paste. Returns
+ * {imageId, elements} where elements are ready-to-draw clones in world-coords,
+ * or null when there's nothing to preview.
+ */
+function buildStampPreview(targetImg) {
+  if (!targetImg || !state.stampClipboard || state.stampClipboard.length === 0 || !state.stampSourceBounds) {
+    return null;
+  }
+  const srcW = state.stampSourceBounds.w;
+  const srcH = state.stampSourceBounds.h;
+  if (!srcW || !srcH) return null;
+  const scaleX = targetImg.w / srcW;
+  const scaleY = targetImg.h / srcH;
+  const elements = state.stampClipboard.map((srcEl) => {
+    const clone = JSON.parse(JSON.stringify(srcEl));
+    if (clone.type === "pen" && clone.points) {
+      clone.points = clone.points.map((p) => ({
+        x: p.x * scaleX + targetImg.x,
+        y: p.y * scaleY + targetImg.y,
+      }));
+    } else if (clone.start) {
+      clone.start = { x: clone.start.x * scaleX + targetImg.x, y: clone.start.y * scaleY + targetImg.y };
+      if (clone.end) clone.end = { x: clone.end.x * scaleX + targetImg.x, y: clone.end.y * scaleY + targetImg.y };
+    }
+    return clone;
+  });
+  return { imageId: targetImg.id, elements };
+}
+
 function checkAndEraseAtPosition(worldPos) {
   let erasedSomething = false;
   const erasedIds = [];
@@ -3135,6 +3169,28 @@ function setupMouseHandlers() {
       }
     }
 
+    // Stamp tool hover — preview the clipboard ghosted on the image under the cursor
+    if (state.currentTool === "stamp" && !state.isInteracting && !state.stampMarqueeActive) {
+      const mouseWorld = screenToWorld(e.clientX, e.clientY);
+      let hoveredImg = null;
+      for (let i = state.images.length - 1; i >= 0; i--) {
+        const img = state.images[i];
+        if (mouseWorld.x >= img.x && mouseWorld.x <= img.x + img.w &&
+            mouseWorld.y >= img.y && mouseWorld.y <= img.y + img.h) {
+          hoveredImg = img;
+          break;
+        }
+      }
+      const prevKey = state.stampPreview ? state.stampPreview.imageId : null;
+      if (hoveredImg && state.stampClipboard && state.stampClipboard.length > 0 && state.stampSourceBounds) {
+        state.stampPreview = buildStampPreview(hoveredImg);
+      } else {
+        state.stampPreview = null;
+      }
+      const newKey = state.stampPreview ? state.stampPreview.imageId : null;
+      if (prevKey !== newKey) render();
+    }
+
     // Accessibility preview cursor (move/resize handles)
     if (state.currentTool === "accessibility-preview" && !state.isInteracting) {
       const mouseWorld = screenToWorld(e.clientX, e.clientY);
@@ -3285,6 +3341,8 @@ function setupMouseHandlers() {
           return clone;
         });
         state.stampSourceBounds = { x: hoveredImg.x, y: hoveredImg.y, w: hoveredImg.w, h: hoveredImg.h };
+        state.stampPreview = null;
+        updateStampPanel();
         showToast(`Stamp-copied ${overlapping.length} element(s)`);
       } else if (hoveredImg) {
         // Click on a single image: paste stamp clipboard onto it (existing behavior)
