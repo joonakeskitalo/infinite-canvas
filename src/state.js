@@ -428,6 +428,57 @@ export function getSplitLineExtent(origin, size, cursor) {
   return { start, end };
 }
 
+/**
+ * Trim an axis-aligned split line's extent so it stops at (does not extend past)
+ * any existing perpendicular split line that crosses it. Used when Shift is held
+ * so newly placed/previewed split lines butt up against the existing ones
+ * instead of overlapping them.
+ *
+ * For a "vertical" line the fixed coordinate is its X position and the extent is
+ * its Y range; crossings are existing horizontal split lines. For a "horizontal"
+ * line the fixed coordinate is its Y position and the extent is its X range;
+ * crossings are existing vertical split lines.
+ *
+ * @param {"vertical"|"horizontal"} orientation
+ * @param {number} fixed - the line's fixed-axis coordinate (x for vertical, y for horizontal)
+ * @param {number} cursor - the cursor position along the line's span axis (splits the trim above/below)
+ * @param {{start:number,end:number}} extent - the untrimmed span
+ * @returns {{start:number,end:number}} trimmed span
+ */
+export function trimSplitLineExtentAtCrossings(orientation, fixed, cursor, extent) {
+  const EPS = 1e-6;
+  let start = extent.start;
+  let end = extent.end;
+
+  for (const d of state.drawings) {
+    if (!d.isSplitLine || !d.start || !d.end) continue;
+    const isVertical = Math.abs(d.start.x - d.end.x) < EPS;
+    const isHorizontal = Math.abs(d.start.y - d.end.y) < EPS;
+
+    if (orientation === "vertical") {
+      // Look for horizontal split lines that cross this vertical line's X.
+      if (!isHorizontal || isVertical) continue;
+      const y = d.start.y;
+      const xLo = Math.min(d.start.x, d.end.x);
+      const xHi = Math.max(d.start.x, d.end.x);
+      if (fixed < xLo - EPS || fixed > xHi + EPS) continue; // doesn't span our X
+      if (y > cursor && y < end - EPS) end = y;             // nearest crossing below cursor
+      if (y < cursor && y > start + EPS) start = y;         // nearest crossing above cursor
+    } else {
+      // Look for vertical split lines that cross this horizontal line's Y.
+      if (!isVertical || isHorizontal) continue;
+      const x = d.start.x;
+      const yLo = Math.min(d.start.y, d.end.y);
+      const yHi = Math.max(d.start.y, d.end.y);
+      if (fixed < yLo - EPS || fixed > yHi + EPS) continue; // doesn't span our Y
+      if (x > cursor && x < end - EPS) end = x;             // nearest crossing right of cursor
+      if (x < cursor && x > start + EPS) start = x;         // nearest crossing left of cursor
+    }
+  }
+
+  return { start, end };
+}
+
 // --- DOM element references (lazily cached) ---
 let _domRefs = null;
 

@@ -4,7 +4,7 @@
  * Main render loop, shape drawing, measurement lines, and PNG export.
  */
 
-import { state, CONSTANTS, getDom, getElementsInZOrder, spatialIndex, getSplitLineExtent } from "./state.js";
+import { state, CONSTANTS, getDom, getElementsInZOrder, spatialIndex, getSplitLineExtent, trimSplitLineExtentAtCrossings } from "./state.js";
 import { getViewportBounds, isRectInViewport, worldToScreen, screenToWorld } from "./utils.js";
 import { applyFilterToImageData } from "./filter-kernels.js";
 import {
@@ -1776,14 +1776,16 @@ function _doRender(targetCtx, isExporting) {
           // Opposite: horizontal
           let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
           if (state.isShiftPressed) ly = snapSplitLinePreviewPos(ly, img.y, img.h);
-          const h = getSplitLineExtent(img.x, img.w, pos.x);
+          let h = getSplitLineExtent(img.x, img.w, pos.x);
+          if (state.isShiftPressed) h = trimSplitLineExtentAtCrossings("horizontal", ly, pos.x, h);
           targetCtx.moveTo(h.start, ly);
           targetCtx.lineTo(h.end, ly);
         } else {
           // Opposite: vertical
           let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
           if (state.isShiftPressed) lx = snapSplitLinePreviewPos(lx, img.x, img.w);
-          const v = getSplitLineExtent(img.y, img.h, pos.y);
+          let v = getSplitLineExtent(img.y, img.h, pos.y);
+          if (state.isShiftPressed) v = trimSplitLineExtentAtCrossings("vertical", lx, pos.y, v);
           targetCtx.moveTo(lx, v.start);
           targetCtx.lineTo(lx, v.end);
         }
@@ -1793,13 +1795,15 @@ function _doRender(targetCtx, isExporting) {
         if (state.splitLineOrientation === "vertical") {
           let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
           if (state.isShiftPressed) lx = snapSplitLinePreviewPos(lx, img.x, img.w);
-          const v = getSplitLineExtent(img.y, img.h, pos.y);
+          let v = getSplitLineExtent(img.y, img.h, pos.y);
+          if (state.isShiftPressed) v = trimSplitLineExtentAtCrossings("vertical", lx, pos.y, v);
           targetCtx.moveTo(lx, v.start);
           targetCtx.lineTo(lx, v.end);
         } else {
           let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
           if (state.isShiftPressed) ly = snapSplitLinePreviewPos(ly, img.y, img.h);
-          const h = getSplitLineExtent(img.x, img.w, pos.x);
+          let h = getSplitLineExtent(img.x, img.w, pos.x);
+          if (state.isShiftPressed) h = trimSplitLineExtentAtCrossings("horizontal", ly, pos.x, h);
           targetCtx.moveTo(h.start, ly);
           targetCtx.lineTo(h.end, ly);
         }

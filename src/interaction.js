@@ -4,7 +4,7 @@
  * Sets up all event listeners for the canvas application.
  */
 
-import { state, CONSTANTS, getDom, spatialInsert, spatialRemove, spatialUpdate, spatialIndex, rebuildSpatialIndex, getSplitLineExtent } from "./state.js";
+import { state, CONSTANTS, getDom, spatialInsert, spatialRemove, spatialUpdate, spatialIndex, rebuildSpatialIndex, getSplitLineExtent, trimSplitLineExtentAtCrossings } from "./state.js";
 import { screenToWorld, worldToScreen, showToast, showColorToast, constraintToAngle } from "./utils.js";
 import {
   getShapeBounds, isPointHittingShape, getElementResizeHandles,
@@ -160,13 +160,17 @@ function placeSplitLineClick(img, pos, e) {
     if (effectiveOrientation === "vertical") {
       let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
       if (e.shiftKey) lx = snapSplitLinePos(lx, img.x, img.w);
-      const ext = getSplitLineExtent(img.y, img.h, pos.y);
+      let ext = getSplitLineExtent(img.y, img.h, pos.y);
+      // Shift: stop the line at existing perpendicular split lines.
+      if (e.shiftKey) ext = trimSplitLineExtentAtCrossings("vertical", lx, pos.y, ext);
       start = { x: lx, y: ext.start };
       end = { x: lx, y: ext.end };
     } else {
       let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
       if (e.shiftKey) ly = snapSplitLinePos(ly, img.y, img.h);
-      const ext = getSplitLineExtent(img.x, img.w, pos.x);
+      let ext = getSplitLineExtent(img.x, img.w, pos.x);
+      // Shift: stop the line at existing perpendicular split lines.
+      if (e.shiftKey) ext = trimSplitLineExtentAtCrossings("horizontal", ly, pos.x, ext);
       start = { x: ext.start, y: ly };
       end = { x: ext.end, y: ly };
     }
