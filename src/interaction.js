@@ -222,12 +222,14 @@ function placeSplitLineBox(rect, partial) {
 
   let specs;
   if (partial) {
-    // Corner marks: two fixed-size arms at each corner (crop-mark style) instead
-    // of full edges. Arms are capped to half the edge so adjacent corners don't
-    // overlap on small boxes. The centered edge "helper" ticks are preview-only
-    // (see rendering.js) and are intentionally NOT committed to the canvas.
-    const armX = Math.min(rect.w / 4, SPLIT_LINE_CORNER_ARM_MAX);
-    const armY = Math.min(rect.h / 4, SPLIT_LINE_CORNER_ARM_MAX);
+    // Corner marks: two equal-length arms at each corner (crop-mark style)
+    // instead of full edges. A single arm length keeps the x and y arms the same
+    // size; it's a quarter of the shorter side (so it fits both edges) capped at
+    // the max. The centered edge "helper" ticks are preview-only (see
+    // rendering.js) and are intentionally NOT committed to the canvas.
+    const arm = Math.min(Math.min(rect.w, rect.h) / 4, SPLIT_LINE_CORNER_ARM_MAX);
+    const armX = arm;
+    const armY = arm;
     specs = [
       // Top-left
       [{ x: left, y: top }, { x: left + armX, y: top }],

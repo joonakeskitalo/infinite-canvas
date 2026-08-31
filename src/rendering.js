@@ -1673,12 +1673,14 @@ function _doRender(targetCtx, isExporting) {
     if (state.isCtrlPressed || state.isMetaPressed) {
       // Ctrl/Cmd: preview relative-length corner marks (these are what get
       // committed) plus faint full-length "helper" lines spanning the gap
-      // between corner arms on each edge. Arm length is a quarter of each side,
-      // capped to CORNER_ARM_MAX; mirrors SPLIT_LINE_CORNER_ARM_MAX in
-      // interaction.js. The helper lines are preview-only (not committed).
+      // between corner arms on each edge. A single equal arm length (quarter of
+      // the shorter side, capped to CORNER_ARM_MAX) keeps the x and y arms the
+      // same size; mirrors placeSplitLineBox in interaction.js. The helper lines
+      // are preview-only (not committed).
       const CORNER_ARM_MAX = 48;
-      const armX = Math.min(r.w / 4, CORNER_ARM_MAX);
-      const armY = Math.min(r.h / 4, CORNER_ARM_MAX);
+      const arm = Math.min(Math.min(r.w, r.h) / 4, CORNER_ARM_MAX);
+      const armX = arm;
+      const armY = arm;
       const rl = r.x, rt = r.y, rr = r.x + r.w, rb = r.y + r.h;
 
       // Faint helper lines: fill the remaining span between the corner arms.
