@@ -1671,10 +1671,33 @@ function _doRender(targetCtx, isExporting) {
       targetCtx.setLineDash([]);
     }
     if (state.isCtrlPressed || state.isMetaPressed) {
-      // Ctrl/Cmd: preview partial corner marks instead of the full box.
-      const armX = Math.min(r.w / 4, r.w / 2);
-      const armY = Math.min(r.h / 4, r.h / 2);
+      // Ctrl/Cmd: preview fixed-size corner marks (these are what get committed)
+      // plus faint full-length "helper" lines spanning the gap between corner
+      // arms on each edge. The corner arm length mirrors SPLIT_LINE_CORNER_ARM
+      // in interaction.js; the helper lines are preview-only (not committed).
+      const CORNER_ARM = 48;
+      const armX = Math.min(CORNER_ARM, r.w / 2);
+      const armY = Math.min(CORNER_ARM, r.h / 2);
       const rl = r.x, rt = r.y, rr = r.x + r.w, rb = r.y + r.h;
+
+      // Faint helper lines: fill the remaining span between the corner arms.
+      const prevAlpha = targetCtx.globalAlpha;
+      targetCtx.globalAlpha = prevAlpha * 0.4;
+      targetCtx.beginPath();
+      if (rr - armX > rl + armX) {
+        // Top & bottom edges
+        targetCtx.moveTo(rl + armX, rt); targetCtx.lineTo(rr - armX, rt);
+        targetCtx.moveTo(rl + armX, rb); targetCtx.lineTo(rr - armX, rb);
+      }
+      if (rb - armY > rt + armY) {
+        // Left & right edges
+        targetCtx.moveTo(rl, rt + armY); targetCtx.lineTo(rl, rb - armY);
+        targetCtx.moveTo(rr, rt + armY); targetCtx.lineTo(rr, rb - armY);
+      }
+      targetCtx.stroke();
+      targetCtx.globalAlpha = prevAlpha;
+
+      // Corner marks (the committed geometry).
       targetCtx.beginPath();
       // Top-left
       targetCtx.moveTo(rl + armX, rt); targetCtx.lineTo(rl, rt); targetCtx.lineTo(rl, rt + armY);

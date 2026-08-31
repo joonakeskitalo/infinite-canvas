@@ -74,6 +74,9 @@ let _dragOffsetMap = null;
 let _dragExcludeIds = null; // Array of selected element IDs (stable during a drag)
 let _dragExcludeIdSet = null; // Set version for O(1) lookups
 
+// Fixed size (world units) for the Ctrl+drag "corner marks" split-line box.
+const SPLIT_LINE_CORNER_ARM = 48;   // length of each corner arm
+
 /**
  * Snap a split-line coordinate (Shift held). Snaps to the hovered image's
  * quadrant/fraction lines AND to other elements' edges/centers and existing
@@ -211,11 +214,12 @@ function placeSplitLineBox(rect, partial) {
 
   let specs;
   if (partial) {
-    // Corner marks: two short arms at each corner (crop-mark style) instead of
-    // full edges. Arm length is a quarter of the shorter side, capped so it
-    // never exceeds half an edge (arms from adjacent corners won't overlap).
-    const armX = Math.min(rect.w / 4, rect.w / 2);
-    const armY = Math.min(rect.h / 4, rect.h / 2);
+    // Corner marks: two fixed-size arms at each corner (crop-mark style) instead
+    // of full edges. Arms are capped to half the edge so adjacent corners don't
+    // overlap on small boxes. The centered edge "helper" ticks are preview-only
+    // (see rendering.js) and are intentionally NOT committed to the canvas.
+    const armX = Math.min(SPLIT_LINE_CORNER_ARM, rect.w / 2);
+    const armY = Math.min(SPLIT_LINE_CORNER_ARM, rect.h / 2);
     specs = [
       // Top-left
       [{ x: left, y: top }, { x: left + armX, y: top }],
