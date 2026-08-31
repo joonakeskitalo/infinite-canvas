@@ -157,60 +157,23 @@ export function getSnapTargets(excludeIds, bounds, options) {
 }
 
 /**
- * Snap a single split-line coordinate along one axis. In addition to the hovered
- * image's fraction lines (¼, ⅓, ½, ⅔, ¾ — "quadrants"), it snaps to the edges
- * and centers of other images/elements and to existing split lines' positions.
- * Used when Shift is held while placing (or previewing) a split line.
+ * Snap a split-line coordinate to the hovered image's center on one axis
+ * (vertical line → center x, horizontal line → center y). Used when Shift is
+ * held while placing (or previewing) a split line.
  *
  * @param {number} pos    the cursor coordinate on this axis (world-coords)
- * @param {"x"|"y"} axis   which axis pos lies on
+ * @param {"x"|"y"} axis   which axis pos lies on (unused; kept for call sites)
  * @param {number} origin  hovered image origin on this axis (img.x or img.y)
  * @param {number} size    hovered image size on this axis (img.w or img.h)
- * @returns {number} the snapped coordinate, or pos if nothing is close enough
+ * @returns {number} the image center on this axis if close enough, else pos
  */
 export function snapSplitLineAxis(pos, axis, origin, size) {
-  const threshold = CONSTANTS.SNAP_THRESHOLD / state.transform.zoom;
-  const candidates = [];
-
-  // Quadrant / fraction lines of the hovered image.
-  if (typeof origin === "number" && typeof size === "number") {
-    const fractions = [1 / 4, 1 / 3, 1 / 2, 2 / 3, 3 / 4];
-    for (const f of fractions) candidates.push(origin + size * f);
-    // Image edges too.
-    candidates.push(origin, origin + size);
-  }
-
-  // Edges + centers of nearby elements (images and non-split drawings), and the
-  // positions of existing split lines on this axis.
-  const isX = axis === "x";
-  for (const img of state.images) {
-    if (isX) candidates.push(img.x, img.x + img.w / 2, img.x + img.w);
-    else candidates.push(img.y, img.y + img.h / 2, img.y + img.h);
-  }
-  for (const d of state.drawings) {
-    if (d.type === "connector") continue;
-    if (d.isSplitLine) {
-      // A split line contributes its fixed-axis position when it's parallel to
-      // the coordinate we're snapping (vertical line → x position, etc.).
-      if (!d.start || !d.end) continue;
-      const isVertical = Math.abs(d.start.x - d.end.x) < 1e-6;
-      const isHorizontal = Math.abs(d.start.y - d.end.y) < 1e-6;
-      if (isX && isVertical) candidates.push(d.start.x);
-      else if (!isX && isHorizontal) candidates.push(d.start.y);
-      continue;
-    }
-    const b = getShapeBounds(d);
-    if (isX) candidates.push(b.x, b.x + b.w / 2, b.x + b.w);
-    else candidates.push(b.y, b.y + b.h / 2, b.y + b.h);
-  }
-
-  let best = pos;
-  let bestDist = threshold;
-  for (const c of candidates) {
-    const dist = Math.abs(pos - c);
-    if (dist < bestDist) { bestDist = dist; best = c; }
-  }
-  return best;
+  if (typeof origin !== "number" || typeof size !== "number") return pos;
+  // Generous catch zone (screen px, converted to world) so the center is easy
+  // to snap to on both axes.
+  const threshold = 16 / state.transform.zoom;
+  const center = origin + size / 2;
+  return Math.abs(pos - center) < threshold ? center : pos;
 }
 
 export function snapToElements(bounds, targets, threshold) {

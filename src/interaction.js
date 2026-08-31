@@ -155,17 +155,23 @@ function placeSplitLineClick(img, pos, e) {
     if (effectiveOrientation === "vertical") {
       let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
       if (e.shiftKey) lx = snapSplitLinePos(lx, "x", img.x, img.w);
-      let ext = getSplitLineExtent(img.y, img.h, pos.y);
+      // Shift also snaps the line's along-axis center to the image center y.
+      let cy = pos.y;
+      if (e.shiftKey) cy = snapSplitLinePos(cy, "y", img.y, img.h);
+      let ext = getSplitLineExtent(img.y, img.h, cy);
       // Shift: stop the line at existing perpendicular split lines.
-      if (e.shiftKey) ext = trimSplitLineExtentAtCrossings("vertical", lx, pos.y, ext);
+      if (e.shiftKey) ext = trimSplitLineExtentAtCrossings("vertical", lx, cy, ext);
       start = { x: lx, y: ext.start };
       end = { x: lx, y: ext.end };
     } else {
       let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
       if (e.shiftKey) ly = snapSplitLinePos(ly, "y", img.y, img.h);
-      let ext = getSplitLineExtent(img.x, img.w, pos.x);
+      // Shift also snaps the line's along-axis center to the image center x.
+      let cx = pos.x;
+      if (e.shiftKey) cx = snapSplitLinePos(cx, "x", img.x, img.w);
+      let ext = getSplitLineExtent(img.x, img.w, cx);
       // Shift: stop the line at existing perpendicular split lines.
-      if (e.shiftKey) ext = trimSplitLineExtentAtCrossings("horizontal", ly, pos.x, ext);
+      if (e.shiftKey) ext = trimSplitLineExtentAtCrossings("horizontal", ly, cx, ext);
       start = { x: ext.start, y: ly };
       end = { x: ext.end, y: ly };
     }

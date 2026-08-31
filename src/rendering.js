@@ -1846,16 +1846,20 @@ function _doRender(targetCtx, isExporting) {
           // Opposite: horizontal
           let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
           if (state.isShiftPressed) ly = snapSplitLinePreviewPos(ly, "y", img.y, img.h);
-          let h = getSplitLineExtent(img.x, img.w, pos.x);
-          if (state.isShiftPressed) h = trimSplitLineExtentAtCrossings("horizontal", ly, pos.x, h);
+          let cx = pos.x;
+          if (state.isShiftPressed) cx = snapSplitLinePreviewPos(cx, "x", img.x, img.w);
+          let h = getSplitLineExtent(img.x, img.w, cx);
+          if (state.isShiftPressed) h = trimSplitLineExtentAtCrossings("horizontal", ly, cx, h);
           targetCtx.moveTo(h.start, ly);
           targetCtx.lineTo(h.end, ly);
         } else {
           // Opposite: vertical
           let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
           if (state.isShiftPressed) lx = snapSplitLinePreviewPos(lx, "x", img.x, img.w);
-          let v = getSplitLineExtent(img.y, img.h, pos.y);
-          if (state.isShiftPressed) v = trimSplitLineExtentAtCrossings("vertical", lx, pos.y, v);
+          let cy = pos.y;
+          if (state.isShiftPressed) cy = snapSplitLinePreviewPos(cy, "y", img.y, img.h);
+          let v = getSplitLineExtent(img.y, img.h, cy);
+          if (state.isShiftPressed) v = trimSplitLineExtentAtCrossings("vertical", lx, cy, v);
           targetCtx.moveTo(lx, v.start);
           targetCtx.lineTo(lx, v.end);
         }
@@ -1865,19 +1869,67 @@ function _doRender(targetCtx, isExporting) {
         if (state.splitLineOrientation === "vertical") {
           let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
           if (state.isShiftPressed) lx = snapSplitLinePreviewPos(lx, "x", img.x, img.w);
-          let v = getSplitLineExtent(img.y, img.h, pos.y);
-          if (state.isShiftPressed) v = trimSplitLineExtentAtCrossings("vertical", lx, pos.y, v);
+          let cy = pos.y;
+          if (state.isShiftPressed) cy = snapSplitLinePreviewPos(cy, "y", img.y, img.h);
+          let v = getSplitLineExtent(img.y, img.h, cy);
+          if (state.isShiftPressed) v = trimSplitLineExtentAtCrossings("vertical", lx, cy, v);
           targetCtx.moveTo(lx, v.start);
           targetCtx.lineTo(lx, v.end);
         } else {
           let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
           if (state.isShiftPressed) ly = snapSplitLinePreviewPos(ly, "y", img.y, img.h);
-          let h = getSplitLineExtent(img.x, img.w, pos.x);
-          if (state.isShiftPressed) h = trimSplitLineExtentAtCrossings("horizontal", ly, pos.x, h);
+          let cx = pos.x;
+          if (state.isShiftPressed) cx = snapSplitLinePreviewPos(cx, "x", img.x, img.w);
+          let h = getSplitLineExtent(img.x, img.w, cx);
+          if (state.isShiftPressed) h = trimSplitLineExtentAtCrossings("horizontal", ly, cx, h);
           targetCtx.moveTo(h.start, ly);
           targetCtx.lineTo(h.end, ly);
         }
         targetCtx.stroke();
+      }
+
+      // Center-snap guides: when Shift snaps a coordinate to the image center,
+      // draw a highlighted dashed line through that center axis to signal it.
+      if (state.isShiftPressed && state.splitLineHoveredImage) {
+        const img = state.splitLineHoveredImage;
+        const centerX = img.x + img.w / 2;
+        const centerY = img.y + img.h / 2;
+        const eps = 1e-6;
+        // The line's fixed-axis coord and its along-axis midpoint after snapping.
+        const effVertical = state.isMetaPressed
+          ? state.splitLineOrientation !== "vertical"
+          : state.splitLineOrientation === "vertical";
+        let fixed, mid;
+        if (effVertical) {
+          fixed = snapSplitLinePreviewPos(Math.max(img.x, Math.min(pos.x, img.x + img.w)), "x", img.x, img.w);
+          mid = snapSplitLinePreviewPos(pos.y, "y", img.y, img.h);
+        } else {
+          fixed = snapSplitLinePreviewPos(Math.max(img.y, Math.min(pos.y, img.y + img.h)), "y", img.y, img.h);
+          mid = snapSplitLinePreviewPos(pos.x, "x", img.x, img.w);
+        }
+        const snappedX = effVertical ? fixed : mid;
+        const snappedY = effVertical ? mid : fixed;
+
+        targetCtx.save();
+        targetCtx.globalAlpha = 0.35;
+        targetCtx.strokeStyle = "#ff2d94"; // matches the preset/guide accent
+        targetCtx.lineWidth = 1 / transform.zoom;
+        const dl = 5 / transform.zoom;
+        targetCtx.setLineDash([dl, dl]);
+        targetCtx.beginPath();
+        if (Math.abs(snappedX - centerX) < eps) {
+          // Snapped to horizontal center → vertical guide through center x.
+          targetCtx.moveTo(centerX, img.y);
+          targetCtx.lineTo(centerX, img.y + img.h);
+        }
+        if (Math.abs(snappedY - centerY) < eps) {
+          // Snapped to vertical center → horizontal guide through center y.
+          targetCtx.moveTo(img.x, centerY);
+          targetCtx.lineTo(img.x + img.w, centerY);
+        }
+        targetCtx.stroke();
+        targetCtx.setLineDash([]);
+        targetCtx.restore();
       }
     }
 
