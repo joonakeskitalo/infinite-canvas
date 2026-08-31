@@ -17,6 +17,7 @@ import { render, renderSync, executePNGExport, executeJPEGExport } from "./rende
 import {
   getSnapTargets, snapToElements, snapToSpacing, snapResizeEdges,
   getProximityGuides, getSpacingGuides, computeMeasureHoverGuides,
+  snapSplitLineAxis,
 } from "./snap-guides.js";
 import {
   getConnectorAnchorPoint, computeAnchorRatio,
@@ -74,20 +75,13 @@ let _dragExcludeIds = null; // Array of selected element IDs (stable during a dr
 let _dragExcludeIdSet = null; // Set version for O(1) lookups
 
 /**
- * Snap a split-line position to the nearest fraction (halves, thirds, quarters)
- * of the image dimension. Returns the snapped position if close enough, otherwise
- * the original position.
+ * Snap a split-line coordinate (Shift held). Snaps to the hovered image's
+ * quadrant/fraction lines AND to other elements' edges/centers and existing
+ * split lines. Delegates to the shared helper in snap-guides.js.
+ * @param {"x"|"y"} axis which axis pos lies on
  */
-function snapSplitLinePos(pos, origin, size) {
-  const threshold = size * 0.02; // 2% of dimension
-  const fractions = [1/4, 1/3, 1/2, 2/3, 3/4];
-  for (const f of fractions) {
-    const snapTarget = origin + size * f;
-    if (Math.abs(pos - snapTarget) < threshold) {
-      return snapTarget;
-    }
-  }
-  return pos;
+function snapSplitLinePos(pos, axis, origin, size) {
+  return snapSplitLineAxis(pos, axis, origin, size);
 }
 
 /**
@@ -126,8 +120,8 @@ function placeSplitLineClick(img, pos, e) {
     let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
     let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
     if (e.shiftKey) {
-      lx = snapSplitLinePos(lx, img.x, img.w);
-      ly = snapSplitLinePos(ly, img.y, img.h);
+      lx = snapSplitLinePos(lx, "x", img.x, img.w);
+      ly = snapSplitLinePos(ly, "y", img.y, img.h);
     }
     // Vertical extent (along Y axis), split at the click point ly
     const vExt = getSplitLineExtent(img.y, img.h, ly);
@@ -155,7 +149,7 @@ function placeSplitLineClick(img, pos, e) {
     let start, end;
     if (effectiveOrientation === "vertical") {
       let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
-      if (e.shiftKey) lx = snapSplitLinePos(lx, img.x, img.w);
+      if (e.shiftKey) lx = snapSplitLinePos(lx, "x", img.x, img.w);
       let ext = getSplitLineExtent(img.y, img.h, pos.y);
       // Shift: stop the line at existing perpendicular split lines.
       if (e.shiftKey) ext = trimSplitLineExtentAtCrossings("vertical", lx, pos.y, ext);
@@ -163,7 +157,7 @@ function placeSplitLineClick(img, pos, e) {
       end = { x: lx, y: ext.end };
     } else {
       let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
-      if (e.shiftKey) ly = snapSplitLinePos(ly, img.y, img.h);
+      if (e.shiftKey) ly = snapSplitLinePos(ly, "y", img.y, img.h);
       let ext = getSplitLineExtent(img.x, img.w, pos.x);
       // Shift: stop the line at existing perpendicular split lines.
       if (e.shiftKey) ext = trimSplitLineExtentAtCrossings("horizontal", ly, pos.x, ext);
@@ -190,10 +184,10 @@ function computeSplitLineBoxRect(img, startPos, endPos, snap) {
   let x1 = Math.max(img.x, Math.min(endPos.x, img.x + img.w));
   let y1 = Math.max(img.y, Math.min(endPos.y, img.y + img.h));
   if (snap) {
-    x0 = snapSplitLinePos(x0, img.x, img.w);
-    y0 = snapSplitLinePos(y0, img.y, img.h);
-    x1 = snapSplitLinePos(x1, img.x, img.w);
-    y1 = snapSplitLinePos(y1, img.y, img.h);
+    x0 = snapSplitLinePos(x0, "x", img.x, img.w);
+    y0 = snapSplitLinePos(y0, "y", img.y, img.h);
+    x1 = snapSplitLinePos(x1, "x", img.x, img.w);
+    y1 = snapSplitLinePos(y1, "y", img.y, img.h);
   }
   const left = Math.min(x0, x1);
   const right = Math.max(x0, x1);
@@ -208,19 +202,44 @@ function computeSplitLineBoxRect(img, startPos, endPos, snap) {
  * world-coords rectangle. Each edge is an independent split line so it can be
  * erased/selected separately, consistent with the Ctrl "cross" placement.
  */
-function placeSplitLineBox(rect) {
+function placeSplitLineBox(rect, partial) {
   const dashPattern = state.splitLineDash;
   const left = rect.x, top = rect.y;
   const right = rect.x + rect.w, bottom = rect.y + rect.h;
 
   pushUndo();
-  const edgeSpecs = [
-    [{ x: left, y: top }, { x: right, y: top }],       // top
-    [{ x: left, y: bottom }, { x: right, y: bottom }], // bottom
-    [{ x: left, y: top }, { x: left, y: bottom }],     // left
-    [{ x: right, y: top }, { x: right, y: bottom }],   // right
-  ];
-  for (const [start, end] of edgeSpecs) {
+
+  let specs;
+  if (partial) {
+    // Corner marks: two short arms at each corner (crop-mark style) instead of
+    // full edges. Arm length is a quarter of the shorter side, capped so it
+    // never exceeds half an edge (arms from adjacent corners won't overlap).
+    const armX = Math.min(rect.w / 4, rect.w / 2);
+    const armY = Math.min(rect.h / 4, rect.h / 2);
+    specs = [
+      // Top-left
+      [{ x: left, y: top }, { x: left + armX, y: top }],
+      [{ x: left, y: top }, { x: left, y: top + armY }],
+      // Top-right
+      [{ x: right, y: top }, { x: right - armX, y: top }],
+      [{ x: right, y: top }, { x: right, y: top + armY }],
+      // Bottom-left
+      [{ x: left, y: bottom }, { x: left + armX, y: bottom }],
+      [{ x: left, y: bottom }, { x: left, y: bottom - armY }],
+      // Bottom-right
+      [{ x: right, y: bottom }, { x: right - armX, y: bottom }],
+      [{ x: right, y: bottom }, { x: right, y: bottom - armY }],
+    ];
+  } else {
+    specs = [
+      [{ x: left, y: top }, { x: right, y: top }],       // top
+      [{ x: left, y: bottom }, { x: right, y: bottom }], // bottom
+      [{ x: left, y: top }, { x: left, y: bottom }],     // left
+      [{ x: right, y: top }, { x: right, y: bottom }],   // right
+    ];
+  }
+
+  for (const [start, end] of specs) {
     if (start.x === end.x && start.y === end.y) continue;
     const edge = makeSplitLineEl(start, end, dashPattern);
     state.drawings.push(edge);
@@ -3475,8 +3494,8 @@ function setupMouseHandlers() {
           let ly = pos.y;
           if (e.shiftKey && state.splitLineHoveredImage) {
             const img = state.splitLineHoveredImage;
-            lx = snapSplitLinePos(lx, img.x, img.w);
-            ly = snapSplitLinePos(ly, img.y, img.h);
+            lx = snapSplitLinePos(lx, "x", img.x, img.w);
+            ly = snapSplitLinePos(ly, "y", img.y, img.h);
           }
           const vLine = {
             id: "draw_" + state.elementIdCounter++,
@@ -3517,9 +3536,9 @@ function setupMouseHandlers() {
           if (e.shiftKey && state.splitLineHoveredImage) {
             const img = state.splitLineHoveredImage;
             if (effectiveOrientation === "vertical") {
-              lx = snapSplitLinePos(lx, img.x, img.w);
+              lx = snapSplitLinePos(lx, "x", img.x, img.w);
             } else {
-              ly = snapSplitLinePos(ly, img.y, img.h);
+              ly = snapSplitLinePos(ly, "y", img.y, img.h);
             }
           }
           let start, end;
@@ -4590,7 +4609,8 @@ function setupMouseHandlers() {
 
       if (wasDrag) {
         if (dragRect) {
-          placeSplitLineBox(dragRect);
+          // Ctrl/Cmd+drag draws only partial corner marks instead of full edges.
+          placeSplitLineBox(dragRect, e.metaKey || e.ctrlKey);
         } else {
           render();
         }

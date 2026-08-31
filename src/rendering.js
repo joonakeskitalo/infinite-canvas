@@ -15,6 +15,7 @@ import { getFullImageBounds } from "./crop.js";
 import { renderMarquee, renderMarqueeSelecting } from "./marquee-select.js";
 import { renderAccessibilityPreviewSelection, isAccessibilityPreviewSelecting } from "./accessibility-preview.js";
 import { renderLaserTrails, renderLaserTrailsForExport, hasLaserVisuals } from "./laser-pointer.js";
+import { snapSplitLineAxis } from "./snap-guides.js";
 
 // --- Empty canvas placeholder ---
 let _placeholderEl = null;
@@ -67,18 +68,13 @@ export function addRenderCallback(cb) {
 }
 
 /**
- * Snap a split-line preview position to the nearest fraction (halves, thirds, quarters).
+ * Snap a split-line preview coordinate. Mirrors placement snapping: quadrant
+ * lines of the hovered image plus other elements' edges/centers and existing
+ * split lines. Delegates to the shared helper so preview matches placement.
+ * @param {"x"|"y"} axis which axis pos lies on
  */
-function snapSplitLinePreviewPos(pos, origin, size) {
-  const threshold = size * 0.02;
-  const fractions = [1/4, 1/3, 1/2, 2/3, 3/4];
-  for (const f of fractions) {
-    const snapTarget = origin + size * f;
-    if (Math.abs(pos - snapTarget) < threshold) {
-      return snapTarget;
-    }
-  }
-  return pos;
+function snapSplitLinePreviewPos(pos, axis, origin, size) {
+  return snapSplitLineAxis(pos, axis, origin, size);
 }
 
 export function render(targetCtx, isExporting = false) {
@@ -1674,9 +1670,26 @@ function _doRender(targetCtx, isExporting) {
     } else {
       targetCtx.setLineDash([]);
     }
-    targetCtx.beginPath();
-    targetCtx.rect(r.x, r.y, r.w, r.h);
-    targetCtx.stroke();
+    if (state.isCtrlPressed || state.isMetaPressed) {
+      // Ctrl/Cmd: preview partial corner marks instead of the full box.
+      const armX = Math.min(r.w / 4, r.w / 2);
+      const armY = Math.min(r.h / 4, r.h / 2);
+      const rl = r.x, rt = r.y, rr = r.x + r.w, rb = r.y + r.h;
+      targetCtx.beginPath();
+      // Top-left
+      targetCtx.moveTo(rl + armX, rt); targetCtx.lineTo(rl, rt); targetCtx.lineTo(rl, rt + armY);
+      // Top-right
+      targetCtx.moveTo(rr - armX, rt); targetCtx.lineTo(rr, rt); targetCtx.lineTo(rr, rt + armY);
+      // Bottom-left
+      targetCtx.moveTo(rl + armX, rb); targetCtx.lineTo(rl, rb); targetCtx.lineTo(rl, rb - armY);
+      // Bottom-right
+      targetCtx.moveTo(rr - armX, rb); targetCtx.lineTo(rr, rb); targetCtx.lineTo(rr, rb - armY);
+      targetCtx.stroke();
+    } else {
+      targetCtx.beginPath();
+      targetCtx.rect(r.x, r.y, r.w, r.h);
+      targetCtx.stroke();
+    }
 
     // Crosshair guide lines through the current cursor point, spanning the whole
     // visible canvas, shown for the duration of the drag to aid alignment.
@@ -1748,8 +1761,8 @@ function _doRender(targetCtx, isExporting) {
         let ly = pos.y;
         if (state.isShiftPressed && state.splitLineHoveredImage) {
           const img = state.splitLineHoveredImage;
-          lx = snapSplitLinePreviewPos(lx, img.x, img.w);
-          ly = snapSplitLinePreviewPos(ly, img.y, img.h);
+          lx = snapSplitLinePreviewPos(lx, "x", img.x, img.w);
+          ly = snapSplitLinePreviewPos(ly, "y", img.y, img.h);
         }
         targetCtx.moveTo(lx, worldTop);
         targetCtx.lineTo(lx, worldBottom);
@@ -1763,7 +1776,7 @@ function _doRender(targetCtx, isExporting) {
           let lx = pos.x;
           if (state.isShiftPressed && state.splitLineHoveredImage) {
             const img = state.splitLineHoveredImage;
-            lx = snapSplitLinePreviewPos(lx, img.x, img.w);
+            lx = snapSplitLinePreviewPos(lx, "x", img.x, img.w);
           }
           targetCtx.moveTo(lx, worldTop);
           targetCtx.lineTo(lx, worldBottom);
@@ -1771,7 +1784,7 @@ function _doRender(targetCtx, isExporting) {
           let ly = pos.y;
           if (state.isShiftPressed && state.splitLineHoveredImage) {
             const img = state.splitLineHoveredImage;
-            ly = snapSplitLinePreviewPos(ly, img.y, img.h);
+            ly = snapSplitLinePreviewPos(ly, "y", img.y, img.h);
           }
           targetCtx.moveTo(worldLeft, ly);
           targetCtx.lineTo(worldRight, ly);
@@ -1787,8 +1800,8 @@ function _doRender(targetCtx, isExporting) {
         let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
         let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
         if (state.isShiftPressed) {
-          lx = snapSplitLinePreviewPos(lx, img.x, img.w);
-          ly = snapSplitLinePreviewPos(ly, img.y, img.h);
+          lx = snapSplitLinePreviewPos(lx, "x", img.x, img.w);
+          ly = snapSplitLinePreviewPos(ly, "y", img.y, img.h);
         }
         // Vertical line
         const v = getSplitLineExtent(img.y, img.h, ly);
@@ -1808,7 +1821,7 @@ function _doRender(targetCtx, isExporting) {
         if (state.splitLineOrientation === "vertical") {
           // Opposite: horizontal
           let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
-          if (state.isShiftPressed) ly = snapSplitLinePreviewPos(ly, img.y, img.h);
+          if (state.isShiftPressed) ly = snapSplitLinePreviewPos(ly, "y", img.y, img.h);
           let h = getSplitLineExtent(img.x, img.w, pos.x);
           if (state.isShiftPressed) h = trimSplitLineExtentAtCrossings("horizontal", ly, pos.x, h);
           targetCtx.moveTo(h.start, ly);
@@ -1816,7 +1829,7 @@ function _doRender(targetCtx, isExporting) {
         } else {
           // Opposite: vertical
           let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
-          if (state.isShiftPressed) lx = snapSplitLinePreviewPos(lx, img.x, img.w);
+          if (state.isShiftPressed) lx = snapSplitLinePreviewPos(lx, "x", img.x, img.w);
           let v = getSplitLineExtent(img.y, img.h, pos.y);
           if (state.isShiftPressed) v = trimSplitLineExtentAtCrossings("vertical", lx, pos.y, v);
           targetCtx.moveTo(lx, v.start);
@@ -1827,14 +1840,14 @@ function _doRender(targetCtx, isExporting) {
         targetCtx.beginPath();
         if (state.splitLineOrientation === "vertical") {
           let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
-          if (state.isShiftPressed) lx = snapSplitLinePreviewPos(lx, img.x, img.w);
+          if (state.isShiftPressed) lx = snapSplitLinePreviewPos(lx, "x", img.x, img.w);
           let v = getSplitLineExtent(img.y, img.h, pos.y);
           if (state.isShiftPressed) v = trimSplitLineExtentAtCrossings("vertical", lx, pos.y, v);
           targetCtx.moveTo(lx, v.start);
           targetCtx.lineTo(lx, v.end);
         } else {
           let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
-          if (state.isShiftPressed) ly = snapSplitLinePreviewPos(ly, img.y, img.h);
+          if (state.isShiftPressed) ly = snapSplitLinePreviewPos(ly, "y", img.y, img.h);
           let h = getSplitLineExtent(img.x, img.w, pos.x);
           if (state.isShiftPressed) h = trimSplitLineExtentAtCrossings("horizontal", ly, pos.x, h);
           targetCtx.moveTo(h.start, ly);
