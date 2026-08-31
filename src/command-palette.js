@@ -42,7 +42,7 @@ function getCommands() {
     { id: "tool-select", label: "Select Tool", shortcut: "V", category: "Tools", action: () => switchTool("select") },
     { id: "tool-marquee", label: "Marquee Select", shortcut: "M", category: "Tools", action: () => switchTool("marquee") },
     { id: "tool-measure", label: "Measure Tool", shortcut: "Y", category: "Tools", action: () => switchTool("measure") },
-    { id: "tool-split-line", label: "Split Line Tool", shortcut: "W", category: "Tools", action: () => switchTool("split-line") },
+    { id: "tool-split-line", label: "Alignment Tool", shortcut: "W", category: "Tools", action: () => switchTool("split-line") },
     { id: "tool-pen", label: "Pen Tool", shortcut: "B", category: "Tools", action: () => switchTool("pen") },
     { id: "tool-laser", label: "Laser Pointer", shortcut: "P", category: "Tools", action: () => switchTool("laser") },
     { id: "tool-line", label: "Line Tool", shortcut: "L", category: "Tools", action: () => switchTool("line") },

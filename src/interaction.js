@@ -298,8 +298,8 @@ export function syncSplitLineLengthControl() {
     slider.step = range.step;
     slider.value = state.splitLineLengthMode === "pixel" ? state.splitLineLengthPx : state.splitLineLength;
     slider.title = state.splitLineLengthMode === "pixel"
-      ? "Split line length in pixels. Use [ / ] keys."
-      : "Split line length (% of image dimension). 100% = full span, >100% extends beyond. Use [ / ] keys.";
+      ? "Alignment line length in pixels. Use [ / ] keys."
+      : "Alignment line length (% of image dimension). 100% = full span, >100% extends beyond. Use [ / ] keys.";
   }
   updateSplitLineLengthDisplay();
 }
@@ -2657,7 +2657,7 @@ function setupKeyboardHandlers() {
         const dashSelect = document.getElementById("split-line-dash-select");
         if (dashSelect) dashSelect.value = state.splitLineDash;
         const labels = { solid: "Solid", dashed: "Dashed", dotted: "Dotted", "dash-dot": "Dash-dot" };
-        showToast(`Split line: ${labels[state.splitLineDash]}`);
+        showToast(`Alignment line: ${labels[state.splitLineDash]}`);
         render();
       } else {
         // Cycle general line dash style
@@ -2743,7 +2743,7 @@ function setupKeyboardHandlers() {
     if (key === "f" && state.currentTool === "split-line") {
       e.preventDefault();
       state.splitLineFullWidth = !state.splitLineFullWidth;
-      showToast(state.splitLineFullWidth ? "Full-width split line" : "Image-bound split line");
+      showToast(state.splitLineFullWidth ? "Full-width alignment line" : "Image-bound alignment line");
       render();
       return;
     }

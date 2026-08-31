@@ -37,7 +37,7 @@ const TOOL_ICONS = {
 
 const SHOWCASE_SCENES = [
   {
-    title: "Split Line Tool",
+    title: "Alignment Tool",
     key: "W",
     icon: TOOL_ICONS.guideLine,
     draw(ctx, W, H, t) {
@@ -881,7 +881,7 @@ function buildToolsContent() {
     { key: "N", label: "Sticky Note", icon: TOOL_ICONS.stickyNote },
     { key: "E", label: "Eraser", icon: TOOL_ICONS.eraser },
     { key: "Y", label: "Measure", icon: TOOL_ICONS.measure },
-    { key: "W", label: "Split Line", icon: TOOL_ICONS.guideLine },
+    { key: "W", label: "Alignment", icon: TOOL_ICONS.guideLine },
     { key: "S", label: "Stamp", icon: TOOL_ICONS.stamp || "📋" },
     { key: "K", label: "Contrast Checker", icon: TOOL_ICONS.contrast },
     { key: "I", label: "Color Picker", icon: TOOL_ICONS.eyedropper },

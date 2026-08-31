@@ -136,7 +136,7 @@
         class="tool-btn"
         id="tool-split-line"
         data-tool="split-line"
-        title="Split Line Tool [W] (W toggles orientation, drag to draw a box, Shift temporarily flips, ⌘/Ctrl places both, [ / ] adjust length)"
+        title="Alignment Tool [W] (W toggles orientation, drag to draw a box, Shift snaps to center/other elements, ⌘/Ctrl places both, [ / ] adjust length)"
         style="width: 38px"
       >
         <svg
@@ -978,7 +978,7 @@
         <span class="align-title">Style</span>
         <select
           id="split-line-dash-select"
-          title="Split line dash pattern. Use , key to cycle."
+          title="Alignment line dash pattern. Use , key to cycle."
           style="
             background: #2d2d2d;
             color: #fff;
@@ -1008,7 +1008,7 @@
           max="200"
           value="100"
           step="5"
-          title="Split line length (% of image dimension). 100% = full span, >100% extends beyond. Use [ / ] keys."
+          title="Alignment line length (% of image dimension). 100% = full span, >100% extends beyond. Use [ / ] keys."
           style="width: 280px; accent-color: #ff6400; cursor: pointer"
         />
         <span
@@ -2036,7 +2036,7 @@
           <h1 class="welcome-title">Welcome to Jiiris 📐</h1>
           <p class="welcome-subtitle">
             An infinite canvas for developers. Paste screenshots, check
-            alignment with split lines, verify color contrast for WCAG
+            alignment with the alignment tool, verify color contrast for WCAG
             compliance, and preview your designs through color vision filters.
           </p>
         </div>
