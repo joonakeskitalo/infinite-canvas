@@ -341,67 +341,29 @@ function restoreStampByName(name) {
   return true;
 }
 
-// --- Save dialog (prompt for a name) ---
+// --- Save current stamp under the name typed in the restore/name input ---
 
-function openSaveDialog() {
+function saveCurrentStamp() {
   if (!state.stampClipboard || state.stampClipboard.length === 0 || !state.stampSourceBounds) {
-    showToast("No stamp to save — Shift+Click an image to copy a stamp first");
+    showToast("No stamp to save — copy a stamp first");
     return;
   }
-
-  const existing = document.getElementById("saved-stamp-dialog");
-  if (existing) existing.remove();
-
-  const overlay = document.createElement("div");
-  overlay.id = "saved-stamp-dialog";
-  overlay.className = "custom-color-dialog-overlay";
-  const count = state.stampClipboard.length;
-  overlay.innerHTML = `
-    <div class="custom-color-dialog">
-      <h3 class="custom-color-dialog-title">Save Stamp</h3>
-      <div class="custom-color-dialog-row">
-        <label>Name</label>
-        <input type="text" class="custom-color-dialog-label saved-stamp-name" placeholder="e.g. Rule of Thirds" spellcheck="false" />
-      </div>
-      <p class="custom-color-dialog-hint">${count} element${count > 1 ? "s" : ""} will be saved.</p>
-      <div class="custom-color-dialog-actions">
-        <button class="custom-color-dialog-cancel">Cancel</button>
-        <button class="custom-color-dialog-confirm">Save</button>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(overlay);
-
-  const nameInput = overlay.querySelector(".saved-stamp-name");
-  const cancelBtn = overlay.querySelector(".custom-color-dialog-cancel");
-  const confirmBtn = overlay.querySelector(".custom-color-dialog-confirm");
-
-  const close = () => overlay.remove();
-  const confirm = () => {
-    const name = nameInput.value.trim();
-    if (!name) {
-      nameInput.style.borderColor = "#ff4444";
-      return;
-    }
-    if (saveStamp(name, state.stampClipboard, state.stampSourceBounds)) {
-      showToast(`Saved stamp "${name}"`);
-      refreshRestoreOptions();
-      if (_restoreInput) _restoreInput.value = name;
-      close();
-    }
-  };
-
-  cancelBtn.addEventListener("click", close);
-  confirmBtn.addEventListener("click", confirm);
-  overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) close();
-  });
-  nameInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") confirm();
-    else if (e.key === "Escape") close();
-  });
-
-  setTimeout(() => nameInput.focus(), 50);
+  const name = _restoreInput ? _restoreInput.value.trim() : "";
+  if (!name) {
+    showToast("Type a name in the field, then Save");
+    if (_restoreInput) _restoreInput.focus();
+    return;
+  }
+  const existing = savedStamps.find((s) => s.name.toLowerCase() === name.toLowerCase());
+  if (existing && existing.isDefault) {
+    showToast("That name is a built-in stamp — choose a different name");
+    return;
+  }
+  if (saveStamp(name, state.stampClipboard, state.stampSourceBounds)) {
+    showToast(`Saved stamp "${name}"`);
+    refreshRestoreOptions();
+    if (_restoreInput) _restoreInput.value = name;
+  }
 }
 
 // --- Init & wiring ---
@@ -417,7 +379,7 @@ export function initSavedStamps() {
   _modeOptions = document.querySelectorAll("#stamp-mode-toggle .stamp-mode-option");
 
   if (_saveBtn) {
-    _saveBtn.addEventListener("click", openSaveDialog);
+    _saveBtn.addEventListener("click", saveCurrentStamp);
   }
 
   if (_modeOptions && _modeOptions.length) {
@@ -468,9 +430,15 @@ export function initSavedStamps() {
       }
     });
 
-    _restoreInput.addEventListener("input", () => {
-      // A datalist selection sets the value to an exact option value; only act
-      // on an exact match so partial typing doesn't prematurely restore.
+    _restoreInput.addEventListener("input", (e) => {
+      // Only auto-restore when the value was set by picking a datalist option,
+      // NOT while the user is typing (which would clobber a name they're
+      // entering to save). Datalist selections fire an input event with
+      // inputType "insertReplacementText" (Chromium) or a null/empty inputType
+      // (Safari); ordinary typing/deleting uses inputType like "insertText".
+      const it = e.inputType;
+      const isDatalistPick = it === "insertReplacementText" || it == null || it === "";
+      if (!isDatalistPick) return;
       const name = _restoreInput.value.trim();
       if (savedStamps.some((s) => s.name.toLowerCase() === name.toLowerCase())) {
         tryRestore();
@@ -480,6 +448,11 @@ export function initSavedStamps() {
       if (e.key === "Enter") {
         e.preventDefault();
         tryRestore();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        // Blur the field; the blur handler restores the stashed value if empty
+        // and releases focus so canvas keyboard shortcuts work again.
+        _restoreInput.blur();
       }
     });
   }

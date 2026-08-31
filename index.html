@@ -1064,28 +1064,13 @@
           id="stamp-status-label"
           style="font-size: 11px; color: #aaa; min-width: 96px"
           title="Current stamp clipboard"
-        >Empty — Shift+Click an image</span>
-        <button
-          id="stamp-save-btn"
-          type="button"
-          title="Save the current stamp with a name"
-          style="
-            background: #2d2d2d;
-            color: #fff;
-            border: 1px solid #555;
-            border-radius: 4px;
-            padding: 3px 10px;
-            font-size: 11px;
-            outline: none;
-            cursor: pointer;
-          "
-        >Save…</button>
+        >Empty — copy a stamp first</span>
         <input
           id="stamp-restore-input"
           list="stamp-restore-list"
           type="text"
-          placeholder="Select saved…"
-          title="Type to search saved stamps, then pick one to restore"
+          placeholder="Name to save / restore…"
+          title="Pick a saved stamp to restore it, or type a name and click Save to store the current stamp"
           autocomplete="off"
           spellcheck="false"
           style="
@@ -1101,6 +1086,21 @@
           "
         />
         <datalist id="stamp-restore-list"></datalist>
+        <button
+          id="stamp-save-btn"
+          type="button"
+          title="Save the current stamp under the name in the field"
+          style="
+            background: #2d2d2d;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 3px 10px;
+            font-size: 11px;
+            outline: none;
+            cursor: pointer;
+          "
+        >Save</button>
         <button
           id="stamp-delete-btn"
           type="button"
