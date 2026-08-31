@@ -2833,3 +2833,10 @@ input[type="color"]::-webkit-color-swatch {
   color: #fff;
   font-weight: 600;
 }
+
+/* Disabled state for stamp Save / Delete buttons */
+#stamp-save-btn:disabled,
+#stamp-delete-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

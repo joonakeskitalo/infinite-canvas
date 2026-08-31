@@ -298,10 +298,53 @@ export function updateStampModeButton() {
  */
 export function clearRestoreSelection() {
   if (_restoreInput) _restoreInput.value = "";
+  updateStampActionButtons();
+}
+
+/**
+ * Enable/disable the Save and Delete buttons to reflect what's currently
+ * possible:
+ *  - Save   is available when there's a stamp in the clipboard AND a non-empty
+ *           name is typed that isn't a built-in preset.
+ *  - Delete is available when the typed name matches an existing, deletable
+ *           (non-built-in) saved stamp.
+ * Tooltips are updated to explain why an action is unavailable.
+ */
+function updateStampActionButtons() {
+  const name = _restoreInput ? _restoreInput.value.trim() : "";
+  const hasClipboard = !!(state.stampClipboard && state.stampClipboard.length > 0);
+  const match = name ? savedStamps.find((s) => s.name.toLowerCase() === name.toLowerCase()) : null;
+
+  if (_saveBtn) {
+    const canSave = hasClipboard && !!name && !(match && match.isDefault);
+    _saveBtn.disabled = !canSave;
+    _saveBtn.title = !hasClipboard
+      ? "Copy a stamp first, then type a name to save it"
+      : !name
+      ? "Type a name in the field to save the current stamp"
+      : match && match.isDefault
+      ? "That name is a built-in stamp — choose a different name"
+      : match
+      ? `Overwrite saved stamp "${match.name}" with the current stamp`
+      : `Save the current stamp as "${name}"`;
+  }
+
+  if (_deleteBtn) {
+    const canDelete = !!match && !match.isDefault;
+    _deleteBtn.disabled = !canDelete;
+    _deleteBtn.title = !name
+      ? "Pick or type a saved stamp name to delete it"
+      : !match
+      ? `No saved stamp named "${name}"`
+      : match.isDefault
+      ? "Built-in stamps can't be deleted"
+      : `Delete saved stamp "${match.name}"`;
+  }
 }
 
 export function updateStampPanel() {
   updateStampModeButton();
+  updateStampActionButtons();
   if (!_statusLabel) return;
   const count = state.stampClipboard ? state.stampClipboard.length : 0;
   _statusLabel.textContent = count > 0
@@ -363,6 +406,7 @@ function saveCurrentStamp() {
     showToast(`Saved stamp "${name}"`);
     refreshRestoreOptions();
     if (_restoreInput) _restoreInput.value = name;
+    updateStampActionButtons();
   }
 }
 
@@ -421,6 +465,7 @@ export function initSavedStamps() {
       // Temporarily clear so the browser shows the full list of options.
       _stashedValue = _restoreInput.value;
       _restoreInput.value = "";
+      updateStampActionButtons();
     });
     _restoreInput.addEventListener("blur", () => {
       // If the user left without selecting, put the original text back.
@@ -428,9 +473,12 @@ export function initSavedStamps() {
         if (_restoreInput.value.trim() === "") _restoreInput.value = _stashedValue;
         _stashedValue = null;
       }
+      updateStampActionButtons();
     });
 
     _restoreInput.addEventListener("input", (e) => {
+      // Keep Save/Delete availability in sync as the name changes.
+      updateStampActionButtons();
       // Only auto-restore when the value was set by picking a datalist option,
       // NOT while the user is typing (which would clobber a name they're
       // entering to save). Datalist selections fire an input event with
@@ -477,6 +525,7 @@ export function initSavedStamps() {
         _restoreInput.value = "";
         showToast(`Deleted stamp "${entry.name}"`);
         refreshRestoreOptions();
+        updateStampActionButtons();
       }
     });
   }
