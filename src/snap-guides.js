@@ -159,10 +159,10 @@ export function getSnapTargets(excludeIds, bounds, options) {
 
 /**
  * Snap a split-line coordinate along one axis (used when Shift is held while
- * placing/previewing). Snaps to the hovered image's center on this axis
- * (vertical line → center x, horizontal line → center y) and to the positions
- * of existing parallel split lines. Returns the nearest candidate within a
- * generous catch zone, else the original position.
+ * placing/previewing). Snaps to the hovered image's center on this axis, to the
+ * positions of existing parallel split lines, and to the edges/center of other
+ * drawings (text, rectangles, etc.). Off-screen elements are ignored. Returns
+ * the nearest candidate within a generous catch zone, else the original position.
  *
  * @param {number} pos    the cursor coordinate on this axis (world-coords)
  * @param {"x"|"y"} axis   which axis pos lies on
@@ -175,26 +175,37 @@ export function snapSplitLineAxis(pos, axis, origin, size) {
   const threshold = 16 / state.transform.zoom;
   const isX = axis === "x";
   const candidates = [];
+  const vp = getViewportBounds();
 
   // Hovered image center on this axis.
   if (typeof origin === "number" && typeof size === "number") {
     candidates.push(origin + size / 2);
   }
 
-  // Positions of existing parallel split lines (vertical line → its x, etc.),
-  // ignoring any that aren't currently visible in the viewport.
-  const vp = getViewportBounds();
+  // Other on-screen drawings contribute snap targets:
+  //  - a parallel split line → its fixed-axis position
+  //  - any other drawing (text, rect, line, etc.) → its edges and center
   for (const d of state.drawings) {
-    if (!d.isSplitLine || !d.start || !d.end) continue;
-    const minX = Math.min(d.start.x, d.end.x);
-    const minY = Math.min(d.start.y, d.end.y);
-    const w = Math.abs(d.end.x - d.start.x);
-    const h = Math.abs(d.end.y - d.start.y);
-    if (!isRectInViewport(minX, minY, w, h, vp)) continue; // off-screen — skip
-    const isVertical = Math.abs(d.start.x - d.end.x) < 1e-6;
-    const isHorizontal = Math.abs(d.start.y - d.end.y) < 1e-6;
-    if (isX && isVertical) candidates.push(d.start.x);
-    else if (!isX && isHorizontal) candidates.push(d.start.y);
+    if (d.type === "connector") continue;
+
+    if (d.isSplitLine) {
+      if (!d.start || !d.end) continue;
+      const minX = Math.min(d.start.x, d.end.x);
+      const minY = Math.min(d.start.y, d.end.y);
+      const w = Math.abs(d.end.x - d.start.x);
+      const h = Math.abs(d.end.y - d.start.y);
+      if (!isRectInViewport(minX, minY, w, h, vp)) continue;
+      const isVertical = Math.abs(d.start.x - d.end.x) < 1e-6;
+      const isHorizontal = Math.abs(d.start.y - d.end.y) < 1e-6;
+      if (isX && isVertical) candidates.push(d.start.x);
+      else if (!isX && isHorizontal) candidates.push(d.start.y);
+      continue;
+    }
+
+    const b = getShapeBounds(d);
+    if (!isRectInViewport(b.x, b.y, b.w, b.h, vp)) continue; // off-screen — skip
+    if (isX) candidates.push(b.x, b.x + b.w / 2, b.x + b.w);
+    else candidates.push(b.y, b.y + b.h / 2, b.y + b.h);
   }
 
   let best = pos;
