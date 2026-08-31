@@ -157,23 +157,45 @@ export function getSnapTargets(excludeIds, bounds, options) {
 }
 
 /**
- * Snap a split-line coordinate to the hovered image's center on one axis
- * (vertical line → center x, horizontal line → center y). Used when Shift is
- * held while placing (or previewing) a split line.
+ * Snap a split-line coordinate along one axis (used when Shift is held while
+ * placing/previewing). Snaps to the hovered image's center on this axis
+ * (vertical line → center x, horizontal line → center y) and to the positions
+ * of existing parallel split lines. Returns the nearest candidate within a
+ * generous catch zone, else the original position.
  *
  * @param {number} pos    the cursor coordinate on this axis (world-coords)
- * @param {"x"|"y"} axis   which axis pos lies on (unused; kept for call sites)
+ * @param {"x"|"y"} axis   which axis pos lies on
  * @param {number} origin  hovered image origin on this axis (img.x or img.y)
  * @param {number} size    hovered image size on this axis (img.w or img.h)
- * @returns {number} the image center on this axis if close enough, else pos
+ * @returns {number} the snapped coordinate if close enough, else pos
  */
 export function snapSplitLineAxis(pos, axis, origin, size) {
-  if (typeof origin !== "number" || typeof size !== "number") return pos;
-  // Generous catch zone (screen px, converted to world) so the center is easy
-  // to snap to on both axes.
+  // Generous catch zone (screen px, converted to world) so targets are easy to hit.
   const threshold = 16 / state.transform.zoom;
-  const center = origin + size / 2;
-  return Math.abs(pos - center) < threshold ? center : pos;
+  const isX = axis === "x";
+  const candidates = [];
+
+  // Hovered image center on this axis.
+  if (typeof origin === "number" && typeof size === "number") {
+    candidates.push(origin + size / 2);
+  }
+
+  // Positions of existing parallel split lines (vertical line → its x, etc.).
+  for (const d of state.drawings) {
+    if (!d.isSplitLine || !d.start || !d.end) continue;
+    const isVertical = Math.abs(d.start.x - d.end.x) < 1e-6;
+    const isHorizontal = Math.abs(d.start.y - d.end.y) < 1e-6;
+    if (isX && isVertical) candidates.push(d.start.x);
+    else if (!isX && isHorizontal) candidates.push(d.start.y);
+  }
+
+  let best = pos;
+  let bestDist = threshold;
+  for (const c of candidates) {
+    const dist = Math.abs(pos - c);
+    if (dist < bestDist) { bestDist = dist; best = c; }
+  }
+  return best;
 }
 
 export function snapToElements(bounds, targets, threshold) {
