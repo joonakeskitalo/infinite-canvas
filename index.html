@@ -15,1322 +15,1417 @@
   <body style="background-color: #f0f0f0">
     <div id="toolbar">
       <div class="toolbar-primary-row">
-      <button class="tool-btn" id="toolbar-menu-btn" title="Menu">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <line x1="4" y1="6" x2="20" y2="6" />
-          <line x1="4" y1="12" x2="20" y2="12" />
-          <line x1="4" y1="18" x2="20" y2="18" />
-        </svg>
-      </button>
-
-      <div class="separator"></div>
-
-      <button
-        class="tool-btn active"
-        id="tool-pan"
-        data-tool="pan"
-        title="Hand Tool [H]"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2" />
-          <path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2" />
-          <path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8" />
-          <path
-            d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"
-          />
-        </svg>
-      </button>
-      <button
-        class="tool-btn"
-        id="tool-select"
-        data-tool="select"
-        title="Select Tool [V]"
-      >
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <path d="M7 2l12 11.2-5.3.7 3.5 6.6-2.5 1.3-3.6-6.6-4.1 3.5V2z" />
-        </svg>
-      </button>
-      <button
-        class="tool-btn"
-        id="tool-marquee"
-        data-tool="marquee"
-        title="Rectangle Select [M] — Select, move, cut & copy image pixels"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <rect
-            x="3"
-            y="3"
-            width="18"
-            height="18"
-            rx="1"
-            stroke-dasharray="3 2"
-          />
-          <path d="M8 3v18" opacity="0.3" />
-          <path d="M16 3v18" opacity="0.3" />
-          <path d="M3 8h18" opacity="0.3" />
-          <path d="M3 16h18" opacity="0.3" />
-        </svg>
-      </button>
-      <button
-        class="tool-btn"
-        id="tool-measure"
-        data-tool="measure"
-        title="Measure Tool [Y]"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path
-            d="M13 7 8.7 2.7a2.41 2.41 0 0 0-3.4 0L2.7 5.3a2.41 2.41 0 0 0 0 3.4L7 13"
-          />
-          <path d="m8 6 2-2" />
-          <path d="m18 16 2-2" />
-          <path
-            d="m17 11 4.3 4.3c.94.94.94 2.46 0 3.4l-2.6 2.6c-.94.94-2.46.94-3.4 0L11 17"
-          />
-          <path
-            d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"
-          />
-          <path d="m15 5 4 4" />
-        </svg>
-      </button>
-      <button
-        class="tool-btn"
-        id="tool-split-line"
-        data-tool="split-line"
-        title="Alignment Tool [W] (W toggles orientation, drag to draw a box, Shift snaps to center/other elements, ⌘/Ctrl places both, [ / ] adjust length)"
-        style="width: 38px"
-      >
-        <svg
-          style="
-            height: 32px !important;
-            width: 32px !important;
-            margin-top: 2px;
-          "
-          xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M8 19H5c-1 0-2-1-2-2V7c0-1 1-2 2-2h3" />
-          <path d="M16 5h3c1 0 2 1 2 2v10c0 1-1 2-2 2h-3" />
-          <line x1="12" x2="12" y1="4" y2="20" />
-        </svg>
-      </button>
-
-      <div class="separator"></div>
-
-      <button
-        class="tool-btn"
-        id="tool-pen"
-        data-tool="pen"
-        title="Pen Tool [B]"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path
-            d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"
-          />
-          <path d="m15 5 4 4" />
-        </svg>
-      </button>
-      <button
-        class="tool-btn"
-        id="tool-laser"
-        data-tool="laser"
-        title="Laser Pointer [P] — Click for dots, drag for freeform strokes (fade away)"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <circle cx="12" cy="12" r="3" fill="currentColor" />
-          <path d="M12 2v4" />
-          <path d="M12 18v4" />
-          <path d="M2 12h4" />
-          <path d="M18 12h4" />
-          <path d="M4.93 4.93l2.83 2.83" />
-          <path d="M16.24 16.24l2.83 2.83" />
-          <path d="M4.93 19.07l2.83-2.83" />
-          <path d="M16.24 7.76l2.83-2.83" />
-        </svg>
-      </button>
-      <button
-        class="tool-btn"
-        id="tool-line"
-        data-tool="line"
-        title="Line Tool [L]"
-      >
-        <svg fill="currentColor" viewBox="0 0 24 24">
-          <path d="M4 20L20 4l1.5 1.5L5.5 21.5z" />
-        </svg>
-      </button>
-      <button
-        class="tool-btn"
-        id="tool-arrow"
-        data-tool="arrow"
-        title="Arrow Tool [A]"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M19 13V19H13" />
-          <path d="M5 5L19 19" />
-        </svg>
-      </button>
-      <button
-        class="tool-btn"
-        id="tool-connector"
-        data-tool="connector"
-        title="Connector Arrow [C]"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-          <path d="M8.464 8.464l9.536 9.536" />
-          <path d="M14 18h4v-4" />
-          <path
-            d="M8.414 8.414a2 2 0 1 0 -2.828 -2.828a2 2 0 0 0 2.828 2.828"
-          />
-        </svg>
-      </button>
-      <button
-        class="tool-btn"
-        id="tool-rect-border"
-        data-tool="rect-border"
-        title="Box Border Tool [R]"
-      >
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <path
-            d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"
-          />
-        </svg>
-      </button>
-      <button
-        class="tool-btn"
-        id="tool-rect-fill"
-        data-tool="rect-fill"
-        title="Box Fill Tool [F]"
-      >
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <path
-            d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"
-          />
-        </svg>
-      </button>
-
-      <div class="separator"></div>
-
-      <button
-        class="tool-btn"
-        id="tool-text"
-        data-tool="text"
-        title="Text Tool [T]"
-      >
-        <svg fill="currentColor" viewBox="0 0 24 24">
-          <path d="M5 4v3h5.5v12h3V7H19V4H5z" />
-        </svg>
-      </button>
-      <button
-        class="tool-btn"
-        id="tool-text-element"
-        data-tool="text-element"
-        title="Sticky Note Text [N]"
-      >
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <rect
-            x="3"
-            y="3"
-            width="18"
-            height="18"
-            rx="2"
-            fill="#f5e642"
-            opacity="0.85"
-          />
-          <text
-            x="12"
-            y="16"
-            text-anchor="middle"
-            font-size="12"
-            font-weight="bold"
-            fill="#333"
+        <button class="tool-btn" id="toolbar-menu-btn" title="Menu">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
           >
-            T
-          </text>
-        </svg>
-      </button>
-      <button
-        class="tool-btn"
-        id="tool-eraser"
-        data-tool="eraser"
-        title="Object Eraser Tool [E]"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path
-            d="M21 21H8a2 2 0 0 1-1.42-.587l-3.994-3.999a2 2 0 0 1 0-2.828l10-10a2 2 0 0 1 2.829 0l5.999 6a2 2 0 0 1 0 2.828L12.834 21"
-          />
-          <path d="m5.082 11.09 8.828 8.828" />
-        </svg>
-      </button>
-      <button
-        class="tool-btn"
-        id="tool-stamp"
-        data-tool="stamp"
-        title="Stamp Tool [S] — Copy/Paste mode toggle in toolbar (hold Shift to invert). Copy grabs drawings from an image, Paste applies them; ⌘/Ctrl+Click removes drawings from an image"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M14 13V8.5C14 7 15 7 15 5a3 3 0 0 0-6 0c0 2 1 2 1 3.5V13" />
-          <path
-            d="M20 15.5a2.5 2.5 0 0 0-2.5-2.5h-11A2.5 2.5 0 0 0 4 15.5V17a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1z"
-          />
-          <path d="M5 22h14" />
-        </svg>
-      </button>
+            <line x1="4" y1="6" x2="20" y2="6" />
+            <line x1="4" y1="12" x2="20" y2="12" />
+            <line x1="4" y1="18" x2="20" y2="18" />
+          </svg>
+        </button>
 
-      <div class="separator"></div>
+        <div class="separator"></div>
 
-      <button
-        class="tool-btn"
-        id="tool-contrast"
-        data-tool="contrast"
-        title="Contrast Checker [K] — Click two spots to compare"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
+        <button
+          class="tool-btn active"
+          id="tool-pan"
+          data-tool="pan"
+          title="Hand Tool [H]"
         >
-          <circle cx="12" cy="12" r="10" />
-          <path d="M12 18a6 6 0 0 0 0-12v12z" />
-        </svg>
-      </button>
-      <button
-        class="tool-btn"
-        id="tool-eyedropper"
-        data-tool="eyedropper"
-        title="Color Picker / Eyedropper [I]"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2" />
+            <path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2" />
+            <path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8" />
+            <path
+              d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"
+            />
+          </svg>
+        </button>
+        <button
+          class="tool-btn"
+          id="tool-select"
+          data-tool="select"
+          title="Select Tool [V]"
         >
-          <path
-            d="m12 9-8.414 8.414A2 2 0 0 0 3 18.828v1.344a2 2 0 0 1-.586 1.414A2 2 0 0 1 3.828 21h1.344a2 2 0 0 0 1.414-.586L15 12"
-          />
-          <path
-            d="m18 9 .4.4a1 1 0 1 1-3 3l-3.8-3.8a1 1 0 1 1 3-3l.4.4 3.4-3.4a1 1 0 1 1 3 3z"
-          />
-          <path d="m2 22 .414-.414" />
-        </svg>
-      </button>
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M7 2l12 11.2-5.3.7 3.5 6.6-2.5 1.3-3.6-6.6-4.1 3.5V2z" />
+          </svg>
+        </button>
+        <button
+          class="tool-btn"
+          id="tool-marquee"
+          data-tool="marquee"
+          title="Rectangle Select [M] — Select, move, cut & copy image pixels"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <rect
+              x="3"
+              y="3"
+              width="18"
+              height="18"
+              rx="1"
+              stroke-dasharray="3 2"
+            />
+            <path d="M8 3v18" opacity="0.3" />
+            <path d="M16 3v18" opacity="0.3" />
+            <path d="M3 8h18" opacity="0.3" />
+            <path d="M3 16h18" opacity="0.3" />
+          </svg>
+        </button>
+        <button
+          class="tool-btn"
+          id="tool-measure"
+          data-tool="measure"
+          title="Measure Tool [Y]"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M13 7 8.7 2.7a2.41 2.41 0 0 0-3.4 0L2.7 5.3a2.41 2.41 0 0 0 0 3.4L7 13"
+            />
+            <path d="m8 6 2-2" />
+            <path d="m18 16 2-2" />
+            <path
+              d="m17 11 4.3 4.3c.94.94.94 2.46 0 3.4l-2.6 2.6c-.94.94-2.46.94-3.4 0L11 17"
+            />
+            <path
+              d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"
+            />
+            <path d="m15 5 4 4" />
+          </svg>
+        </button>
+        <button
+          class="tool-btn"
+          id="tool-split-line"
+          data-tool="split-line"
+          title="Alignment Tool [W] (W toggles orientation, drag to draw a box, Shift snaps to center/other elements, ⌘/Ctrl places both, [ / ] adjust length)"
+          style="width: 38px"
+        >
+          <svg
+            style="
+              height: 32px !important;
+              width: 32px !important;
+              margin-top: 2px;
+            "
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M8 19H5c-1 0-2-1-2-2V7c0-1 1-2 2-2h3" />
+            <path d="M16 5h3c1 0 2 1 2 2v10c0 1-1 2-2 2h-3" />
+            <line x1="12" x2="12" y1="4" y2="20" />
+          </svg>
+        </button>
 
-      <div class="separator"></div>
+        <div class="separator"></div>
 
-      <div class="control-group" id="filter-group" title="Color Vision Filter">
-        <select
-          id="filter-select"
-          class="filter-select"
+        <button
+          class="tool-btn"
+          id="tool-pen"
+          data-tool="pen"
+          title="Pen Tool [B]"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"
+            />
+            <path d="m15 5 4 4" />
+          </svg>
+        </button>
+        <button
+          class="tool-btn"
+          id="tool-laser"
+          data-tool="laser"
+          title="Laser Pointer [P] — Click for dots, drag for freeform strokes (fade away)"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="3" fill="currentColor" />
+            <path d="M12 2v4" />
+            <path d="M12 18v4" />
+            <path d="M2 12h4" />
+            <path d="M18 12h4" />
+            <path d="M4.93 4.93l2.83 2.83" />
+            <path d="M16.24 16.24l2.83 2.83" />
+            <path d="M4.93 19.07l2.83-2.83" />
+            <path d="M16.24 7.76l2.83-2.83" />
+          </svg>
+        </button>
+        <button
+          class="tool-btn"
+          id="tool-line"
+          data-tool="line"
+          title="Line Tool [L]"
+        >
+          <svg fill="currentColor" viewBox="0 0 24 24">
+            <path d="M4 20L20 4l1.5 1.5L5.5 21.5z" />
+          </svg>
+        </button>
+        <button
+          class="tool-btn"
+          id="tool-arrow"
+          data-tool="arrow"
+          title="Arrow Tool [A]"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M19 13V19H13" />
+            <path d="M5 5L19 19" />
+          </svg>
+        </button>
+        <button
+          class="tool-btn"
+          id="tool-connector"
+          data-tool="connector"
+          title="Connector Arrow [C]"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+            <path d="M8.464 8.464l9.536 9.536" />
+            <path d="M14 18h4v-4" />
+            <path
+              d="M8.414 8.414a2 2 0 1 0 -2.828 -2.828a2 2 0 0 0 2.828 2.828"
+            />
+          </svg>
+        </button>
+        <button
+          class="tool-btn"
+          id="tool-rect-border"
+          data-tool="rect-border"
+          title="Box Border Tool [R]"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"
+            />
+          </svg>
+        </button>
+        <button
+          class="tool-btn"
+          id="tool-rect-fill"
+          data-tool="rect-fill"
+          title="Box Fill Tool [F]"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"
+            />
+          </svg>
+        </button>
+
+        <div class="separator"></div>
+
+        <button
+          class="tool-btn"
+          id="tool-text"
+          data-tool="text"
+          title="Text Tool [T]"
+        >
+          <svg fill="currentColor" viewBox="0 0 24 24">
+            <path d="M5 4v3h5.5v12h3V7H19V4H5z" />
+          </svg>
+        </button>
+        <button
+          class="tool-btn"
+          id="tool-text-element"
+          data-tool="text-element"
+          title="Sticky Note Text [N]"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <rect
+              x="3"
+              y="3"
+              width="18"
+              height="18"
+              rx="2"
+              fill="#f5e642"
+              opacity="0.85"
+            />
+            <text
+              x="12"
+              y="16"
+              text-anchor="middle"
+              font-size="12"
+              font-weight="bold"
+              fill="#333"
+            >
+              T
+            </text>
+          </svg>
+        </button>
+        <button
+          class="tool-btn"
+          id="tool-eraser"
+          data-tool="eraser"
+          title="Object Eraser Tool [E]"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M21 21H8a2 2 0 0 1-1.42-.587l-3.994-3.999a2 2 0 0 1 0-2.828l10-10a2 2 0 0 1 2.829 0l5.999 6a2 2 0 0 1 0 2.828L12.834 21"
+            />
+            <path d="m5.082 11.09 8.828 8.828" />
+          </svg>
+        </button>
+        <button
+          class="tool-btn"
+          id="tool-stamp"
+          data-tool="stamp"
+          title="Stamp Tool [S] — Copy/Paste mode toggle in toolbar (hold Shift to invert). Copy grabs drawings from an image, Paste applies them; ⌘/Ctrl+Click removes drawings from an image"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M14 13V8.5C14 7 15 7 15 5a3 3 0 0 0-6 0c0 2 1 2 1 3.5V13"
+            />
+            <path
+              d="M20 15.5a2.5 2.5 0 0 0-2.5-2.5h-11A2.5 2.5 0 0 0 4 15.5V17a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1z"
+            />
+            <path d="M5 22h14" />
+          </svg>
+        </button>
+
+        <div class="separator"></div>
+
+        <button
+          class="tool-btn"
+          id="tool-contrast"
+          data-tool="contrast"
+          title="Contrast Checker [K] — Click two spots to compare"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 18a6 6 0 0 0 0-12v12z" />
+          </svg>
+        </button>
+        <button
+          class="tool-btn"
+          id="tool-eyedropper"
+          data-tool="eyedropper"
+          title="Color Picker / Eyedropper [I]"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="m12 9-8.414 8.414A2 2 0 0 0 3 18.828v1.344a2 2 0 0 1-.586 1.414A2 2 0 0 1 3.828 21h1.344a2 2 0 0 0 1.414-.586L15 12"
+            />
+            <path
+              d="m18 9 .4.4a1 1 0 1 1-3 3l-3.8-3.8a1 1 0 1 1 3-3l.4.4 3.4-3.4a1 1 0 1 1 3 3z"
+            />
+            <path d="m2 22 .414-.414" />
+          </svg>
+        </button>
+
+        <div class="separator"></div>
+
+        <div
+          class="control-group"
+          id="filter-group"
           title="Color Vision Filter"
         >
-          <option value="none">No filter</option>
-          <option value="protanomaly">Protanomaly (Red-Green, weak red)</option>
-          <option value="protanopia">Protanopia (Red-Green, no red)</option>
-          <option value="deuteranomaly">Deuteranomaly (Red-Green, weak green)</option>
-          <option value="deuteranopia">Deuteranopia (Red-Green, no green)</option>
-          <option value="tritanomaly">Tritanomaly (Blue-Yellow, mild)</option>
-          <option value="tritanopia">Tritanopia (Blue-Yellow)</option>
-          <option value="achromatomaly">Achromatomaly (Almost no color)</option>
-          <option value="achromatopsia">Achromatopsia (Grayscale)</option>
-          <option value="low-contrast">Low contrast</option>
-          <option value="high-contrast">High contrast</option>
-          <option value="low-quality-display">Low quality</option>
-        </select>
-        <button
-          class="tool-btn"
-          id="filter-preview-btn"
-          title="Filter Preview Mode — view all filters on each image [Alt+P]"
-          style="display: none"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
+          <select
+            id="filter-select"
+            class="filter-select"
+            title="Color Vision Filter"
           >
-            <path d="M13.054 18.946a11 11 0 0 1-2.11 0" />
-            <path d="M13.054 5.054a11 11 0 0 0-2.11-.001" />
-            <path d="M17.072 6.274a11 11 0 0 1 1.753 1.173" />
-            <path d="M18.825 16.552a11 11 0 0 1-1.753 1.174" />
-            <path
-              d="M2.514 13.303a11 11 0 0 1-.452-.954 1 1 0 0 1 0-.697 11 11 0 0 1 .45-.955"
-            />
-            <path
-              d="M21.485 10.697a11 11 0 0 1 .453.955 1 1 0 0 1 0 .697 11 11 0 0 1-.453.954"
-            />
-            <path d="M5.173 7.448a11 11 0 0 1 1.753-1.174" />
-            <path d="M6.926 17.726a11 11 0 0 1-1.753-1.174" />
-            <circle cx="12" cy="12" r="3" />
-          </svg>
-        </button>
-        <button
-          class="tool-btn"
-          id="tool-accessibility-preview"
-          data-tool="accessibility-preview"
-          title="Accessibility Preview — Select area to preview color filters [J]"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
+            <option value="none">No filter</option>
+            <option value="protanomaly">
+              Protanomaly (Red-Green, weak red)
+            </option>
+            <option value="protanopia">Protanopia (Red-Green, no red)</option>
+            <option value="deuteranomaly">
+              Deuteranomaly (Red-Green, weak green)
+            </option>
+            <option value="deuteranopia">
+              Deuteranopia (Red-Green, no green)
+            </option>
+            <option value="tritanomaly">Tritanomaly (Blue-Yellow, mild)</option>
+            <option value="tritanopia">Tritanopia (Blue-Yellow)</option>
+            <option value="achromatomaly">
+              Achromatomaly (Almost no color)
+            </option>
+            <option value="achromatopsia">Achromatopsia (Grayscale)</option>
+            <option value="low-contrast">Low contrast</option>
+            <option value="high-contrast">High contrast</option>
+            <option value="low-quality-display">Low quality</option>
+          </select>
+          <button
+            class="tool-btn"
+            id="filter-preview-btn"
+            title="Filter Preview Mode — view all filters on each image [Alt+P]"
+            style="display: none"
           >
-            <path
-              d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"
-            />
-            <circle cx="12" cy="12" r="3" />
-          </svg>
-        </button>
-      </div>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M13.054 18.946a11 11 0 0 1-2.11 0" />
+              <path d="M13.054 5.054a11 11 0 0 0-2.11-.001" />
+              <path d="M17.072 6.274a11 11 0 0 1 1.753 1.173" />
+              <path d="M18.825 16.552a11 11 0 0 1-1.753 1.174" />
+              <path
+                d="M2.514 13.303a11 11 0 0 1-.452-.954 1 1 0 0 1 0-.697 11 11 0 0 1 .45-.955"
+              />
+              <path
+                d="M21.485 10.697a11 11 0 0 1 .453.955 1 1 0 0 1 0 .697 11 11 0 0 1-.453.954"
+              />
+              <path d="M5.173 7.448a11 11 0 0 1 1.753-1.174" />
+              <path d="M6.926 17.726a11 11 0 0 1-1.753-1.174" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          </button>
+          <button
+            class="tool-btn"
+            id="tool-accessibility-preview"
+            data-tool="accessibility-preview"
+            title="Accessibility Preview — Select area to preview color filters [J]"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"
+              />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          </button>
+        </div>
       </div>
       <div id="alignment-panel" class="toolbar-secondary-row">
-      <div
-        class="color-picker-inline"
-        id="color-picker-group"
-        style="display: none"
-        title="Draw Color (right-click for picker)"
-      >
-        <button class="color-swatch-btn" id="color-swatch-btn">
-          <div
-            class="color-swatch-inner"
-            id="color-swatch-inner"
-            style="background: #ff4444"
-          ></div>
-        </button>
-        <input
-          type="color"
-          id="color-picker"
-          value="#ff4444"
-          class="hidden-color-input"
-        />
-        <span
-          id="color-hex-label"
-          class="color-info-value"
-          title="Click to copy"
-        >#FF4444</span>
-        <span class="color-info-separator">|</span>
-        <span
-          id="color-name-label"
-          class="color-info-value"
-          style="display: none; font-weight: 500"
-          title="Click to copy"
-        ></span>
-      </div>
-      <div
-        class="color-picker-inline"
-        id="note-bg-group"
-        style="display: none"
-        title="Note Background Color"
-      >
-        <button class="color-swatch-btn" id="note-bg-swatch-btn">
-          <div
-            class="color-swatch-inner"
-            id="note-bg-swatch-inner"
-            style="background: #f5e642"
-          ></div>
-        </button>
-        <input
-          type="color"
-          id="note-bg-picker"
-          value="#f5e642"
-          class="hidden-color-input"
-        />
-        <span style="font-size: 9px; color: #aaa">BG</span>
-      </div>
-      <div
-        class="control-group"
-        id="line-width-group"
-        style="display: none; align-items: center; gap: 4px"
-        title="Drawing Line Thickness"
-      >
-        <button class="line-width-btn" data-width="2" title="Narrow stroke">
-          <svg viewBox="0 0 24 24" width="16" height="16">
-            <line
-              x1="4"
-              y1="12"
-              x2="20"
-              y2="12"
-              stroke="currentColor"
-              stroke-width="1"
-              stroke-linecap="round"
-            />
-          </svg>
-        </button>
-        <button
-          class="line-width-btn active"
-          data-width="4"
-          title="Normal stroke"
-        >
-          <svg viewBox="0 0 24 24" width="16" height="16">
-            <line
-              x1="4"
-              y1="12"
-              x2="20"
-              y2="12"
-              stroke="currentColor"
-              stroke-width="2.5"
-              stroke-linecap="round"
-            />
-          </svg>
-        </button>
-        <button class="line-width-btn" data-width="10" title="Wide stroke">
-          <svg viewBox="0 0 24 24" width="16" height="16">
-            <line
-              x1="4"
-              y1="12"
-              x2="20"
-              y2="12"
-              stroke="currentColor"
-              stroke-width="5"
-              stroke-linecap="round"
-            />
-          </svg>
-        </button>
-      </div>
-      <div
-        class="control-group"
-        id="line-dash-group"
-        style="display: none; align-items: center; gap: 4px"
-        title="Line Style"
-      >
-        <select
-          id="line-dash-select"
-          title="Line style. Use , key to cycle."
-          style="
-            background: #2d2d2d;
-            color: #fff;
-            border: 1px solid #555;
-            border-radius: 4px;
-            padding: 2px 4px;
-            font-size: 11px;
-            outline: none;
-            cursor: pointer;
-          "
-        >
-          <option value="solid">Solid</option>
-          <option value="dashed">Dashed</option>
-          <option value="dotted">Dotted</option>
-          <option value="dash-dot">Dash-Dot</option>
-        </select>
-      </div>
-      <div
-        id="alignment-group"
-        style="display: flex; align-items: center; gap: 4px"
-      >
-        <button
-          class="align-btn"
-          data-align="left"
-          title="Align Left (Alt+A / Alt+←)"
-        >
-          <svg viewBox="0 0 24 24">
-            <path
-              d="M4 2h2v20H4V2zm4 3h12v3H8V5zm0 6h8v3H8v-3zm0 6h11v3H8v-3z"
-            />
-          </svg>
-        </button>
-        <button
-          class="align-btn"
-          data-align="centerX"
-          title="Align Center X (Alt+H)"
-        >
-          <svg viewBox="0 0 24 24">
-            <path d="M11 2h2v3h6v3h-6v8h4v3h-4v3h-2v-3H7v-3h4v-8H5V5h6V2z" />
-          </svg>
-        </button>
-        <button
-          class="align-btn"
-          data-align="right"
-          title="Align Right (Alt+D / Alt+→)"
-        >
-          <svg viewBox="0 0 24 24">
-            <path
-              d="M18 2h2v20h-2V2zM4 5h12v3H4V5zm4 6h8v3H8v-3zm-3 6h11v3H5v-3z"
-            />
-          </svg>
-        </button>
         <div
-          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
-        ></div>
-        <button
-          class="align-btn"
-          data-align="top"
-          title="Align Top (Alt+W / Alt+↑)"
+          class="color-picker-inline"
+          id="color-picker-group"
+          style="display: none"
+          title="Draw Color (right-click for picker)"
         >
-          <svg viewBox="0 0 24 24">
-            <path
-              d="M2 4h20v2H2V4zm3 4h3v12H5V8zm6 0h3v8h-3V8zm6 0h3v11h-3V8z"
-            />
-          </svg>
-        </button>
-        <button
-          class="align-btn"
-          data-align="centerY"
-          title="Align Center Y (Alt+V)"
-        >
-          <svg viewBox="0 0 24 24">
-            <path d="M2 11h3V5h3v6h8V7h3v4h3v2h-3v4h-3v-4H8v6H5v-6H2v-2z" />
-          </svg>
-        </button>
-        <button
-          class="align-btn"
-          data-align="bottom"
-          title="Align Bottom (Alt+S / Alt+↓)"
-        >
-          <svg viewBox="0 0 24 24">
-            <path
-              d="M2 18h20v2H2v-2zm3-11h3v10H5V7zm6 4h3v6h-3v-6zm6-7h3v13h-3V4z"
-            />
-          </svg>
-        </button>
-        <div
-          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
-        ></div>
-        <button
-          class="align-btn"
-          data-align="distributeX"
-          title="Distribute Horizontally (Alt+Shift+X)"
-        >
-          <svg viewBox="0 0 24 24">
-            <path
-              d="M4 22H2V2h2v20zM22 2h-2v20h2V2zM7 5h10v3H7V5zm2 6h6v3H9v-3z"
-            />
-          </svg>
-        </button>
-        <button
-          class="align-btn"
-          data-align="distributeY"
-          title="Distribute Vertically (Alt+Shift+Y)"
-        >
-          <svg viewBox="0 0 24 24">
-            <path
-              d="M2 4V2h20v2H2zm0 18v-2h20v2H2zM5 7h3v10H5V7zm6 2h3v6h-3V9z"
-            />
-          </svg>
-        </button>
-        <div
-          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
-        ></div>
-        <input
-          type="number"
-          id="spacing-input-x"
-          value="10"
-          min="0"
-          max="500"
-          step="10"
-          title="Horizontal spacing (px) — Enter to apply"
-          style="
-            width: 48px;
-            background: #2d2d2d;
-            color: #fff;
-            border: 1px solid #555;
-            border-radius: 4px;
-            padding: 2px 4px;
-            font-size: 11px;
-            text-align: center;
-            outline: none;
-          "
-        />
-        <input
-          type="number"
-          id="spacing-input-y"
-          value="10"
-          min="0"
-          max="500"
-          step="10"
-          title="Vertical spacing (px) — Enter to apply"
-          style="
-            width: 48px;
-            background: #2d2d2d;
-            color: #fff;
-            border: 1px solid #555;
-            border-radius: 4px;
-            padding: 2px 4px;
-            font-size: 11px;
-            text-align: center;
-            outline: none;
-          "
-        />
-        <div
-          style="width: 1px; height: 18px; background: #444; margin: 0 4px"
-        ></div>
-        <button
-          class="align-btn"
-          data-align="rowLayout"
-          title="Row Layout (Horizontal)"
-        >
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <rect x="2" y="7" width="5" height="10" rx="1" />
-            <rect x="9" y="7" width="5" height="10" rx="1" />
-            <rect x="16" y="7" width="5" height="10" rx="1" />
-          </svg>
-        </button>
-        <button
-          class="align-btn"
-          data-align="columnLayout"
-          title="Column Layout (Vertical)"
-        >
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <rect x="7" y="2" width="10" height="5" rx="1" />
-            <rect x="7" y="9" width="10" height="5" rx="1" />
-            <rect x="7" y="16" width="10" height="5" rx="1" />
-          </svg>
-        </button>
-        <button class="align-btn" data-align="gridLayout" title="Mosaic Layout">
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <rect x="3" y="3" width="7" height="7" rx="1" />
-            <rect x="14" y="3" width="7" height="7" rx="1" />
-            <rect x="3" y="14" width="7" height="7" rx="1" />
-            <rect x="14" y="14" width="7" height="7" rx="1" />
-          </svg>
-        </button>
-        <button
-          class="align-btn"
-          data-align="arrangeBySizeRow"
-          title="Arrange by Size (Row)"
-        >
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <rect x="2" y="12" width="4" height="6" rx="0.5" />
-            <rect x="8" y="9" width="5" height="9" rx="0.5" />
-            <rect x="15" y="5" width="7" height="13" rx="0.5" />
-          </svg>
-        </button>
-        <button
-          class="align-btn"
-          data-align="arrangeByNameRow"
-          title="Arrange by Name (Row)"
-        >
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <text
-              x="3"
-              y="16"
-              font-size="7"
-              font-family="sans-serif"
-              font-weight="bold"
-            >
-              A
-            </text>
-            <text
-              x="10"
-              y="16"
-              font-size="7"
-              font-family="sans-serif"
-              font-weight="bold"
-            >
-              B
-            </text>
-            <text
-              x="17"
-              y="16"
-              font-size="7"
-              font-family="sans-serif"
-              font-weight="bold"
-            >
-              C
-            </text>
-          </svg>
-        </button>
-      </div>
-      <div
-        id="crop-copy-group"
-        style="display: none; align-items: center; gap: 4px"
-      >
-        <span class="align-title">Crop</span>
-        <button
-          id="crop-copy-btn"
-          class="action-btn-sm"
-          title="Copy crop settings (⌘/Ctrl+Alt+C)"
-        >
-          Copy
-        </button>
-        <button
-          id="crop-paste-btn"
-          class="action-btn-sm"
-          title="Paste crop settings (⌘/Ctrl+Alt+V)"
-        >
-          Paste
-        </button>
-      </div>
-      <div
-        id="dimensions-group"
-        style="display: none; align-items: center; gap: 4px"
-      >
-        <span class="align-title">W</span>
-        <input
-          type="number"
-          id="dim-w"
-          min="1"
-          step="1"
-          title="Width (px) — Hold Shift for 10px steps"
-          style="
-            width: 52px;
-            background: #2d2d2d;
-            color: #fff;
-            border: 1px solid #555;
-            border-radius: 4px;
-            padding: 2px 4px;
-            font-size: 11px;
-            text-align: center;
-            outline: none;
-          "
-        />
-        <span class="align-title">H</span>
-        <input
-          type="number"
-          id="dim-h"
-          min="1"
-          step="1"
-          title="Height (px) — Hold Shift for 10px steps"
-          style="
-            width: 52px;
-            background: #2d2d2d;
-            color: #fff;
-            border: 1px solid #555;
-            border-radius: 4px;
-            padding: 2px 4px;
-            font-size: 11px;
-            text-align: center;
-            outline: none;
-          "
-        />
-      </div>
-      <div
-        id="length-group"
-        style="display: none; align-items: center; gap: 4px"
-      >
-        <span class="align-title">L</span>
-        <input
-          type="number"
-          id="dim-length"
-          min="1"
-          step="1"
-          title="Length (px) — Hold Shift for 10px steps"
-          style="
-            width: 60px;
-            background: #2d2d2d;
-            color: #fff;
-            border: 1px solid #555;
-            border-radius: 4px;
-            padding: 2px 4px;
-            font-size: 11px;
-            text-align: center;
-            outline: none;
-          "
-        />
-      </div>
-      <div
-        id="opacity-group"
-        style="display: none; align-items: center; gap: 4px"
-      >
-        <span class="align-title">Opacity</span>
-        <input
-          type="range"
-          id="opacity-slider"
-          min="0"
-          max="100"
-          value="100"
-          step="1"
-          title="Element Opacity"
-          style="width: 80px; accent-color: #007acc; cursor: pointer"
-        />
-        <span
-          id="opacity-val"
-          style="
-            font-size: 11px;
-            color: #aaa;
-            min-width: 32px;
-            text-align: right;
-          "
-          >100%</span
-        >
-      </div>
-      <div
-        id="split-line-dash-group"
-        style="display: none; align-items: center; gap: 4px"
-      >
-        <span class="align-title">Style</span>
-        <select
-          id="split-line-dash-select"
-          title="Alignment line dash pattern. Use , key to cycle."
-          style="
-            background: #2d2d2d;
-            color: #fff;
-            border: 1px solid #555;
-            border-radius: 4px;
-            padding: 2px 4px;
-            font-size: 11px;
-            outline: none;
-            cursor: pointer;
-          "
-        >
-          <option value="solid">Solid</option>
-          <option value="dashed">Dashed</option>
-          <option value="dotted">Dotted</option>
-          <option value="dash-dot">Dash-Dot</option>
-        </select>
-      </div>
-      <div
-        id="split-line-length-group"
-        style="display: none; align-items: center; gap: 4px"
-      >
-        <span class="align-title">Length</span>
-        <input
-          type="range"
-          id="split-line-length-slider"
-          min="10"
-          max="200"
-          value="100"
-          step="5"
-          title="Alignment line length (% of image dimension). 100% = full span, >100% extends beyond. Use [ / ] keys."
-          style="width: 280px; accent-color: #ff6400; cursor: pointer"
-        />
-        <span
-          id="split-line-length-val"
-          style="
-            font-size: 11px;
-            color: #aaa;
-            min-width: 44px;
-            text-align: right;
-          "
-          >100%</span
-        >
-        <button
-          id="split-line-length-mode"
-          type="button"
-          title="Toggle length unit between percentage of image and absolute pixels. Use . key."
-          style="
-            background: #2d2d2d;
-            color: #fff;
-            border: 1px solid #555;
-            border-radius: 4px;
-            padding: 2px 6px;
-            font-size: 11px;
-            min-width: 30px;
-            outline: none;
-            cursor: pointer;
-          "
-        >%</button>
-      </div>
-      <div
-        id="stamp-panel-group"
-        style="display: none; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0"
-      >
-        <span class="align-title">Stamp</span>
-        <div
-          id="stamp-mode-toggle"
-          class="stamp-mode-toggle"
-          role="group"
-          title="Stamp mode. Click to switch between Copy and Paste. Hold Shift to temporarily use the other mode."
-        >
-          <button
-            type="button"
-            class="stamp-mode-option"
-            data-mode="copy"
-          >Copy</button>
-          <button
-            type="button"
-            class="stamp-mode-option"
-            data-mode="paste"
-          >Paste</button>
+          <button class="color-swatch-btn" id="color-swatch-btn">
+            <div
+              class="color-swatch-inner"
+              id="color-swatch-inner"
+              style="background: #ff4444"
+            ></div>
+          </button>
+          <input
+            type="color"
+            id="color-picker"
+            value="#ff4444"
+            class="hidden-color-input"
+          />
+          <span
+            id="color-hex-label"
+            class="color-info-value"
+            title="Click to copy"
+            >#FF4444</span
+          >
+          <span class="color-info-separator">|</span>
+          <span
+            id="color-name-label"
+            class="color-info-value"
+            style="display: none; font-weight: 500"
+            title="Click to copy"
+          ></span>
         </div>
-        <span
-          id="stamp-status-label"
-          style="font-size: 11px; color: #aaa; min-width: 96px"
-          title="Current stamp clipboard"
-        >Empty — copy a stamp first</span>
-        <button
-          id="stamp-flip-h-btn"
-          type="button"
-          title="Flip the stamp horizontally (mirror left/right)"
+        <div
+          class="color-picker-inline"
+          id="note-bg-group"
+          style="display: none"
+          title="Note Background Color"
+        >
+          <button class="color-swatch-btn" id="note-bg-swatch-btn">
+            <div
+              class="color-swatch-inner"
+              id="note-bg-swatch-inner"
+              style="background: #f5e642"
+            ></div>
+          </button>
+          <input
+            type="color"
+            id="note-bg-picker"
+            value="#f5e642"
+            class="hidden-color-input"
+          />
+          <span style="font-size: 9px; color: #aaa">BG</span>
+        </div>
+        <div
+          class="control-group"
+          id="line-width-group"
+          style="display: none; align-items: center; gap: 4px"
+          title="Drawing Line Thickness"
+        >
+          <button class="line-width-btn" data-width="2" title="Narrow stroke">
+            <svg viewBox="0 0 24 24" width="16" height="16">
+              <line
+                x1="4"
+                y1="12"
+                x2="20"
+                y2="12"
+                stroke="currentColor"
+                stroke-width="1"
+                stroke-linecap="round"
+              />
+            </svg>
+          </button>
+          <button
+            class="line-width-btn active"
+            data-width="4"
+            title="Normal stroke"
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16">
+              <line
+                x1="4"
+                y1="12"
+                x2="20"
+                y2="12"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+              />
+            </svg>
+          </button>
+          <button class="line-width-btn" data-width="10" title="Wide stroke">
+            <svg viewBox="0 0 24 24" width="16" height="16">
+              <line
+                x1="4"
+                y1="12"
+                x2="20"
+                y2="12"
+                stroke="currentColor"
+                stroke-width="5"
+                stroke-linecap="round"
+              />
+            </svg>
+          </button>
+        </div>
+        <div
+          class="control-group"
+          id="line-dash-group"
+          style="display: none; align-items: center; gap: 4px"
+          title="Line Style"
+        >
+          <select
+            id="line-dash-select"
+            title="Line style. Use , key to cycle."
+            style="
+              background: #2d2d2d;
+              color: #fff;
+              border: 1px solid #555;
+              border-radius: 4px;
+              padding: 2px 4px;
+              font-size: 11px;
+              outline: none;
+              cursor: pointer;
+            "
+          >
+            <option value="solid">Solid</option>
+            <option value="dashed">Dashed</option>
+            <option value="dotted">Dotted</option>
+            <option value="dash-dot">Dash-Dot</option>
+          </select>
+        </div>
+        <div
+          id="alignment-group"
+          style="display: flex; align-items: center; gap: 4px"
+        >
+          <button
+            class="align-btn"
+            data-align="left"
+            title="Align Left (Alt+A / Alt+←)"
+          >
+            <svg viewBox="0 0 24 24">
+              <path
+                d="M4 2h2v20H4V2zm4 3h12v3H8V5zm0 6h8v3H8v-3zm0 6h11v3H8v-3z"
+              />
+            </svg>
+          </button>
+          <button
+            class="align-btn"
+            data-align="centerX"
+            title="Align Center X (Alt+H)"
+          >
+            <svg viewBox="0 0 24 24">
+              <path d="M11 2h2v3h6v3h-6v8h4v3h-4v3h-2v-3H7v-3h4v-8H5V5h6V2z" />
+            </svg>
+          </button>
+          <button
+            class="align-btn"
+            data-align="right"
+            title="Align Right (Alt+D / Alt+→)"
+          >
+            <svg viewBox="0 0 24 24">
+              <path
+                d="M18 2h2v20h-2V2zM4 5h12v3H4V5zm4 6h8v3H8v-3zm-3 6h11v3H5v-3z"
+              />
+            </svg>
+          </button>
+          <div
+            style="width: 1px; height: 18px; background: #444; margin: 0 4px"
+          ></div>
+          <button
+            class="align-btn"
+            data-align="top"
+            title="Align Top (Alt+W / Alt+↑)"
+          >
+            <svg viewBox="0 0 24 24">
+              <path
+                d="M2 4h20v2H2V4zm3 4h3v12H5V8zm6 0h3v8h-3V8zm6 0h3v11h-3V8z"
+              />
+            </svg>
+          </button>
+          <button
+            class="align-btn"
+            data-align="centerY"
+            title="Align Center Y (Alt+V)"
+          >
+            <svg viewBox="0 0 24 24">
+              <path d="M2 11h3V5h3v6h8V7h3v4h3v2h-3v4h-3v-4H8v6H5v-6H2v-2z" />
+            </svg>
+          </button>
+          <button
+            class="align-btn"
+            data-align="bottom"
+            title="Align Bottom (Alt+S / Alt+↓)"
+          >
+            <svg viewBox="0 0 24 24">
+              <path
+                d="M2 18h20v2H2v-2zm3-11h3v10H5V7zm6 4h3v6h-3v-6zm6-7h3v13h-3V4z"
+              />
+            </svg>
+          </button>
+          <div
+            style="width: 1px; height: 18px; background: #444; margin: 0 4px"
+          ></div>
+          <button
+            class="align-btn"
+            data-align="distributeX"
+            title="Distribute Horizontally (Alt+Shift+X)"
+          >
+            <svg viewBox="0 0 24 24">
+              <path
+                d="M4 22H2V2h2v20zM22 2h-2v20h2V2zM7 5h10v3H7V5zm2 6h6v3H9v-3z"
+              />
+            </svg>
+          </button>
+          <button
+            class="align-btn"
+            data-align="distributeY"
+            title="Distribute Vertically (Alt+Shift+Y)"
+          >
+            <svg viewBox="0 0 24 24">
+              <path
+                d="M2 4V2h20v2H2zm0 18v-2h20v2H2zM5 7h3v10H5V7zm6 2h3v6h-3V9z"
+              />
+            </svg>
+          </button>
+          <div
+            style="width: 1px; height: 18px; background: #444; margin: 0 4px"
+          ></div>
+          <input
+            type="number"
+            id="spacing-input-x"
+            value="10"
+            min="0"
+            max="500"
+            step="10"
+            title="Horizontal spacing (px) — Enter to apply"
+            style="
+              width: 48px;
+              background: #2d2d2d;
+              color: #fff;
+              border: 1px solid #555;
+              border-radius: 4px;
+              padding: 2px 4px;
+              font-size: 11px;
+              text-align: center;
+              outline: none;
+            "
+          />
+          <input
+            type="number"
+            id="spacing-input-y"
+            value="10"
+            min="0"
+            max="500"
+            step="10"
+            title="Vertical spacing (px) — Enter to apply"
+            style="
+              width: 48px;
+              background: #2d2d2d;
+              color: #fff;
+              border: 1px solid #555;
+              border-radius: 4px;
+              padding: 2px 4px;
+              font-size: 11px;
+              text-align: center;
+              outline: none;
+            "
+          />
+          <div
+            style="width: 1px; height: 18px; background: #444; margin: 0 4px"
+          ></div>
+          <button
+            class="align-btn"
+            data-align="rowLayout"
+            title="Row Layout (Horizontal)"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <rect x="2" y="7" width="5" height="10" rx="1" />
+              <rect x="9" y="7" width="5" height="10" rx="1" />
+              <rect x="16" y="7" width="5" height="10" rx="1" />
+            </svg>
+          </button>
+          <button
+            class="align-btn"
+            data-align="columnLayout"
+            title="Column Layout (Vertical)"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <rect x="7" y="2" width="10" height="5" rx="1" />
+              <rect x="7" y="9" width="10" height="5" rx="1" />
+              <rect x="7" y="16" width="10" height="5" rx="1" />
+            </svg>
+          </button>
+          <button
+            class="align-btn"
+            data-align="gridLayout"
+            title="Mosaic Layout"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <rect x="3" y="3" width="7" height="7" rx="1" />
+              <rect x="14" y="3" width="7" height="7" rx="1" />
+              <rect x="3" y="14" width="7" height="7" rx="1" />
+              <rect x="14" y="14" width="7" height="7" rx="1" />
+            </svg>
+          </button>
+          <button
+            class="align-btn"
+            data-align="arrangeBySizeRow"
+            title="Arrange by Size (Row)"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <rect x="2" y="12" width="4" height="6" rx="0.5" />
+              <rect x="8" y="9" width="5" height="9" rx="0.5" />
+              <rect x="15" y="5" width="7" height="13" rx="0.5" />
+            </svg>
+          </button>
+          <button
+            class="align-btn"
+            data-align="arrangeByNameRow"
+            title="Arrange by Name (Row)"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <text
+                x="3"
+                y="16"
+                font-size="7"
+                font-family="sans-serif"
+                font-weight="bold"
+              >
+                A
+              </text>
+              <text
+                x="10"
+                y="16"
+                font-size="7"
+                font-family="sans-serif"
+                font-weight="bold"
+              >
+                B
+              </text>
+              <text
+                x="17"
+                y="16"
+                font-size="7"
+                font-family="sans-serif"
+                font-weight="bold"
+              >
+                C
+              </text>
+            </svg>
+          </button>
+        </div>
+        <div
+          id="crop-copy-group"
+          style="display: none; align-items: center; gap: 4px"
+        >
+          <span class="align-title">Crop</span>
+          <button
+            id="crop-copy-btn"
+            class="action-btn-sm"
+            title="Copy crop settings (⌘/Ctrl+Alt+C)"
+          >
+            Copy
+          </button>
+          <button
+            id="crop-paste-btn"
+            class="action-btn-sm"
+            title="Paste crop settings (⌘/Ctrl+Alt+V)"
+          >
+            Paste
+          </button>
+        </div>
+        <div
+          id="dimensions-group"
+          style="display: none; align-items: center; gap: 4px"
+        >
+          <span class="align-title">W</span>
+          <input
+            type="number"
+            id="dim-w"
+            min="1"
+            step="1"
+            title="Width (px) — Hold Shift for 10px steps"
+            style="
+              width: 52px;
+              background: #2d2d2d;
+              color: #fff;
+              border: 1px solid #555;
+              border-radius: 4px;
+              padding: 2px 4px;
+              font-size: 11px;
+              text-align: center;
+              outline: none;
+            "
+          />
+          <span class="align-title">H</span>
+          <input
+            type="number"
+            id="dim-h"
+            min="1"
+            step="1"
+            title="Height (px) — Hold Shift for 10px steps"
+            style="
+              width: 52px;
+              background: #2d2d2d;
+              color: #fff;
+              border: 1px solid #555;
+              border-radius: 4px;
+              padding: 2px 4px;
+              font-size: 11px;
+              text-align: center;
+              outline: none;
+            "
+          />
+        </div>
+        <div
+          id="length-group"
+          style="display: none; align-items: center; gap: 4px"
+        >
+          <span class="align-title">L</span>
+          <input
+            type="number"
+            id="dim-length"
+            min="1"
+            step="1"
+            title="Length (px) — Hold Shift for 10px steps"
+            style="
+              width: 60px;
+              background: #2d2d2d;
+              color: #fff;
+              border: 1px solid #555;
+              border-radius: 4px;
+              padding: 2px 4px;
+              font-size: 11px;
+              text-align: center;
+              outline: none;
+            "
+          />
+        </div>
+        <div
+          id="opacity-group"
+          style="display: none; align-items: center; gap: 4px"
+        >
+          <span class="align-title">Opacity</span>
+          <input
+            type="range"
+            id="opacity-slider"
+            min="0"
+            max="100"
+            value="100"
+            step="1"
+            title="Element Opacity"
+            style="width: 80px; accent-color: #007acc; cursor: pointer"
+          />
+          <span
+            id="opacity-val"
+            style="
+              font-size: 11px;
+              color: #aaa;
+              min-width: 32px;
+              text-align: right;
+            "
+            >100%</span
+          >
+        </div>
+        <div
+          id="split-line-dash-group"
+          style="display: none; align-items: center; gap: 4px"
+        >
+          <span class="align-title">Style</span>
+          <select
+            id="split-line-dash-select"
+            title="Alignment line dash pattern. Use , key to cycle."
+            style="
+              background: #2d2d2d;
+              color: #fff;
+              border: 1px solid #555;
+              border-radius: 4px;
+              padding: 2px 4px;
+              font-size: 11px;
+              outline: none;
+              cursor: pointer;
+            "
+          >
+            <option value="solid">Solid</option>
+            <option value="dashed">Dashed</option>
+            <option value="dotted">Dotted</option>
+            <option value="dash-dot">Dash-Dot</option>
+          </select>
+        </div>
+        <div
+          id="split-line-length-group"
+          style="display: none; align-items: center; gap: 4px"
+        >
+          <span class="align-title">Length</span>
+          <input
+            type="range"
+            id="split-line-length-slider"
+            min="10"
+            max="200"
+            value="100"
+            step="5"
+            title="Alignment line length (% of image dimension). 100% = full span, >100% extends beyond. Use [ / ] keys."
+            style="width: 280px; accent-color: #ff6400; cursor: pointer"
+          />
+          <span
+            id="split-line-length-val"
+            style="
+              font-size: 11px;
+              color: #aaa;
+              min-width: 44px;
+              text-align: right;
+            "
+            >100%</span
+          >
+          <button
+            id="split-line-length-mode"
+            type="button"
+            title="Toggle length unit between percentage of image and absolute pixels. Use . key."
+            style="
+              background: #2d2d2d;
+              color: #fff;
+              border: 1px solid #555;
+              border-radius: 4px;
+              padding: 2px 6px;
+              font-size: 11px;
+              min-width: 30px;
+              outline: none;
+              cursor: pointer;
+            "
+          >
+            %
+          </button>
+        </div>
+        <div
+          id="stamp-panel-group"
           style="
-            background: #2d2d2d;
-            color: #fff;
-            border: 1px solid #555;
-            border-radius: 4px;
-            padding: 3px 8px;
-            font-size: 11px;
-            outline: none;
-            cursor: pointer;
+            display: none;
+            align-items: center;
+            gap: 6px;
+            flex: 1 1 auto;
+            min-width: 0;
           "
-        ><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 7 5 5-5 5V7"/><path d="m21 7-5 5 5 5V7"/><path d="M12 20v2"/><path d="M12 14v2"/><path d="M12 8v2"/><path d="M12 2v2"/></svg></button>
-        <button
-          id="stamp-flip-v-btn"
-          type="button"
-          title="Flip the stamp vertically (mirror top/bottom)"
-          style="
-            background: #2d2d2d;
-            color: #fff;
-            border: 1px solid #555;
-            border-radius: 4px;
-            padding: 3px 8px;
-            font-size: 11px;
-            outline: none;
-            cursor: pointer;
-          "
-        ><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 3-5 5-5-5h10"/><path d="m17 21-5-5-5 5h10"/><path d="M4 12H2"/><path d="M10 12H8"/><path d="M16 12h-2"/><path d="M22 12h-2"/></svg></button>
-        <input
-          id="stamp-restore-input"
-          list="stamp-restore-list"
-          type="text"
-          placeholder="Name to save / restore…"
-          title="Pick a saved stamp to restore it, or type a name and click Save to store the current stamp"
-          autocomplete="off"
-          spellcheck="false"
-          style="
-            background: #2d2d2d;
-            color: #fff;
-            border: 1px solid #555;
-            border-radius: 4px;
-            padding: 3px 6px;
-            font-size: 11px;
-            outline: none;
-            cursor: text;
-            width: 180px;
-          "
-        />
-        <datalist id="stamp-restore-list"></datalist>
-        <button
-          id="stamp-save-btn"
-          type="button"
-          title="Save the current stamp under the name in the field"
-          style="
-            background: #2d2d2d;
-            color: #fff;
-            border: 1px solid #555;
-            border-radius: 4px;
-            padding: 3px 10px;
-            font-size: 11px;
-            outline: none;
-            cursor: pointer;
-          "
-        >Save</button>
-        <button
-          id="stamp-delete-btn"
-          type="button"
-          title="Delete the selected saved stamp"
-          style="
-            background: #2d2d2d;
-            color: #ff8080;
-            border: 1px solid #555;
-            border-radius: 4px;
-            padding: 3px 8px;
-            font-size: 11px;
-            outline: none;
-            cursor: pointer;
-          "
-        >Delete</button>
-        <button
-          id="stamp-export-btn"
-          type="button"
-          title="Copy your saved stamps to the clipboard as JSON (built-in presets excluded)"
-          style="
-            background: #2d2d2d;
-            color: #fff;
-            border: 1px solid #555;
-            border-radius: 4px;
-            padding: 3px 8px;
-            font-size: 11px;
-            outline: none;
-            cursor: pointer;
-            margin-left: auto;
-          "
-        >Export</button>
-        <button
-          id="stamp-import-btn"
-          type="button"
-          title="Import stamps from JSON on the clipboard"
-          style="
-            background: #2d2d2d;
-            color: #fff;
-            border: 1px solid #555;
-            border-radius: 4px;
-            padding: 3px 8px;
-            font-size: 11px;
-            outline: none;
-            cursor: pointer;
-          "
-        >Import</button>
-      </div>
-      <div
-        id="text-align-group"
-        style="display: none; align-items: center; gap: 4px"
-      >
-        <span class="align-title">Text</span>
-        <button
-          class="align-btn text-align-btn"
-          data-text-align="left"
-          title="Align Text Left"
         >
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path
-              d="M3 3h18v2H3V3zm0 4h12v2H3V7zm0 4h18v2H3v-2zm0 4h12v2H3v-2zm0 4h18v2H3v-2z"
-            />
-          </svg>
-        </button>
-        <button
-          class="align-btn text-align-btn"
-          data-text-align="center"
-          title="Align Text Center"
+          <span class="align-title">Stamp</span>
+          <div
+            id="stamp-mode-toggle"
+            class="stamp-mode-toggle"
+            role="group"
+            title="Stamp mode. Click to switch between Copy and Paste. Hold Shift to temporarily use the other mode."
+          >
+            <button type="button" class="stamp-mode-option" data-mode="copy">
+              Copy
+            </button>
+            <button type="button" class="stamp-mode-option" data-mode="paste">
+              Paste
+            </button>
+          </div>
+          <span
+            id="stamp-status-label"
+            style="font-size: 11px; color: #aaa; min-width: 96px"
+            title="Current stamp clipboard"
+            >Empty — copy a stamp first</span
+          >
+          <button
+            id="stamp-flip-h-btn"
+            type="button"
+            title="Flip the stamp horizontally (mirror left/right)"
+            style="
+              background: #2d2d2d;
+              color: #fff;
+              border: 1px solid #555;
+              border-radius: 4px;
+              padding: 3px 8px;
+              font-size: 11px;
+              outline: none;
+              cursor: pointer;
+            "
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="m3 7 5 5-5 5V7" />
+              <path d="m21 7-5 5 5 5V7" />
+              <path d="M12 20v2" />
+              <path d="M12 14v2" />
+              <path d="M12 8v2" />
+              <path d="M12 2v2" />
+            </svg>
+          </button>
+          <button
+            id="stamp-flip-v-btn"
+            type="button"
+            title="Flip the stamp vertically (mirror top/bottom)"
+            style="
+              background: #2d2d2d;
+              color: #fff;
+              border: 1px solid #555;
+              border-radius: 4px;
+              padding: 3px 8px;
+              font-size: 11px;
+              outline: none;
+              cursor: pointer;
+            "
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="m17 3-5 5-5-5h10" />
+              <path d="m17 21-5-5-5 5h10" />
+              <path d="M4 12H2" />
+              <path d="M10 12H8" />
+              <path d="M16 12h-2" />
+              <path d="M22 12h-2" />
+            </svg>
+          </button>
+          <input
+            id="stamp-restore-input"
+            list="stamp-restore-list"
+            type="text"
+            placeholder="Name to save / restore…"
+            title="Pick a saved stamp to restore it, or type a name and click Save to store the current stamp"
+            autocomplete="off"
+            spellcheck="false"
+            style="
+              background: #2d2d2d;
+              color: #fff;
+              border: 1px solid #555;
+              border-radius: 4px;
+              padding: 3px 6px;
+              font-size: 11px;
+              outline: none;
+              cursor: text;
+              width: 180px;
+            "
+          />
+          <datalist id="stamp-restore-list"></datalist>
+          <button
+            id="stamp-save-btn"
+            type="button"
+            title="Save the current stamp under the name in the field"
+            style="
+              background: #2d2d2d;
+              color: #fff;
+              border: 1px solid #555;
+              border-radius: 4px;
+              padding: 3px 10px;
+              font-size: 11px;
+              outline: none;
+              cursor: pointer;
+            "
+          >
+            Save
+          </button>
+          <button
+            id="stamp-delete-btn"
+            type="button"
+            title="Delete the selected saved stamp"
+            style="
+              background: #2d2d2d;
+              color: #ff8080;
+              border: 1px solid #555;
+              border-radius: 4px;
+              padding: 3px 8px;
+              font-size: 11px;
+              outline: none;
+              cursor: pointer;
+            "
+          >
+            Delete
+          </button>
+          <button
+            id="stamp-export-btn"
+            type="button"
+            title="Copy your saved stamps to the clipboard as JSON (built-in presets excluded)"
+            style="
+              background: #2d2d2d;
+              color: #fff;
+              border: 1px solid #555;
+              border-radius: 4px;
+              padding: 3px 8px;
+              font-size: 11px;
+              outline: none;
+              cursor: pointer;
+              margin-left: auto;
+            "
+          >
+            Export
+          </button>
+          <button
+            id="stamp-import-btn"
+            type="button"
+            title="Import stamps from JSON on the clipboard"
+            style="
+              background: #2d2d2d;
+              color: #fff;
+              border: 1px solid #555;
+              border-radius: 4px;
+              padding: 3px 8px;
+              font-size: 11px;
+              outline: none;
+              cursor: pointer;
+            "
+          >
+            Import
+          </button>
+        </div>
+        <div
+          id="text-align-group"
+          style="display: none; align-items: center; gap: 4px"
         >
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path
-              d="M3 3h18v2H3V3zm3 4h12v2H6V7zm-3 4h18v2H3v-2zm3 4h12v2H6v-2zm-3 4h18v2H3v-2z"
-            />
-          </svg>
-        </button>
-        <button
-          class="align-btn text-align-btn"
-          data-text-align="right"
-          title="Align Text Right"
+          <span class="align-title">Text</span>
+          <button
+            class="align-btn text-align-btn"
+            data-text-align="left"
+            title="Align Text Left"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M3 3h18v2H3V3zm0 4h12v2H3V7zm0 4h18v2H3v-2zm0 4h12v2H3v-2zm0 4h18v2H3v-2z"
+              />
+            </svg>
+          </button>
+          <button
+            class="align-btn text-align-btn"
+            data-text-align="center"
+            title="Align Text Center"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M3 3h18v2H3V3zm3 4h12v2H6V7zm-3 4h18v2H3v-2zm3 4h12v2H6v-2zm-3 4h18v2H3v-2z"
+              />
+            </svg>
+          </button>
+          <button
+            class="align-btn text-align-btn"
+            data-text-align="right"
+            title="Align Text Right"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M3 3h18v2H3V3zm6 4h12v2H9V7zm-6 4h18v2H3v-2zm6 4h12v2H9v-2zm-6 4h18v2H3v-2z"
+              />
+            </svg>
+          </button>
+        </div>
+        <div
+          id="text-format-group"
+          style="display: none; align-items: center; gap: 2px"
         >
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path
-              d="M3 3h18v2H3V3zm6 4h12v2H9V7zm-6 4h18v2H3v-2zm6 4h12v2H9v-2zm-6 4h18v2H3v-2z"
-            />
-          </svg>
-        </button>
-      </div>
-      <div
-        id="text-format-group"
-        style="display: none; align-items: center; gap: 2px"
-      >
-        <button class="text-format-btn" id="fmt-bold" title="Bold (Cmd+B)">
-          <b>B</b>
-        </button>
-        <button class="text-format-btn" id="fmt-italic" title="Italic (Cmd+I)">
-          <i>I</i>
-        </button>
-        <button
-          class="text-format-btn"
-          id="fmt-underline"
-          title="Underline (Cmd+U)"
+          <button class="text-format-btn" id="fmt-bold" title="Bold (Cmd+B)">
+            <b>B</b>
+          </button>
+          <button
+            class="text-format-btn"
+            id="fmt-italic"
+            title="Italic (Cmd+I)"
+          >
+            <i>I</i>
+          </button>
+          <button
+            class="text-format-btn"
+            id="fmt-underline"
+            title="Underline (Cmd+U)"
+          >
+            <u>U</u>
+          </button>
+          <button
+            class="text-format-btn"
+            id="fmt-strikethrough"
+            title="Strikethrough"
+          >
+            <s>S</s>
+          </button>
+          <span class="fmt-separator"></span>
+          <button
+            class="text-format-btn fmt-size-btn"
+            id="fmt-size-down"
+            title="Decrease font size"
+          >
+            −
+          </button>
+          <input
+            type="number"
+            id="fmt-font-size"
+            class="fmt-font-size-input"
+            value="28"
+            min="8"
+            max="999"
+            title="Font size"
+          />
+          <button
+            class="text-format-btn fmt-size-btn"
+            id="fmt-size-up"
+            title="Increase font size"
+          >
+            +
+          </button>
+        </div>
+        <div
+          id="z-order-group"
+          style="display: none; align-items: center; gap: 4px"
         >
-          <u>U</u>
-        </button>
-        <button
-          class="text-format-btn"
-          id="fmt-strikethrough"
-          title="Strikethrough"
+          <span class="align-title">Order</span>
+          <button
+            class="align-btn z-order-btn"
+            id="send-to-back-btn"
+            title="Send to Back"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <rect x="3" y="3" width="10" height="10" rx="1" opacity="0.3" />
+              <rect x="11" y="11" width="10" height="10" rx="1" />
+            </svg>
+          </button>
+          <button
+            class="align-btn z-order-btn"
+            id="send-backward-btn"
+            title="Send Backward"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <rect x="3" y="5" width="10" height="10" rx="1" opacity="0.3" />
+              <rect x="11" y="9" width="10" height="10" rx="1" />
+              <path d="M12 20l-4-4h8l-4 4z" />
+            </svg>
+          </button>
+          <button
+            class="align-btn z-order-btn"
+            id="bring-forward-btn"
+            title="Bring Forward"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <rect x="11" y="9" width="10" height="10" rx="1" opacity="0.3" />
+              <rect x="3" y="5" width="10" height="10" rx="1" />
+              <path d="M12 4l4 4H8l4-4z" />
+            </svg>
+          </button>
+          <button
+            class="align-btn z-order-btn"
+            id="bring-to-front-btn"
+            title="Bring to Front"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <rect x="11" y="11" width="10" height="10" rx="1" opacity="0.3" />
+              <rect x="3" y="3" width="10" height="10" rx="1" />
+            </svg>
+          </button>
+        </div>
+        <div
+          id="color-info-group"
+          style="display: none; align-items: center; gap: 8px"
         >
-          <s>S</s>
-        </button>
-        <span class="fmt-separator"></span>
-        <button
-          class="text-format-btn fmt-size-btn"
-          id="fmt-size-down"
-          title="Decrease font size"
+          <span
+            id="color-info-rgb"
+            class="color-info-value"
+            title="RGB — Click to copy"
+            >rgb(255, 68, 68)</span
+          >
+          <span class="color-info-separator">|</span>
+          <span
+            id="color-info-hsl"
+            class="color-info-value"
+            title="HSL — Click to copy"
+            >hsl(0, 100%, 63%)</span
+          >
+        </div>
+        <div
+          class="control-group color-history-toolbar"
+          id="color-history-toolbar"
+          style="display: none; align-items: center; gap: 3px"
+          title="Recent Colors — Click to select, Shift+click to copy hex"
         >
-          −
-        </button>
-        <input
-          type="number"
-          id="fmt-font-size"
-          class="fmt-font-size-input"
-          value="28"
-          min="8"
-          max="999"
-          title="Font size"
-        />
-        <button
-          class="text-format-btn fmt-size-btn"
-          id="fmt-size-up"
-          title="Increase font size"
-        >
-          +
-        </button>
-      </div>
-      <div
-        id="z-order-group"
-        style="display: none; align-items: center; gap: 4px"
-      >
-        <span class="align-title">Order</span>
-        <button
-          class="align-btn z-order-btn"
-          id="send-to-back-btn"
-          title="Send to Back"
-        >
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <rect x="3" y="3" width="10" height="10" rx="1" opacity="0.3" />
-            <rect x="11" y="11" width="10" height="10" rx="1" />
-          </svg>
-        </button>
-        <button
-          class="align-btn z-order-btn"
-          id="send-backward-btn"
-          title="Send Backward"
-        >
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <rect x="3" y="5" width="10" height="10" rx="1" opacity="0.3" />
-            <rect x="11" y="9" width="10" height="10" rx="1" />
-            <path d="M12 20l-4-4h8l-4 4z" />
-          </svg>
-        </button>
-        <button
-          class="align-btn z-order-btn"
-          id="bring-forward-btn"
-          title="Bring Forward"
-        >
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <rect x="11" y="9" width="10" height="10" rx="1" opacity="0.3" />
-            <rect x="3" y="5" width="10" height="10" rx="1" />
-            <path d="M12 4l4 4H8l4-4z" />
-          </svg>
-        </button>
-        <button
-          class="align-btn z-order-btn"
-          id="bring-to-front-btn"
-          title="Bring to Front"
-        >
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <rect x="11" y="11" width="10" height="10" rx="1" opacity="0.3" />
-            <rect x="3" y="3" width="10" height="10" rx="1" />
-          </svg>
-        </button>
-      </div>
-      <div
-        id="color-info-group"
-        style="display: none; align-items: center; gap: 8px"
-      >
-        <span id="color-info-rgb" class="color-info-value" title="RGB — Click to copy">rgb(255, 68, 68)</span>
-        <span class="color-info-separator">|</span>
-        <span id="color-info-hsl" class="color-info-value" title="HSL — Click to copy">hsl(0, 100%, 63%)</span>
-      </div>
-      <div
-        class="control-group color-history-toolbar"
-        id="color-history-toolbar"
-        style="display: none; align-items: center; gap: 3px"
-        title="Recent Colors — Click to select, Shift+click to copy hex"
-      >
-        <button class="color-history-toolbar-label" id="color-history-toolbar-clear-btn" title="Click to clear, Shift+click to copy all"><span class="label-default">Recent</span><span class="label-hover">Clear</span><span class="label-shift">Copy</span></button>
-        <div class="color-history-toolbar-list" id="color-history-toolbar-list"></div>
-      </div>
+          <button
+            class="color-history-toolbar-label"
+            id="color-history-toolbar-clear-btn"
+            title="Click to clear, Shift+click to copy all"
+          >
+            <span class="label-default">Recent</span
+            ><span class="label-hover">Clear</span
+            ><span class="label-shift">Copy</span>
+          </button>
+          <div
+            class="color-history-toolbar-list"
+            id="color-history-toolbar-list"
+          ></div>
+        </div>
       </div>
     </div>
 
@@ -1878,10 +1973,20 @@
         ></div>
       </div>
       <div class="color-popup-separator"></div>
-      <div class="color-history-section" id="color-history-section" style="display: none">
+      <div
+        class="color-history-section"
+        id="color-history-section"
+        style="display: none"
+      >
         <div class="color-history-popup-header">
           <span class="color-history-popup-title">Recent</span>
-          <button class="color-history-clear-btn" id="color-history-clear-btn" title="Clear recent colors">&times;</button>
+          <button
+            class="color-history-clear-btn"
+            id="color-history-clear-btn"
+            title="Clear recent colors"
+          >
+            &times;
+          </button>
         </div>
         <div class="color-history-list" id="color-history-list"></div>
       </div>
@@ -1947,7 +2052,13 @@
       <div class="marquee-colors-header">
         <span class="marquee-colors-title">Colors in Selection</span>
         <span class="marquee-colors-count" id="marquee-colors-count"></span>
-        <button class="marquee-colors-copy-btn" id="marquee-colors-copy-btn" title="Copy all colors (Hex, RGB & Label)">Copy All</button>
+        <button
+          class="marquee-colors-copy-btn"
+          id="marquee-colors-copy-btn"
+          title="Copy all colors (Hex, RGB & Label)"
+        >
+          Copy All
+        </button>
       </div>
       <div class="marquee-colors-swatches" id="marquee-colors-swatches"></div>
       <div class="marquee-colors-hint">
@@ -1966,16 +2077,27 @@
       <canvas id="canvas"></canvas>
       <div id="empty-canvas-placeholder" class="empty-canvas-placeholder">
         <div class="empty-canvas-placeholder-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-            <circle cx="8.5" cy="8.5" r="1.5"/>
-            <polyline points="21 15 16 10 5 21"/>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="48"
+            height="48"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <polyline points="21 15 16 10 5 21" />
           </svg>
         </div>
         <p class="empty-canvas-placeholder-title">Drop or paste images here</p>
         <p class="empty-canvas-placeholder-hint">
-          Export frames from Figma, Sketch, or other design tools<br/>
-          or paste screenshots directly with <kbd data-shortcut="Mod+V">Ctrl+V</kbd><br/>
+          Export frames from Figma, Sketch, or other design tools<br />
+          or paste screenshots directly with
+          <kbd data-shortcut="Mod+V">Ctrl+V</kbd><br />
           <kbd>Shift+Space</kbd> to open command palette
         </p>
       </div>
