@@ -267,6 +267,39 @@ function getStampPreset(name) {
   };
 }
 
+// --- Flip ---
+
+/**
+ * Mirror the current stamp clipboard across the source image's width (axis
+ * "horizontal") or height (axis "vertical"). Positions are stored as offsets
+ * from the image's top-left corner, so a coordinate c maps to (dim - c) where
+ * dim is the source width or height. This lets a stamp captured from one side
+ * of a screen be applied to the mirrored side.
+ * @returns {boolean} true if the clipboard was flipped.
+ */
+export function flipStampClipboard(axis) {
+  if (!state.stampClipboard || state.stampClipboard.length === 0 || !state.stampSourceBounds) {
+    return false;
+  }
+  const horizontal = axis === "horizontal";
+  const dim = horizontal ? state.stampSourceBounds.w : state.stampSourceBounds.h;
+  if (!dim) return false;
+
+  const flipPoint = (p) => (horizontal
+    ? { x: dim - p.x, y: p.y }
+    : { x: p.x, y: dim - p.y });
+
+  state.stampClipboard.forEach((el) => {
+    if (el.type === "pen" && el.points) {
+      el.points = el.points.map(flipPoint);
+    } else if (el.start) {
+      el.start = flipPoint(el.start);
+      if (el.end) el.end = flipPoint(el.end);
+    }
+  });
+  return true;
+}
+
 // --- Import / Export (JSON via clipboard) ---
 
 function isValidStampEntry(s) {
@@ -344,6 +377,8 @@ let _restoreList = null;
 let _deleteBtn = null;
 let _exportBtn = null;
 let _importBtn = null;
+let _flipHBtn = null;
+let _flipVBtn = null;
 let _modeOptions = null; // NodeList of segmented toggle buttons
 
 /**
@@ -410,6 +445,10 @@ function updateStampActionButtons() {
       ? "Built-in stamps can't be deleted"
       : `Delete saved stamp "${match.name}"`;
   }
+
+  // Flip buttons require a stamp in the clipboard.
+  if (_flipHBtn) _flipHBtn.disabled = !hasClipboard;
+  if (_flipVBtn) _flipVBtn.disabled = !hasClipboard;
 }
 
 export function updateStampPanel() {
@@ -492,6 +531,8 @@ export function initSavedStamps() {
   _deleteBtn = document.getElementById("stamp-delete-btn");
   _exportBtn = document.getElementById("stamp-export-btn");
   _importBtn = document.getElementById("stamp-import-btn");
+  _flipHBtn = document.getElementById("stamp-flip-h-btn");
+  _flipVBtn = document.getElementById("stamp-flip-v-btn");
   _modeOptions = document.querySelectorAll("#stamp-mode-toggle .stamp-mode-option");
 
   if (_saveBtn) {
@@ -644,6 +685,21 @@ export function initSavedStamps() {
       });
     });
   }
+
+  const doFlip = (axis, btn) => {
+    if (flipStampClipboard(axis)) {
+      // The clipboard is now a modified derivative — deselect any saved preset.
+      clearRestoreSelection();
+      state.stampPreview = null;
+      showToast(`Flipped stamp ${axis === "horizontal" ? "horizontally" : "vertically"}`);
+      if (_onRestore) _onRestore();
+    } else {
+      showToast("No stamp to flip — copy a stamp first");
+    }
+    if (btn) btn.blur();
+  };
+  if (_flipHBtn) _flipHBtn.addEventListener("click", () => doFlip("horizontal", _flipHBtn));
+  if (_flipVBtn) _flipVBtn.addEventListener("click", () => doFlip("vertical", _flipVBtn));
 
   refreshRestoreOptions();
   updateStampPanel();

@@ -2834,9 +2834,11 @@ input[type="color"]::-webkit-color-swatch {
   font-weight: 600;
 }
 
-/* Disabled state for stamp Save / Delete buttons */
+/* Disabled state for stamp Save / Delete / Flip buttons */
 #stamp-save-btn:disabled,
-#stamp-delete-btn:disabled {
+#stamp-delete-btn:disabled,
+#stamp-flip-h-btn:disabled,
+#stamp-flip-v-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
