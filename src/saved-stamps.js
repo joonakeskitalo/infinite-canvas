@@ -267,6 +267,74 @@ function getStampPreset(name) {
   };
 }
 
+// --- Import / Export (JSON via clipboard) ---
+
+function isValidStampEntry(s) {
+  return (
+    s &&
+    typeof s.name === "string" &&
+    s.name.trim().length > 0 &&
+    Array.isArray(s.clipboard) &&
+    s.clipboard.length > 0 &&
+    s.sourceBounds &&
+    typeof s.sourceBounds.w === "number" &&
+    typeof s.sourceBounds.h === "number"
+  );
+}
+
+/**
+ * Serialize the user's saved stamps (excluding built-in defaults) to a JSON
+ * string suitable for import elsewhere.
+ */
+function exportStampsToJSON() {
+  const userStamps = savedStamps
+    .filter((s) => !s.isDefault)
+    .map((s) => ({
+      name: s.name,
+      clipboard: s.clipboard,
+      sourceBounds: s.sourceBounds,
+    }));
+  return JSON.stringify(userStamps);
+}
+
+/**
+ * Add stamps from a JSON string (an array of stamp entries, or a single entry).
+ * Skips invalid entries and names that collide with built-in defaults. Existing
+ * user stamps with the same name are overwritten.
+ * @returns {number} count of imported stamps, or -1 on parse error.
+ */
+function importStampsFromJSON(jsonString) {
+  let data;
+  try {
+    data = JSON.parse(jsonString);
+  } catch (e) {
+    return -1;
+  }
+  const entries = Array.isArray(data) ? data : [data];
+  let imported = 0;
+  for (const entry of entries) {
+    if (!isValidStampEntry(entry)) continue;
+    const name = entry.name.trim();
+    // Don't let imports shadow/overwrite built-in presets.
+    const existing = savedStamps.find((s) => s.name.toLowerCase() === name.toLowerCase());
+    if (existing && existing.isDefault) continue;
+    const preset = {
+      name,
+      clipboard: JSON.parse(JSON.stringify(entry.clipboard)),
+      sourceBounds: { ...entry.sourceBounds },
+    };
+    if (existing) {
+      const idx = savedStamps.indexOf(existing);
+      savedStamps[idx] = preset;
+    } else {
+      savedStamps.push(preset);
+    }
+    imported++;
+  }
+  if (imported > 0) saveToStorage();
+  return imported;
+}
+
 // --- DOM elements ---
 
 let _statusLabel = null;
@@ -274,6 +342,8 @@ let _saveBtn = null;
 let _restoreInput = null;
 let _restoreList = null;
 let _deleteBtn = null;
+let _exportBtn = null;
+let _importBtn = null;
 let _modeOptions = null; // NodeList of segmented toggle buttons
 
 /**
@@ -420,6 +490,8 @@ export function initSavedStamps() {
   _restoreInput = document.getElementById("stamp-restore-input");
   _restoreList = document.getElementById("stamp-restore-list");
   _deleteBtn = document.getElementById("stamp-delete-btn");
+  _exportBtn = document.getElementById("stamp-export-btn");
+  _importBtn = document.getElementById("stamp-import-btn");
   _modeOptions = document.querySelectorAll("#stamp-mode-toggle .stamp-mode-option");
 
   if (_saveBtn) {
@@ -527,6 +599,49 @@ export function initSavedStamps() {
         refreshRestoreOptions();
         updateStampActionButtons();
       }
+    });
+  }
+
+  if (_exportBtn) {
+    _exportBtn.addEventListener("click", () => {
+      const userCount = savedStamps.filter((s) => !s.isDefault).length;
+      if (userCount === 0) {
+        showToast("No saved stamps to export (built-in presets are excluded)");
+        return;
+      }
+      const json = exportStampsToJSON();
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(json).then(() => {
+          showToast(`Copied ${userCount} stamp${userCount > 1 ? "s" : ""} to clipboard as JSON`);
+        }).catch(() => {
+          showToast("Couldn't access the clipboard to export");
+        });
+      } else {
+        showToast("Clipboard not available in this browser");
+      }
+    });
+  }
+
+  if (_importBtn) {
+    _importBtn.addEventListener("click", () => {
+      if (!(navigator.clipboard && navigator.clipboard.readText)) {
+        showToast("Clipboard not available in this browser");
+        return;
+      }
+      navigator.clipboard.readText().then((text) => {
+        const count = importStampsFromJSON(text);
+        if (count > 0) {
+          refreshRestoreOptions();
+          updateStampActionButtons();
+          showToast(`Imported ${count} stamp${count > 1 ? "s" : ""}`);
+        } else if (count === 0) {
+          showToast("No valid stamps found in the clipboard JSON");
+        } else {
+          showToast("Clipboard doesn't contain valid stamp JSON");
+        }
+      }).catch(() => {
+        showToast("Couldn't read the clipboard to import");
+      });
     });
   }
 

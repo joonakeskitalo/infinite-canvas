@@ -1040,7 +1040,7 @@
       </div>
       <div
         id="stamp-panel-group"
-        style="display: none; align-items: center; gap: 6px"
+        style="display: none; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0"
       >
         <span class="align-title">Stamp</span>
         <div
@@ -1116,6 +1116,37 @@
             cursor: pointer;
           "
         >Delete</button>
+        <button
+          id="stamp-export-btn"
+          type="button"
+          title="Copy your saved stamps to the clipboard as JSON (built-in presets excluded)"
+          style="
+            background: #2d2d2d;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 3px 8px;
+            font-size: 11px;
+            outline: none;
+            cursor: pointer;
+            margin-left: auto;
+          "
+        >Export</button>
+        <button
+          id="stamp-import-btn"
+          type="button"
+          title="Import stamps from JSON on the clipboard"
+          style="
+            background: #2d2d2d;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 3px 8px;
+            font-size: 11px;
+            outline: none;
+            cursor: pointer;
+          "
+        >Import</button>
       </div>
       <div
         id="text-align-group"
