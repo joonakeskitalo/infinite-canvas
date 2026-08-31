@@ -6,6 +6,7 @@
 
 import { state, CONSTANTS, spatialIndex } from "./state.js";
 import { getShapeBounds, getElementBounds } from "./elements.js";
+import { getViewportBounds, isRectInViewport } from "./utils.js";
 
 // Threshold below which linear iteration is faster than spatial index overhead
 const SPATIAL_INDEX_THRESHOLD = 50;
@@ -180,9 +181,16 @@ export function snapSplitLineAxis(pos, axis, origin, size) {
     candidates.push(origin + size / 2);
   }
 
-  // Positions of existing parallel split lines (vertical line → its x, etc.).
+  // Positions of existing parallel split lines (vertical line → its x, etc.),
+  // ignoring any that aren't currently visible in the viewport.
+  const vp = getViewportBounds();
   for (const d of state.drawings) {
     if (!d.isSplitLine || !d.start || !d.end) continue;
+    const minX = Math.min(d.start.x, d.end.x);
+    const minY = Math.min(d.start.y, d.end.y);
+    const w = Math.abs(d.end.x - d.start.x);
+    const h = Math.abs(d.end.y - d.start.y);
+    if (!isRectInViewport(minX, minY, w, h, vp)) continue; // off-screen — skip
     const isVertical = Math.abs(d.start.x - d.end.x) < 1e-6;
     const isHorizontal = Math.abs(d.start.y - d.end.y) < 1e-6;
     if (isX && isVertical) candidates.push(d.start.x);
