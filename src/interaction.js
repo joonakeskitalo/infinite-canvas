@@ -112,7 +112,7 @@ function makeSplitLineEl(start, end, dashPattern) {
  * Place split line(s) for a plain click on an image (no drag). Preserves the
  * original behavior: Ctrl → four arms radiating from the click point,
  * otherwise a single line in the effective orientation (Meta flips it, Shift
- * snaps to image fractions).
+ * snaps to the image center and existing split lines).
  */
 function placeSplitLineClick(img, pos, e) {
   const dashPattern = state.splitLineDash;
@@ -186,8 +186,9 @@ function placeSplitLineClick(img, pos, e) {
 
 /**
  * Compute the box rectangle (in world coords) swept between two points, clamped
- * to the image bounds. Optionally snaps each edge to image fractions (Shift).
- * Returns null when the rectangle is degenerate (< 1px on either axis).
+ * to the image bounds. Optionally snaps each edge to the image center and
+ * existing split lines (Shift). Returns null when the rectangle is degenerate
+ * (< 1px on either axis).
  */
 function computeSplitLineBoxRect(img, startPos, endPos, snap) {
   let x0 = Math.max(img.x, Math.min(startPos.x, img.x + img.w));
