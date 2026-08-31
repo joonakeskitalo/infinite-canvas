@@ -62,7 +62,7 @@ import {
 } from "./accessibility-preview.js";
 import { analyzeMarqueeColors, hideMarqueeColors } from "./marquee-colors.js";
 import { toggle as toggleCommandPalette } from "./command-palette.js";
-import { updateStampPanel } from "./saved-stamps.js";
+import { updateStampPanel, clearRestoreSelection } from "./saved-stamps.js";
 
 // --- PERFORMANCE: Throttle proximity/spacing guide computation during drag ---
 const GUIDE_COMPUTE_INTERVAL_MS = 60; // ms between expensive guide recalculations
@@ -3375,6 +3375,9 @@ function setupMouseHandlers() {
         state.stampSourceBounds = { x: hoveredImg.x, y: hoveredImg.y, w: hoveredImg.w, h: hoveredImg.h };
         state.stampPreview = null;
         updateStampPanel();
+        // The live clipboard is now a fresh, unsaved stamp — deselect any
+        // previously restored preset/saved stamp shown in the restore field.
+        clearRestoreSelection();
         showToast(`Stamp-copied ${overlapping.length} element(s)`);
       } else if (hoveredImg) {
         // Paste mode on a single image: paste the stamp clipboard onto it.

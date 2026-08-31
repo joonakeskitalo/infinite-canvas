@@ -291,6 +291,15 @@ export function updateStampModeButton() {
  * Refresh the status label with the current live clipboard size. Called on tool
  * switch and after copy/restore so the panel reflects the current stamp.
  */
+/**
+ * Clear the restore input so no saved stamp / preset appears selected. Called
+ * after copying a fresh (unsaved) stamp, since the live clipboard is no longer
+ * the previously restored preset.
+ */
+export function clearRestoreSelection() {
+  if (_restoreInput) _restoreInput.value = "";
+}
+
 export function updateStampPanel() {
   updateStampModeButton();
   if (!_statusLabel) return;
