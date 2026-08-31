@@ -1804,6 +1804,86 @@ function handleImageFile(file, worldX, worldY) {
  * {imageId, elements} where elements are ready-to-draw clones in world-coords,
  * or null when there's nothing to preview.
  */
+/**
+ * Liang–Barsky segment clip against an axis-aligned rectangle.
+ * Returns the clipped {start, end} (world-coords) or null if the segment lies
+ * entirely outside the rect.
+ */
+function clipSegmentToRect(x0, y0, x1, y1, rect) {
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  let t0 = 0, t1 = 1;
+  const p = [-dx, dx, -dy, dy];
+  const q = [x0 - rect.minX, rect.maxX - x0, y0 - rect.minY, rect.maxY - y0];
+  for (let i = 0; i < 4; i++) {
+    if (p[i] === 0) {
+      // Parallel to this edge; outside if q < 0
+      if (q[i] < 0) return null;
+    } else {
+      const r = q[i] / p[i];
+      if (p[i] < 0) {
+        if (r > t1) return null;
+        if (r > t0) t0 = r;
+      } else {
+        if (r < t0) return null;
+        if (r < t1) t1 = r;
+      }
+    }
+  }
+  return {
+    start: { x: x0 + t0 * dx, y: y0 + t0 * dy },
+    end: { x: x0 + t1 * dx, y: y0 + t1 * dy },
+  };
+}
+
+/**
+ * Clip a positioned stamp element to the target image's outer bounds so it never
+ * extends past the edges. Mutates and returns the element, or returns null when
+ * the element falls entirely outside the image (and should be dropped).
+ *
+ * - rect-border / rect-fill: intersect the two rectangles (clamp corners).
+ * - line-like (line/arrow/measure/connector/contrast-line): Liang–Barsky clip.
+ * - pen: clamp each point into the image rect.
+ */
+function clipStampElementToImage(el, img) {
+  const rect = { minX: img.x, minY: img.y, maxX: img.x + img.w, maxY: img.y + img.h };
+
+  if (el.type === "rect-border" || el.type === "rect-fill") {
+    const x0 = Math.max(rect.minX, Math.min(el.start.x, el.end.x));
+    const y0 = Math.max(rect.minY, Math.min(el.start.y, el.end.y));
+    const x1 = Math.min(rect.maxX, Math.max(el.start.x, el.end.x));
+    const y1 = Math.min(rect.maxY, Math.max(el.start.y, el.end.y));
+    if (x1 <= x0 || y1 <= y0) return null; // no overlap
+    el.start = { x: x0, y: y0 };
+    el.end = { x: x1, y: y1 };
+    return el;
+  }
+
+  if (el.type === "pen" && el.points) {
+    // Clamp each point into the image rect; drop the stroke if it collapses.
+    el.points = el.points.map((pt) => ({
+      x: Math.max(rect.minX, Math.min(rect.maxX, pt.x)),
+      y: Math.max(rect.minY, Math.min(rect.maxY, pt.y)),
+    }));
+    return el.points.length > 0 ? el : null;
+  }
+
+  if (el.start && el.end) {
+    const clipped = clipSegmentToRect(el.start.x, el.start.y, el.end.x, el.end.y, rect);
+    if (!clipped) return null;
+    el.start = clipped.start;
+    el.end = clipped.end;
+    return el;
+  }
+
+  // Point-only or unknown geometry: keep only if the anchor is inside the rect.
+  if (el.start) {
+    if (el.start.x < rect.minX || el.start.x > rect.maxX ||
+        el.start.y < rect.minY || el.start.y > rect.maxY) return null;
+  }
+  return el;
+}
+
 function buildStampPreview(targetImg) {
   if (!targetImg || !state.stampClipboard || state.stampClipboard.length === 0 || !state.stampSourceBounds) {
     return null;
@@ -1821,8 +1901,9 @@ function buildStampPreview(targetImg) {
       clone.start = { x: clone.start.x + targetImg.x, y: clone.start.y + targetImg.y };
       if (clone.end) clone.end = { x: clone.end.x + targetImg.x, y: clone.end.y + targetImg.y };
     }
-    return clone;
-  });
+    // Clip to the image's outer bounds; drop elements fully outside.
+    return clipStampElementToImage(clone, targetImg);
+  }).filter(Boolean);
   return { imageId: targetImg.id, elements };
 }
 
@@ -3324,6 +3405,8 @@ function setupMouseHandlers() {
             clone.start = { x: clone.start.x + hoveredImg.x, y: clone.start.y + hoveredImg.y };
             if (clone.end) clone.end = { x: clone.end.x + hoveredImg.x, y: clone.end.y + hoveredImg.y };
           }
+          // Clip to the image's outer bounds; skip elements fully outside.
+          if (!clipStampElementToImage(clone, hoveredImg)) return;
           state.drawings.push(clone);
           spatialInsert(clone);
           newElements.push(clone);
@@ -4643,6 +4726,8 @@ function setupMouseHandlers() {
             clone.start = { x: clone.start.x + targetImg.x, y: clone.start.y + targetImg.y };
             if (clone.end) clone.end = { x: clone.end.x + targetImg.x, y: clone.end.y + targetImg.y };
           }
+          // Clip to this image's outer bounds; skip elements fully outside.
+          if (!clipStampElementToImage(clone, targetImg)) return;
           state.drawings.push(clone);
           spatialInsert(clone);
           totalStamped++;
