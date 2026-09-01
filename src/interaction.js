@@ -1990,9 +1990,15 @@ function handlePaste(e) {
   const { textEditor } = dom;
   if (textEditor.style.display === "block" && textEditor.contains(document.activeElement)) return;
 
-  // Allow paste in custom color dialogs and other standard inputs/textareas
+  // Allow paste in custom color dialogs and other standard inputs/textareas.
+  // This includes non-text input types (number, search, url, etc.) so that
+  // pasting a value into e.g. the width/height fields lands in the input
+  // instead of being dumped onto the canvas as a text element.
   const activeEl = document.activeElement;
-  if (activeEl && (activeEl.tagName === "TEXTAREA" || (activeEl.tagName === "INPUT" && activeEl.type === "text"))) {
+  if (activeEl && (activeEl.tagName === "TEXTAREA" || activeEl.isContentEditable ||
+      (activeEl.tagName === "INPUT" && activeEl.type !== "checkbox" && activeEl.type !== "radio" &&
+       activeEl.type !== "button" && activeEl.type !== "submit" && activeEl.type !== "file" &&
+       activeEl.type !== "color" && activeEl.type !== "range"))) {
     return;
   }
 
