@@ -516,6 +516,10 @@ export function initEventHandlers() {
         if (hexLbl) hexLbl.textContent = swatchColor.toUpperCase();
         updateColorNameLabel();
       }
+      // Move focus off the button back to the canvas so keyboard shortcuts
+      // work as expected and Space/Enter don't re-trigger the button.
+      targetBtn.blur();
+      if (container.focus) container.focus();
     });
   });
 
