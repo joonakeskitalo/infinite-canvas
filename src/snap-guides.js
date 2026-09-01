@@ -11,13 +11,24 @@ import { getViewportBounds, isRectInViewport } from "./utils.js";
 // Threshold below which linear iteration is faster than spatial index overhead
 const SPATIAL_INDEX_THRESHOLD = 50;
 
+// Shortest distance between two axis-aligned rectangles (0 when they overlap or
+// touch). Used to rank snap-target candidates by edge proximity rather than by
+// center-to-center distance. Center distance can push a large adjacent element
+// (e.g. a big image whose edge is right next to the dragged shape) out of the
+// closest-neighbors list even though its outer edge is a valid snap target.
+function rectGapDistance(a, b) {
+  const aL = a.x, aR = a.x + a.w, aT = a.y, aB = a.y + a.h;
+  const bL = b.x, bR = b.x + b.w, bT = b.y, bB = b.y + b.h;
+  const dx = Math.max(bL - aR, aL - bR, 0);
+  const dy = Math.max(bT - aB, aT - bB, 0);
+  return Math.hypot(dx, dy);
+}
+
 export function getClosestElements(bounds, excludeIds, maxCount, options) {
   // Accept either an array of ids or a pre-built Set (avoids rebuilding a large
   // Set every drag frame when many elements are selected).
   const excluded = excludeIds instanceof Set ? excludeIds : new Set(excludeIds);
   const skipAlignmentLines = options && options.excludeAlignmentLines;
-  const myCx = bounds.x + bounds.w / 2;
-  const myCy = bounds.y + bounds.h / 2;
 
   const groupBoundsMap = new Map();
   const candidates = [];
@@ -34,10 +45,7 @@ export function getClosestElements(bounds, excludeIds, maxCount, options) {
         gb.maxY = Math.max(gb.maxY, b.y + b.h);
       }
     } else {
-      const cx = b.x + b.w / 2;
-      const cy = b.y + b.h / 2;
-      const dist = Math.hypot(cx - myCx, cy - myCy);
-      candidates.push({ bounds: b, dist });
+      candidates.push({ bounds: b, dist: rectGapDistance(bounds, b) });
     }
   }
 
@@ -76,10 +84,7 @@ export function getClosestElements(bounds, excludeIds, maxCount, options) {
 
   groupBoundsMap.forEach((gb) => {
     const b = { x: gb.minX, y: gb.minY, w: gb.maxX - gb.minX, h: gb.maxY - gb.minY };
-    const cx = b.x + b.w / 2;
-    const cy = b.y + b.h / 2;
-    const dist = Math.hypot(cx - myCx, cy - myCy);
-    candidates.push({ bounds: b, dist });
+    candidates.push({ bounds: b, dist: rectGapDistance(bounds, b) });
   });
 
   candidates.sort((a, b) => a.dist - b.dist);

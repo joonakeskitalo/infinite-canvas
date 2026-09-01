@@ -184,17 +184,20 @@ export class SpatialIndex {
       radius *= 2;
     }
 
-    // Sort by distance to bounds center
+    // Sort by shortest gap distance between the query box and each element's
+    // bounds (0 when they overlap/touch). Ranking by edge proximity rather than
+    // center distance keeps large adjacent elements (e.g. a big image whose edge
+    // is right next to the query box) in the result set — their outer edges are
+    // valid snap targets even though their center is far away.
+    const gapDist = (eb) => {
+      const dx = Math.max(eb.minX - bounds.maxX, bounds.minX - eb.maxX, 0);
+      const dy = Math.max(eb.minY - bounds.maxY, bounds.minY - eb.maxY, 0);
+      return Math.hypot(dx, dy);
+    };
     candidates.sort((a, b) => {
       const ab = this.elementBounds.get(a.id);
       const bb = this.elementBounds.get(b.id);
-      const aCx = (ab.minX + ab.maxX) / 2;
-      const aCy = (ab.minY + ab.maxY) / 2;
-      const bCx = (bb.minX + bb.maxX) / 2;
-      const bCy = (bb.minY + bb.maxY) / 2;
-      const distA = Math.hypot(aCx - cx, aCy - cy);
-      const distB = Math.hypot(bCx - cx, bCy - cy);
-      return distA - distB;
+      return gapDist(ab) - gapDist(bb);
     });
 
     return candidates.slice(0, maxCount);
