@@ -112,7 +112,8 @@ function makeAlignmentLineEl(start, end, dashPattern) {
  * Place alignment line(s) for a plain click on an image (no drag). Preserves the
  * original behavior: Ctrl → four arms radiating from the click point,
  * otherwise a single line in the effective orientation (Meta flips it, Shift
- * snaps to the image center and existing alignment lines).
+ * snaps to the image center and existing alignment lines). Stopping the line
+ * at perpendicular crossings is controlled by the "Stop at crossings" toggle.
  */
 function placeAlignmentLineClick(img, pos, e) {
   const dashPattern = state.alignmentLineDash;
@@ -159,8 +160,8 @@ function placeAlignmentLineClick(img, pos, e) {
       let cy = pos.y;
       if (e.shiftKey) cy = snapAlignmentLinePos(cy, "y", img.y, img.h);
       let ext = getAlignmentLineExtent(img.y, img.h, cy);
-      // Shift: stop the line at existing perpendicular alignment lines.
-      if (e.shiftKey) ext = trimAlignmentLineExtentAtCrossings("vertical", lx, cy, ext);
+      // Stop the line at existing perpendicular alignment lines when the toggle is on.
+      if (state.alignmentLineStopAtCrossings) ext = trimAlignmentLineExtentAtCrossings("vertical", lx, cy, ext);
       start = { x: lx, y: ext.start };
       end = { x: lx, y: ext.end };
     } else {
@@ -170,8 +171,8 @@ function placeAlignmentLineClick(img, pos, e) {
       let cx = pos.x;
       if (e.shiftKey) cx = snapAlignmentLinePos(cx, "x", img.x, img.w);
       let ext = getAlignmentLineExtent(img.x, img.w, cx);
-      // Shift: stop the line at existing perpendicular alignment lines.
-      if (e.shiftKey) ext = trimAlignmentLineExtentAtCrossings("horizontal", ly, cx, ext);
+      // Stop the line at existing perpendicular alignment lines when the toggle is on.
+      if (state.alignmentLineStopAtCrossings) ext = trimAlignmentLineExtentAtCrossings("horizontal", ly, cx, ext);
       start = { x: ext.start, y: ly };
       end = { x: ext.end, y: ly };
     }
@@ -864,6 +865,26 @@ export function initEventHandlers() {
       alignmentLineDashSelect.blur();
     });
     alignmentLineDashSelect.addEventListener("mousedown", (e) => { e.stopPropagation(); });
+  }
+
+  // --- Alignment line "stop at crossings" toggle ---
+  const alignmentLineStopToggle = document.getElementById("alignment-line-stop-toggle");
+  if (alignmentLineStopToggle) {
+    const reflectStopToggle = () => {
+      const on = state.alignmentLineStopAtCrossings;
+      alignmentLineStopToggle.textContent = on ? "On" : "Off";
+      alignmentLineStopToggle.setAttribute("aria-pressed", on ? "true" : "false");
+      alignmentLineStopToggle.style.background = on ? "#ff6400" : "#2d2d2d";
+      alignmentLineStopToggle.style.borderColor = on ? "#ff6400" : "#555";
+    };
+    alignmentLineStopToggle.addEventListener("click", () => {
+      state.alignmentLineStopAtCrossings = !state.alignmentLineStopAtCrossings;
+      reflectStopToggle();
+      render();
+      alignmentLineStopToggle.blur();
+    });
+    alignmentLineStopToggle.addEventListener("mousedown", (e) => { e.stopPropagation(); });
+    reflectStopToggle();
   }
 
   // --- Grid spacing input ---

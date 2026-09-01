@@ -128,6 +128,7 @@ export const state = {
   alignmentLineLengthPx: 200, // absolute length in pixels when alignmentLineLengthMode === "pixel" (10-2000)
   alignmentLineDash: "solid", // dash pattern: "solid", "dashed", "dotted", "dash-dot"
   alignmentLineFullWidth: false, // when true, line extends across full canvas (like a ruler guide)
+  alignmentLineStopAtCrossings: false, // when true, lines stop at existing perpendicular alignment lines (toggled via UI)
   alignmentLineHoveredImage: null,
   alignmentLineWorldPos: null,
   // Drag-to-box: when the user presses and drags with the alignment-line tool, a

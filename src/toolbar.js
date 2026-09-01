@@ -41,6 +41,19 @@ export function updateToolbarUI() {
   if (alignmentLineDashGroup) {
     alignmentLineDashGroup.style.display = state.currentTool === "alignment-line" ? "flex" : "none";
   }
+  // Show/hide alignment-line "stop at crossings" toggle and reflect its state
+  const alignmentLineStopGroup = document.getElementById("alignment-line-stop-group");
+  if (alignmentLineStopGroup) {
+    alignmentLineStopGroup.style.display = state.currentTool === "alignment-line" ? "flex" : "none";
+  }
+  const alignmentLineStopToggle = document.getElementById("alignment-line-stop-toggle");
+  if (alignmentLineStopToggle) {
+    const on = state.alignmentLineStopAtCrossings;
+    alignmentLineStopToggle.textContent = on ? "On" : "Off";
+    alignmentLineStopToggle.setAttribute("aria-pressed", on ? "true" : "false");
+    alignmentLineStopToggle.style.background = on ? "#ff6400" : "#2d2d2d";
+    alignmentLineStopToggle.style.borderColor = on ? "#ff6400" : "#555";
+  }
   // Show/hide stamp panel (save/restore saved stamps)
   const stampPanelGroup = document.getElementById("stamp-panel-group");
   if (stampPanelGroup) {

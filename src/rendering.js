@@ -1851,7 +1851,7 @@ function _doRender(targetCtx, isExporting) {
           let cx = pos.x;
           if (state.isShiftPressed) cx = snapAlignmentLinePreviewPos(cx, "x", img.x, img.w);
           let h = getAlignmentLineExtent(img.x, img.w, cx);
-          if (state.isShiftPressed) h = trimAlignmentLineExtentAtCrossings("horizontal", ly, cx, h);
+          if (state.alignmentLineStopAtCrossings) h = trimAlignmentLineExtentAtCrossings("horizontal", ly, cx, h);
           targetCtx.moveTo(h.start, ly);
           targetCtx.lineTo(h.end, ly);
         } else {
@@ -1861,7 +1861,7 @@ function _doRender(targetCtx, isExporting) {
           let cy = pos.y;
           if (state.isShiftPressed) cy = snapAlignmentLinePreviewPos(cy, "y", img.y, img.h);
           let v = getAlignmentLineExtent(img.y, img.h, cy);
-          if (state.isShiftPressed) v = trimAlignmentLineExtentAtCrossings("vertical", lx, cy, v);
+          if (state.alignmentLineStopAtCrossings) v = trimAlignmentLineExtentAtCrossings("vertical", lx, cy, v);
           targetCtx.moveTo(lx, v.start);
           targetCtx.lineTo(lx, v.end);
         }
@@ -1874,7 +1874,7 @@ function _doRender(targetCtx, isExporting) {
           let cy = pos.y;
           if (state.isShiftPressed) cy = snapAlignmentLinePreviewPos(cy, "y", img.y, img.h);
           let v = getAlignmentLineExtent(img.y, img.h, cy);
-          if (state.isShiftPressed) v = trimAlignmentLineExtentAtCrossings("vertical", lx, cy, v);
+          if (state.alignmentLineStopAtCrossings) v = trimAlignmentLineExtentAtCrossings("vertical", lx, cy, v);
           targetCtx.moveTo(lx, v.start);
           targetCtx.lineTo(lx, v.end);
         } else {
@@ -1883,7 +1883,7 @@ function _doRender(targetCtx, isExporting) {
           let cx = pos.x;
           if (state.isShiftPressed) cx = snapAlignmentLinePreviewPos(cx, "x", img.x, img.w);
           let h = getAlignmentLineExtent(img.x, img.w, cx);
-          if (state.isShiftPressed) h = trimAlignmentLineExtentAtCrossings("horizontal", ly, cx, h);
+          if (state.alignmentLineStopAtCrossings) h = trimAlignmentLineExtentAtCrossings("horizontal", ly, cx, h);
           targetCtx.moveTo(h.start, ly);
           targetCtx.lineTo(h.end, ly);
         }
