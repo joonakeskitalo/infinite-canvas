@@ -31,15 +31,15 @@ export function updateToolbarUI() {
     state.eyedropperMarqueeActive = false;
     state.eyedropperMarqueePixels = null;
   }
-  // Show/hide split-line length control
-  const splitLineLengthGroup = document.getElementById("split-line-length-group");
-  if (splitLineLengthGroup) {
-    splitLineLengthGroup.style.display = state.currentTool === "split-line" ? "flex" : "none";
+  // Show/hide alignment-line length control
+  const alignmentLineLengthGroup = document.getElementById("alignment-line-length-group");
+  if (alignmentLineLengthGroup) {
+    alignmentLineLengthGroup.style.display = state.currentTool === "alignment-line" ? "flex" : "none";
   }
-  // Show/hide split-line dash pattern control
-  const splitLineDashGroup = document.getElementById("split-line-dash-group");
-  if (splitLineDashGroup) {
-    splitLineDashGroup.style.display = state.currentTool === "split-line" ? "flex" : "none";
+  // Show/hide alignment-line dash pattern control
+  const alignmentLineDashGroup = document.getElementById("alignment-line-dash-group");
+  if (alignmentLineDashGroup) {
+    alignmentLineDashGroup.style.display = state.currentTool === "alignment-line" ? "flex" : "none";
   }
   // Show/hide stamp panel (save/restore saved stamps)
   const stampPanelGroup = document.getElementById("stamp-panel-group");
@@ -85,7 +85,7 @@ export function toggleAlignmentPanelVisibility() {
   } else if (state.currentTool === "text" || state.currentTool === "text-element") {
     dom.alignmentPanel.style.display = "flex";
     alignmentGroup.style.display = "none";
-  } else if (state.currentTool === "split-line") {
+  } else if (state.currentTool === "alignment-line") {
     dom.alignmentPanel.style.display = "flex";
     alignmentGroup.style.display = "none";
   } else if (state.currentTool === "eyedropper") {
@@ -108,7 +108,7 @@ export function toggleAlignmentPanelVisibility() {
   // Show line-width controls for relevant tools
   const lineWidthGroup = document.getElementById("line-width-group");
   if (lineWidthGroup) {
-    const lineWidthTools = ["pen", "line", "arrow", "connector", "rect-border", "split-line"];
+    const lineWidthTools = ["pen", "line", "arrow", "connector", "rect-border", "alignment-line"];
     const hasStrokeElement = state.currentTool === "select" && state.selectedElements.length > 0 &&
       state.selectedElements.some((el) => el.type === "line" || el.type === "arrow" || el.type === "connector" || el.type === "rect-border" || el.type === "drawing");
     if (lineWidthTools.includes(state.currentTool) || hasStrokeElement) {
@@ -138,7 +138,7 @@ export function toggleAlignmentPanelVisibility() {
   // Show color picker for tools that draw with color
   const colorPickerGroup = document.getElementById("color-picker-group");
   if (colorPickerGroup) {
-    const colorTools = ["pen", "line", "arrow", "connector", "rect-border", "rect-fill", "text", "text-element", "split-line", "eyedropper"];
+    const colorTools = ["pen", "line", "arrow", "connector", "rect-border", "rect-fill", "text", "text-element", "alignment-line", "eyedropper"];
     const hasColorElement = state.currentTool === "select" && state.selectedElements.length > 0 &&
       state.selectedElements.some((el) => el.elementType !== "image");
     if (colorTools.includes(state.currentTool) || hasColorElement) {
@@ -530,7 +530,7 @@ export function updateCursor() {
   else if (state.currentTool === "marquee") container.style.cursor = "crosshair";
   else if (state.currentTool === "contrast") container.style.cursor = "crosshair";
   else if (state.currentTool === "measure") container.style.cursor = "crosshair";
-  else if (state.currentTool === "split-line") container.style.cursor = "crosshair";
+  else if (state.currentTool === "alignment-line") container.style.cursor = "crosshair";
   else if (state.currentTool === "stamp") container.style.cursor = "copy";
   else if (state.currentTool === "accessibility-preview") container.style.cursor = "crosshair";
   else container.style.cursor = "crosshair";

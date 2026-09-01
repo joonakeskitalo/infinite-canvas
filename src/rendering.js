@@ -4,7 +4,7 @@
  * Main render loop, shape drawing, measurement lines, and PNG export.
  */
 
-import { state, CONSTANTS, getDom, getElementsInZOrder, spatialIndex, getSplitLineExtent, trimSplitLineExtentAtCrossings } from "./state.js";
+import { state, CONSTANTS, getDom, getElementsInZOrder, spatialIndex, getAlignmentLineExtent, trimAlignmentLineExtentAtCrossings } from "./state.js";
 import { getViewportBounds, isRectInViewport, worldToScreen, screenToWorld } from "./utils.js";
 import { applyFilterToImageData } from "./filter-kernels.js";
 import {
@@ -15,7 +15,7 @@ import { getFullImageBounds } from "./crop.js";
 import { renderMarquee, renderMarqueeSelecting } from "./marquee-select.js";
 import { renderAccessibilityPreviewSelection, isAccessibilityPreviewSelecting } from "./accessibility-preview.js";
 import { renderLaserTrails, renderLaserTrailsForExport, hasLaserVisuals } from "./laser-pointer.js";
-import { snapSplitLineAxis } from "./snap-guides.js";
+import { snapAlignmentLineAxis } from "./snap-guides.js";
 
 // --- Empty canvas placeholder ---
 let _placeholderEl = null;
@@ -68,13 +68,13 @@ export function addRenderCallback(cb) {
 }
 
 /**
- * Snap a split-line preview coordinate. Mirrors placement snapping: quadrant
+ * Snap a alignment-line preview coordinate. Mirrors placement snapping: quadrant
  * lines of the hovered image plus other elements' edges/centers and existing
- * split lines. Delegates to the shared helper so preview matches placement.
+ * alignment lines. Delegates to the shared helper so preview matches placement.
  * @param {"x"|"y"} axis which axis pos lies on
  */
-function snapSplitLinePreviewPos(pos, axis, origin, size) {
-  return snapSplitLineAxis(pos, axis, origin, size);
+function snapAlignmentLinePreviewPos(pos, axis, origin, size) {
+  return snapAlignmentLineAxis(pos, axis, origin, size);
 }
 
 export function render(targetCtx, isExporting = false) {
@@ -393,8 +393,8 @@ export function drawShape(targetCtx, shape, isExporting, exportScale) {
   let calculatedWidth = shape.width;
   if (shape.type !== "text") {
     if (isExporting) {
-      if (shape.isSplitLine) {
-        // Split lines are rendered as constant-pixel-width hairlines on canvas
+      if (shape.isAlignmentLine) {
+        // Alignment lines are rendered as constant-pixel-width hairlines on canvas
         // (shape.width CSS pixels regardless of zoom). In the export, compensate for
         // the export scale so the line stays the same pixel width in the output image.
         const scale = exportScale || 1;
@@ -416,7 +416,7 @@ export function drawShape(targetCtx, shape, isExporting, exportScale) {
   targetCtx.lineJoin = "round";
 
   // Apply dash pattern for general drawing tools
-  if (shape.dash && shape.dash !== "solid" && !shape.isSplitLine) {
+  if (shape.dash && shape.dash !== "solid" && !shape.isAlignmentLine) {
     if (shape.dash === "dashed") {
       targetCtx.setLineDash([calculatedWidth * 4, calculatedWidth * 3]);
     } else if (shape.dash === "dotted") {
@@ -445,8 +445,8 @@ export function drawShape(targetCtx, shape, isExporting, exportScale) {
       targetCtx.lineTo(shape.points[i].x, shape.points[i].y);
     targetCtx.stroke();
   } else if (shape.type === "line") {
-    // Apply dash pattern for split lines
-    if (shape.isSplitLine && shape.dash && shape.dash !== "solid") {
+    // Apply dash pattern for alignment lines
+    if (shape.isAlignmentLine && shape.dash && shape.dash !== "solid") {
       // In export mode, scale dashes to produce consistent pixel sizes in the output.
       // On canvas, compensate for zoom so dashes appear constant-size on screen.
       const dashScale = isExporting ? (1 / (exportScale || 1)) : (1 / state.transform.zoom);
@@ -458,8 +458,8 @@ export function drawShape(targetCtx, shape, isExporting, exportScale) {
         targetCtx.setLineDash([8 * dashScale, 3 * dashScale, 2 * dashScale, 3 * dashScale]);
       }
     }
-    if (isExporting && shape.isSplitLine && exportScale) {
-      // Snap split line coordinates to pixel grid for crisp 1px rendering.
+    if (isExporting && shape.isAlignmentLine && exportScale) {
+      // Snap alignment line coordinates to pixel grid for crisp 1px rendering.
       // A line with odd-pixel width needs a 0.5px offset to align to the pixel grid.
       const s = exportScale;
       const offset = (Math.round(calculatedWidth * s) % 2 === 1) ? 0.5 / s : 0;
@@ -963,37 +963,37 @@ function _doRender(targetCtx, isExporting) {
     if (state.cropMode && state.cropTarget) visibleSet.add(state.cropTarget.id);
   }
 
-  // PERFORMANCE: Batch consecutive split lines into single stroke calls.
-  // Split lines sharing color+width+opacity are drawn together with one beginPath/stroke.
-  let _splitBatch = null; // { color, width, opacity, dash, lines: [{start, end}] }
+  // PERFORMANCE: Batch consecutive alignment lines into single stroke calls.
+  // Alignment lines sharing color+width+opacity are drawn together with one beginPath/stroke.
+  let _alignmentBatch = null; // { color, width, opacity, dash, lines: [{start, end}] }
 
-  function _flushSplitBatch() {
-    if (!_splitBatch || _splitBatch.lines.length === 0) return;
+  function _flushAlignmentBatch() {
+    if (!_alignmentBatch || _alignmentBatch.lines.length === 0) return;
     targetCtx.save();
-    targetCtx.globalAlpha = _splitBatch.opacity;
-    targetCtx.strokeStyle = _splitBatch.color;
-    targetCtx.lineWidth = _splitBatch.width;
+    targetCtx.globalAlpha = _alignmentBatch.opacity;
+    targetCtx.strokeStyle = _alignmentBatch.color;
+    targetCtx.lineWidth = _alignmentBatch.width;
     targetCtx.lineCap = "round";
     // Apply dash pattern for the batch
-    if (_splitBatch.dash && _splitBatch.dash !== "solid") {
+    if (_alignmentBatch.dash && _alignmentBatch.dash !== "solid") {
       const dashScale = 1 / transform.zoom;
-      if (_splitBatch.dash === "dashed") {
+      if (_alignmentBatch.dash === "dashed") {
         targetCtx.setLineDash([8 * dashScale, 4 * dashScale]);
-      } else if (_splitBatch.dash === "dotted") {
+      } else if (_alignmentBatch.dash === "dotted") {
         targetCtx.setLineDash([2 * dashScale, 3 * dashScale]);
-      } else if (_splitBatch.dash === "dash-dot") {
+      } else if (_alignmentBatch.dash === "dash-dot") {
         targetCtx.setLineDash([8 * dashScale, 3 * dashScale, 2 * dashScale, 3 * dashScale]);
       }
     }
     targetCtx.beginPath();
-    for (let i = 0; i < _splitBatch.lines.length; i++) {
-      const ln = _splitBatch.lines[i];
+    for (let i = 0; i < _alignmentBatch.lines.length; i++) {
+      const ln = _alignmentBatch.lines[i];
       targetCtx.moveTo(ln.start.x, ln.start.y);
       targetCtx.lineTo(ln.end.x, ln.end.y);
     }
     targetCtx.stroke();
     targetCtx.restore();
-    _splitBatch = null;
+    _alignmentBatch = null;
   }
 
   zOrderedElements.forEach((el) => {
@@ -1060,8 +1060,8 @@ function _doRender(targetCtx, isExporting) {
       // Drawing / vector / text element
       const shape = el;
 
-      // Skip drawings, split lines, and connectors when overlays are hidden
-      if (!isExporting && state.overlaysHidden && (shape.isSplitLine || shape.type === "connector" || shape.elementType === "drawing")) return;
+      // Skip drawings, alignment lines, and connectors when overlays are hidden
+      if (!isExporting && state.overlaysHidden && (shape.isAlignmentLine || shape.type === "connector" || shape.elementType === "drawing")) return;
 
       let shapeBounds;
       if (_vp) {
@@ -1073,10 +1073,10 @@ function _doRender(targetCtx, isExporting) {
         }
       }
 
-      // PERFORMANCE: Batch split lines into a single stroke call.
-      // Split lines that don't need individual selection UI are accumulated
+      // PERFORMANCE: Batch alignment lines into a single stroke call.
+      // Alignment lines that don't need individual selection UI are accumulated
       // and drawn together, avoiding per-element save/beginPath/stroke/restore overhead.
-      if (shape.isSplitLine && !shape.locked) {
+      if (shape.isAlignmentLine && !shape.locked) {
         const isSelected = !isExporting && state.currentTool === "select" && !state.overlaysHidden &&
           _selectedIdSet && _selectedIdSet.has(shape.id);
         if (!isSelected) {
@@ -1084,20 +1084,20 @@ function _doRender(targetCtx, isExporting) {
           const opacity = shape.opacity != null ? shape.opacity : 1;
           const dash = shape.dash || "solid";
           // Check if current batch matches; if not, flush and start new batch
-          if (_splitBatch && (_splitBatch.color !== shape.color || _splitBatch.width !== lineWidth || _splitBatch.opacity !== opacity || _splitBatch.dash !== dash)) {
-            _flushSplitBatch();
+          if (_alignmentBatch && (_alignmentBatch.color !== shape.color || _alignmentBatch.width !== lineWidth || _alignmentBatch.opacity !== opacity || _alignmentBatch.dash !== dash)) {
+            _flushAlignmentBatch();
           }
-          if (!_splitBatch) {
-            _splitBatch = { color: shape.color, width: lineWidth, opacity, dash, lines: [] };
+          if (!_alignmentBatch) {
+            _alignmentBatch = { color: shape.color, width: lineWidth, opacity, dash, lines: [] };
           }
-          _splitBatch.lines.push({ start: shape.start, end: shape.end });
+          _alignmentBatch.lines.push({ start: shape.start, end: shape.end });
           return;
         }
-        // Selected split line — flush batch, then draw individually with selection UI below
-        _flushSplitBatch();
-      } else if (_splitBatch) {
-        // Non-split-line element encountered — flush any pending batch to preserve z-order
-        _flushSplitBatch();
+        // Selected alignment line — flush batch, then draw individually with selection UI below
+        _flushAlignmentBatch();
+      } else if (_alignmentBatch) {
+        // Non-alignment-line element encountered — flush any pending batch to preserve z-order
+        _flushAlignmentBatch();
       }
 
       drawShape(targetCtx, shape, isExporting);
@@ -1150,8 +1150,8 @@ function _doRender(targetCtx, isExporting) {
       }
     }
   });
-  // Flush any remaining batched split lines
-  _flushSplitBatch();
+  // Flush any remaining batched alignment lines
+  _flushAlignmentBatch();
 
   // 1.5 Render crop mode overlay (always on top of all elements)
   if (!isExporting && state.cropMode && state.cropTarget && state.cropRect) {
@@ -1650,10 +1650,10 @@ function _doRender(targetCtx, isExporting) {
     targetCtx.restore();
   }
 
-  // 5. Draw split-line tool overlay
-  if (!isExporting && state.currentTool === "split-line" && state.splitLineIsDragging && state.splitLineDragRect) {
+  // 5. Draw alignment-line tool overlay
+  if (!isExporting && state.currentTool === "alignment-line" && state.alignmentLineIsDragging && state.alignmentLineDragRect) {
     // Box (marquee) drag preview: outline the rectangle being swept out.
-    const r = state.splitLineDragRect;
+    const r = state.alignmentLineDragRect;
     targetCtx.save();
     targetCtx.translate(transform.x, transform.y);
     targetCtx.scale(transform.zoom, transform.zoom);
@@ -1661,11 +1661,11 @@ function _doRender(targetCtx, isExporting) {
     targetCtx.globalAlpha = 0.5;
     targetCtx.strokeStyle = state.drawColor;
     targetCtx.lineWidth = (state.currentLineWidth / 4) / transform.zoom;
-    if (state.splitLineDash === "dashed") {
+    if (state.alignmentLineDash === "dashed") {
       targetCtx.setLineDash([8 * dashScale, 4 * dashScale]);
-    } else if (state.splitLineDash === "dotted") {
+    } else if (state.alignmentLineDash === "dotted") {
       targetCtx.setLineDash([2 * dashScale, 3 * dashScale]);
-    } else if (state.splitLineDash === "dash-dot") {
+    } else if (state.alignmentLineDash === "dash-dot") {
       targetCtx.setLineDash([8 * dashScale, 3 * dashScale, 2 * dashScale, 3 * dashScale]);
     } else {
       targetCtx.setLineDash([]);
@@ -1675,7 +1675,7 @@ function _doRender(targetCtx, isExporting) {
       // committed) plus faint full-length "helper" lines spanning the gap
       // between corner arms on each edge. A single equal arm length (quarter of
       // the shorter side, capped to CORNER_ARM_MAX) keeps the x and y arms the
-      // same size; mirrors placeSplitLineBox in interaction.js. The helper lines
+      // same size; mirrors placeAlignmentLineBox in interaction.js. The helper lines
       // are preview-only (not committed).
       const CORNER_ARM_MAX = 48;
       const arm = Math.min(Math.min(r.w, r.h) / 4, CORNER_ARM_MAX);
@@ -1719,14 +1719,14 @@ function _doRender(targetCtx, isExporting) {
 
     // Crosshair guide lines through the current cursor point, spanning the whole
     // visible canvas, shown for the duration of the drag to aid alignment.
-    if (state.splitLineWorldPos) {
+    if (state.alignmentLineWorldPos) {
       const canvas = document.getElementById("canvas");
       const worldLeft = -transform.x / transform.zoom;
       const worldTop = -transform.y / transform.zoom;
       const worldRight = (canvas.width - transform.x) / transform.zoom;
       const worldBottom = (canvas.height - transform.y) / transform.zoom;
-      const gx = state.splitLineWorldPos.x;
-      const gy = state.splitLineWorldPos.y;
+      const gx = state.alignmentLineWorldPos.x;
+      const gy = state.alignmentLineWorldPos.y;
       const boxTop = r.y, boxBottom = r.y + r.h;
       const boxLeft = r.x, boxRight = r.x + r.w;
       targetCtx.globalAlpha = 0.35;
@@ -1748,13 +1748,13 @@ function _doRender(targetCtx, isExporting) {
 
     targetCtx.setLineDash([]);
     targetCtx.restore();
-  } else if (!isExporting && state.currentTool === "split-line" && state.splitLineWorldPos &&
-      (state.splitLineHoveredImage || state.splitLineFullWidth)) {
+  } else if (!isExporting && state.currentTool === "alignment-line" && state.alignmentLineWorldPos &&
+      (state.alignmentLineHoveredImage || state.alignmentLineFullWidth)) {
     targetCtx.save();
     targetCtx.translate(transform.x, transform.y);
     targetCtx.scale(transform.zoom, transform.zoom);
 
-    const pos = state.splitLineWorldPos;
+    const pos = state.alignmentLineWorldPos;
     const lineWidth = (state.currentLineWidth / 4) / transform.zoom;
 
     // Apply dash pattern to preview
@@ -1762,17 +1762,17 @@ function _doRender(targetCtx, isExporting) {
     targetCtx.globalAlpha = 0.5;
     targetCtx.strokeStyle = state.drawColor;
     targetCtx.lineWidth = lineWidth;
-    if (state.splitLineDash === "dashed") {
+    if (state.alignmentLineDash === "dashed") {
       targetCtx.setLineDash([8 * dashScale, 4 * dashScale]);
-    } else if (state.splitLineDash === "dotted") {
+    } else if (state.alignmentLineDash === "dotted") {
       targetCtx.setLineDash([2 * dashScale, 3 * dashScale]);
-    } else if (state.splitLineDash === "dash-dot") {
+    } else if (state.alignmentLineDash === "dash-dot") {
       targetCtx.setLineDash([8 * dashScale, 3 * dashScale, 2 * dashScale, 3 * dashScale]);
     } else {
       targetCtx.setLineDash([]);
     }
 
-    if (state.splitLineFullWidth) {
+    if (state.alignmentLineFullWidth) {
       // Full-width mode: line extends across entire visible canvas
       const canvas = document.getElementById("canvas");
       const worldLeft = -transform.x / transform.zoom;
@@ -1785,10 +1785,10 @@ function _doRender(targetCtx, isExporting) {
         // Both orientations
         let lx = pos.x;
         let ly = pos.y;
-        if (state.isShiftPressed && state.splitLineHoveredImage) {
-          const img = state.splitLineHoveredImage;
-          lx = snapSplitLinePreviewPos(lx, "x", img.x, img.w);
-          ly = snapSplitLinePreviewPos(ly, "y", img.y, img.h);
+        if (state.isShiftPressed && state.alignmentLineHoveredImage) {
+          const img = state.alignmentLineHoveredImage;
+          lx = snapAlignmentLinePreviewPos(lx, "x", img.x, img.w);
+          ly = snapAlignmentLinePreviewPos(ly, "y", img.y, img.h);
         }
         targetCtx.moveTo(lx, worldTop);
         targetCtx.lineTo(lx, worldBottom);
@@ -1796,21 +1796,21 @@ function _doRender(targetCtx, isExporting) {
         targetCtx.lineTo(worldRight, ly);
       } else {
         const effectiveOrientation = state.isMetaPressed
-          ? (state.splitLineOrientation === "vertical" ? "horizontal" : "vertical")
-          : state.splitLineOrientation;
+          ? (state.alignmentLineOrientation === "vertical" ? "horizontal" : "vertical")
+          : state.alignmentLineOrientation;
         if (effectiveOrientation === "vertical") {
           let lx = pos.x;
-          if (state.isShiftPressed && state.splitLineHoveredImage) {
-            const img = state.splitLineHoveredImage;
-            lx = snapSplitLinePreviewPos(lx, "x", img.x, img.w);
+          if (state.isShiftPressed && state.alignmentLineHoveredImage) {
+            const img = state.alignmentLineHoveredImage;
+            lx = snapAlignmentLinePreviewPos(lx, "x", img.x, img.w);
           }
           targetCtx.moveTo(lx, worldTop);
           targetCtx.lineTo(lx, worldBottom);
         } else {
           let ly = pos.y;
-          if (state.isShiftPressed && state.splitLineHoveredImage) {
-            const img = state.splitLineHoveredImage;
-            ly = snapSplitLinePreviewPos(ly, "y", img.y, img.h);
+          if (state.isShiftPressed && state.alignmentLineHoveredImage) {
+            const img = state.alignmentLineHoveredImage;
+            ly = snapAlignmentLinePreviewPos(ly, "y", img.y, img.h);
           }
           targetCtx.moveTo(worldLeft, ly);
           targetCtx.lineTo(worldRight, ly);
@@ -1819,24 +1819,24 @@ function _doRender(targetCtx, isExporting) {
       targetCtx.stroke();
     } else {
       // Normal mode: line constrained to hovered image
-      const img = state.splitLineHoveredImage;
+      const img = state.alignmentLineHoveredImage;
 
       if (state.isCtrlPressed) {
         // Draw both vertical and horizontal lines when ctrl is held
         let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
         let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
         if (state.isShiftPressed) {
-          lx = snapSplitLinePreviewPos(lx, "x", img.x, img.w);
-          ly = snapSplitLinePreviewPos(ly, "y", img.y, img.h);
+          lx = snapAlignmentLinePreviewPos(lx, "x", img.x, img.w);
+          ly = snapAlignmentLinePreviewPos(ly, "y", img.y, img.h);
         }
         // Vertical line
-        const v = getSplitLineExtent(img.y, img.h, ly);
+        const v = getAlignmentLineExtent(img.y, img.h, ly);
         targetCtx.beginPath();
         targetCtx.moveTo(lx, v.start);
         targetCtx.lineTo(lx, v.end);
         targetCtx.stroke();
         // Horizontal line
-        const h = getSplitLineExtent(img.x, img.w, lx);
+        const h = getAlignmentLineExtent(img.x, img.w, lx);
         targetCtx.beginPath();
         targetCtx.moveTo(h.start, ly);
         targetCtx.lineTo(h.end, ly);
@@ -1844,46 +1844,46 @@ function _doRender(targetCtx, isExporting) {
       } else if (state.isMetaPressed) {
         // Draw line in the opposite orientation when meta is held
         targetCtx.beginPath();
-        if (state.splitLineOrientation === "vertical") {
+        if (state.alignmentLineOrientation === "vertical") {
           // Opposite: horizontal
           let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
-          if (state.isShiftPressed) ly = snapSplitLinePreviewPos(ly, "y", img.y, img.h);
+          if (state.isShiftPressed) ly = snapAlignmentLinePreviewPos(ly, "y", img.y, img.h);
           let cx = pos.x;
-          if (state.isShiftPressed) cx = snapSplitLinePreviewPos(cx, "x", img.x, img.w);
-          let h = getSplitLineExtent(img.x, img.w, cx);
-          if (state.isShiftPressed) h = trimSplitLineExtentAtCrossings("horizontal", ly, cx, h);
+          if (state.isShiftPressed) cx = snapAlignmentLinePreviewPos(cx, "x", img.x, img.w);
+          let h = getAlignmentLineExtent(img.x, img.w, cx);
+          if (state.isShiftPressed) h = trimAlignmentLineExtentAtCrossings("horizontal", ly, cx, h);
           targetCtx.moveTo(h.start, ly);
           targetCtx.lineTo(h.end, ly);
         } else {
           // Opposite: vertical
           let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
-          if (state.isShiftPressed) lx = snapSplitLinePreviewPos(lx, "x", img.x, img.w);
+          if (state.isShiftPressed) lx = snapAlignmentLinePreviewPos(lx, "x", img.x, img.w);
           let cy = pos.y;
-          if (state.isShiftPressed) cy = snapSplitLinePreviewPos(cy, "y", img.y, img.h);
-          let v = getSplitLineExtent(img.y, img.h, cy);
-          if (state.isShiftPressed) v = trimSplitLineExtentAtCrossings("vertical", lx, cy, v);
+          if (state.isShiftPressed) cy = snapAlignmentLinePreviewPos(cy, "y", img.y, img.h);
+          let v = getAlignmentLineExtent(img.y, img.h, cy);
+          if (state.isShiftPressed) v = trimAlignmentLineExtentAtCrossings("vertical", lx, cy, v);
           targetCtx.moveTo(lx, v.start);
           targetCtx.lineTo(lx, v.end);
         }
         targetCtx.stroke();
       } else {
         targetCtx.beginPath();
-        if (state.splitLineOrientation === "vertical") {
+        if (state.alignmentLineOrientation === "vertical") {
           let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
-          if (state.isShiftPressed) lx = snapSplitLinePreviewPos(lx, "x", img.x, img.w);
+          if (state.isShiftPressed) lx = snapAlignmentLinePreviewPos(lx, "x", img.x, img.w);
           let cy = pos.y;
-          if (state.isShiftPressed) cy = snapSplitLinePreviewPos(cy, "y", img.y, img.h);
-          let v = getSplitLineExtent(img.y, img.h, cy);
-          if (state.isShiftPressed) v = trimSplitLineExtentAtCrossings("vertical", lx, cy, v);
+          if (state.isShiftPressed) cy = snapAlignmentLinePreviewPos(cy, "y", img.y, img.h);
+          let v = getAlignmentLineExtent(img.y, img.h, cy);
+          if (state.isShiftPressed) v = trimAlignmentLineExtentAtCrossings("vertical", lx, cy, v);
           targetCtx.moveTo(lx, v.start);
           targetCtx.lineTo(lx, v.end);
         } else {
           let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
-          if (state.isShiftPressed) ly = snapSplitLinePreviewPos(ly, "y", img.y, img.h);
+          if (state.isShiftPressed) ly = snapAlignmentLinePreviewPos(ly, "y", img.y, img.h);
           let cx = pos.x;
-          if (state.isShiftPressed) cx = snapSplitLinePreviewPos(cx, "x", img.x, img.w);
-          let h = getSplitLineExtent(img.x, img.w, cx);
-          if (state.isShiftPressed) h = trimSplitLineExtentAtCrossings("horizontal", ly, cx, h);
+          if (state.isShiftPressed) cx = snapAlignmentLinePreviewPos(cx, "x", img.x, img.w);
+          let h = getAlignmentLineExtent(img.x, img.w, cx);
+          if (state.isShiftPressed) h = trimAlignmentLineExtentAtCrossings("horizontal", ly, cx, h);
           targetCtx.moveTo(h.start, ly);
           targetCtx.lineTo(h.end, ly);
         }
@@ -1892,22 +1892,22 @@ function _doRender(targetCtx, isExporting) {
 
       // Center-snap guides: when Shift snaps a coordinate to the image center,
       // draw a highlighted dashed line through that center axis to signal it.
-      if (state.isShiftPressed && state.splitLineHoveredImage) {
-        const img = state.splitLineHoveredImage;
+      if (state.isShiftPressed && state.alignmentLineHoveredImage) {
+        const img = state.alignmentLineHoveredImage;
         const centerX = img.x + img.w / 2;
         const centerY = img.y + img.h / 2;
         const eps = 1e-6;
         // The line's fixed-axis coord and its along-axis midpoint after snapping.
         const effVertical = state.isMetaPressed
-          ? state.splitLineOrientation !== "vertical"
-          : state.splitLineOrientation === "vertical";
+          ? state.alignmentLineOrientation !== "vertical"
+          : state.alignmentLineOrientation === "vertical";
         let fixed, mid;
         if (effVertical) {
-          fixed = snapSplitLinePreviewPos(Math.max(img.x, Math.min(pos.x, img.x + img.w)), "x", img.x, img.w);
-          mid = snapSplitLinePreviewPos(pos.y, "y", img.y, img.h);
+          fixed = snapAlignmentLinePreviewPos(Math.max(img.x, Math.min(pos.x, img.x + img.w)), "x", img.x, img.w);
+          mid = snapAlignmentLinePreviewPos(pos.y, "y", img.y, img.h);
         } else {
-          fixed = snapSplitLinePreviewPos(Math.max(img.y, Math.min(pos.y, img.y + img.h)), "y", img.y, img.h);
-          mid = snapSplitLinePreviewPos(pos.x, "x", img.x, img.w);
+          fixed = snapAlignmentLinePreviewPos(Math.max(img.y, Math.min(pos.y, img.y + img.h)), "y", img.y, img.h);
+          mid = snapAlignmentLinePreviewPos(pos.x, "x", img.x, img.w);
         }
         const snappedX = effVertical ? fixed : mid;
         const snappedY = effVertical ? mid : fixed;

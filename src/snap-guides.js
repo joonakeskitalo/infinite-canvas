@@ -15,7 +15,7 @@ export function getClosestElements(bounds, excludeIds, maxCount, options) {
   // Accept either an array of ids or a pre-built Set (avoids rebuilding a large
   // Set every drag frame when many elements are selected).
   const excluded = excludeIds instanceof Set ? excludeIds : new Set(excludeIds);
-  const skipSplitLines = options && options.excludeSplitLines;
+  const skipAlignmentLines = options && options.excludeAlignmentLines;
   const myCx = bounds.x + bounds.w / 2;
   const myCy = bounds.y + bounds.h / 2;
 
@@ -54,7 +54,7 @@ export function getClosestElements(bounds, excludeIds, maxCount, options) {
     const nearby = spatialIndex.queryNearest(spatialBounds, excluded, maxCount * 3);
     for (const el of nearby) {
       if (el.type === "connector") continue;
-      if (skipSplitLines && el.isSplitLine) continue;
+      if (skipAlignmentLines && el.isAlignmentLine) continue;
       const b = el.elementType === "image"
         ? { x: el.x, y: el.y, w: el.w, h: el.h }
         : getShapeBounds(el);
@@ -69,7 +69,7 @@ export function getClosestElements(bounds, excludeIds, maxCount, options) {
     for (const shape of state.drawings) {
       if (excluded.has(shape.id)) continue;
       if (shape.type === "connector") continue;
-      if (skipSplitLines && shape.isSplitLine) continue;
+      if (skipAlignmentLines && shape.isAlignmentLine) continue;
       addElement(getShapeBounds(shape), shape.groupId);
     }
   }
@@ -89,7 +89,7 @@ export function getClosestElements(bounds, excludeIds, maxCount, options) {
 export function getSnapTargets(excludeIds, bounds, options) {
   const targets = { x: [], y: [] };
   const excluded = excludeIds instanceof Set ? excludeIds : new Set(excludeIds);
-  const skipSplitLines = options && options.excludeSplitLines;
+  const skipAlignmentLines = options && options.excludeAlignmentLines;
   // For large multi-element selections, snapping to per-image quarter points
   // (and iterating every image on the canvas each frame) is both expensive and
   // not useful — the selection is aligned by its outer edges/center instead.
@@ -130,7 +130,7 @@ export function getSnapTargets(excludeIds, bounds, options) {
     state.drawings.forEach((shape) => {
       if (excluded.has(shape.id)) return;
       if (shape.type === "connector") return;
-      if (skipSplitLines && shape.isSplitLine) return;
+      if (skipAlignmentLines && shape.isAlignmentLine) return;
       addEl(getShapeBounds(shape), shape.groupId);
     });
 
@@ -158,9 +158,9 @@ export function getSnapTargets(excludeIds, bounds, options) {
 }
 
 /**
- * Snap a split-line coordinate along one axis (used when Shift is held while
+ * Snap a alignment-line coordinate along one axis (used when Shift is held while
  * placing/previewing). Snaps to the hovered image's center on this axis, to the
- * positions of existing parallel split lines, and to the edges/center of other
+ * positions of existing parallel alignment lines, and to the edges/center of other
  * drawings (text, rectangles, etc.). Off-screen elements are ignored. Returns
  * the nearest candidate within a generous catch zone, else the original position.
  *
@@ -170,7 +170,7 @@ export function getSnapTargets(excludeIds, bounds, options) {
  * @param {number} size    hovered image size on this axis (img.w or img.h)
  * @returns {number} the snapped coordinate if close enough, else pos
  */
-export function snapSplitLineAxis(pos, axis, origin, size) {
+export function snapAlignmentLineAxis(pos, axis, origin, size) {
   // Generous catch zone (screen px, converted to world) so targets are easy to hit.
   const threshold = 16 / state.transform.zoom;
   const isX = axis === "x";
@@ -183,12 +183,12 @@ export function snapSplitLineAxis(pos, axis, origin, size) {
   }
 
   // Other on-screen drawings contribute snap targets:
-  //  - a parallel split line → its fixed-axis position
+  //  - a parallel alignment line → its fixed-axis position
   //  - any other drawing (text, rect, line, etc.) → its edges and center
   for (const d of state.drawings) {
     if (d.type === "connector") continue;
 
-    if (d.isSplitLine) {
+    if (d.isAlignmentLine) {
       if (!d.start || !d.end) continue;
       const minX = Math.min(d.start.x, d.end.x);
       const minY = Math.min(d.start.y, d.end.y);
@@ -550,18 +550,18 @@ export function computeMeasureHoverGuides(worldPos) {
   const MAX_GUIDES = 12;
   const guides = [];
 
-  // Collect bounds of all relevant elements (include split lines, exclude regular lines, arrows & connectors)
+  // Collect bounds of all relevant elements (include alignment lines, exclude regular lines, arrows & connectors)
   const allBounds = [];
-  const splitLineMap = new Map(); // id -> split line shape for edge-distance calculation
+  const alignmentLineMap = new Map(); // id -> alignment line shape for edge-distance calculation
   state.images.forEach((img) => {
     allBounds.push({ id: img.id, x: img.x, y: img.y, w: img.w, h: img.h });
   });
   state.drawings.forEach((shape) => {
     if (shape.type === "connector" || shape.type === "arrow") return;
-    if (shape.type === "line" && !shape.isSplitLine) return;
+    if (shape.type === "line" && !shape.isAlignmentLine) return;
     const b = getShapeBounds(shape);
     allBounds.push({ id: shape.id, x: b.x, y: b.y, w: b.w, h: b.h });
-    if (shape.isSplitLine) splitLineMap.set(shape.id, shape);
+    if (shape.isAlignmentLine) alignmentLineMap.set(shape.id, shape);
   });
 
   // Determine if hovering over an element
@@ -602,11 +602,11 @@ export function computeMeasureHoverGuides(worldPos) {
     if (distToTop > 0.5) guides.push({ fromX: worldPos.x, fromY: myTop, toX: worldPos.x, toY: worldPos.y, dist: distToTop, isEdge: true });
     if (distToBottom > 0.5) guides.push({ fromX: worldPos.x, fromY: worldPos.y, toX: worldPos.x, toY: myBottom, dist: distToBottom, isEdge: true });
 
-    // If hovering a split line, show distance from the split line to the parent image edges
-    // (only to the nearest edge, i.e., if no other split line is between it and the edge)
-    const hoveredSplitLine = splitLineMap.get(hoveredBounds.id);
-    if (hoveredSplitLine) {
-      _addSplitLineEdgeGuides(guides, hoveredSplitLine, splitLineMap);
+    // If hovering a alignment line, show distance from the alignment line to the parent image edges
+    // (only to the nearest edge, i.e., if no other alignment line is between it and the edge)
+    const hoveredAlignmentLine = alignmentLineMap.get(hoveredBounds.id);
+    if (hoveredAlignmentLine) {
+      _addAlignmentLineEdgeGuides(guides, hoveredAlignmentLine, alignmentLineMap);
     }
 
     for (const b of nearbyBounds) {
@@ -626,14 +626,14 @@ export function computeMeasureHoverGuides(worldPos) {
     }
   }
 
-  // Show split-line-to-image-edge distances for nearby split lines
-  // (only when the split line is the nearest element to that edge)
+  // Show alignment-line-to-image-edge distances for nearby alignment lines
+  // (only when the alignment line is the nearest element to that edge)
   for (const b of nearbyBounds) {
-    const sl = splitLineMap.get(b.id);
+    const sl = alignmentLineMap.get(b.id);
     if (!sl) continue;
     // Skip if already handled as hovered
     if (hoveredBounds && b.id === hoveredBounds.id) continue;
-    _addSplitLineEdgeGuides(guides, sl, splitLineMap);
+    _addAlignmentLineEdgeGuides(guides, sl, alignmentLineMap);
   }
 
   // Also show cursor-to-element distances when not hovering an element
@@ -688,15 +688,15 @@ export function computeMeasureHoverGuides(worldPos) {
 }
 
 /**
- * Show distance from a split line to the edges of its parent image,
- * but only if it's the nearest split line to that edge (no other split line is between it and the edge).
+ * Show distance from a alignment line to the edges of its parent image,
+ * but only if it's the nearest alignment line to that edge (no other alignment line is between it and the edge).
  */
-function _addSplitLineEdgeGuides(guides, splitLine, splitLineMap) {
-  const slStartX = Math.min(splitLine.start.x, splitLine.end.x);
-  const slStartY = Math.min(splitLine.start.y, splitLine.end.y);
-  const slEndX = Math.max(splitLine.start.x, splitLine.end.x);
-  const slEndY = Math.max(splitLine.start.y, splitLine.end.y);
-  const isVertical = Math.abs(splitLine.start.x - splitLine.end.x) < 1;
+function _addAlignmentLineEdgeGuides(guides, alignmentLine, alignmentLineMap) {
+  const slStartX = Math.min(alignmentLine.start.x, alignmentLine.end.x);
+  const slStartY = Math.min(alignmentLine.start.y, alignmentLine.end.y);
+  const slEndX = Math.max(alignmentLine.start.x, alignmentLine.end.x);
+  const slEndY = Math.max(alignmentLine.start.y, alignmentLine.end.y);
+  const isVertical = Math.abs(alignmentLine.start.x - alignmentLine.end.x) < 1;
 
   // Find the parent image
   let parentImg = null;
@@ -709,10 +709,10 @@ function _addSplitLineEdgeGuides(guides, splitLine, splitLineMap) {
   }
   if (!parentImg) return;
 
-  // Collect other split lines within the same parent image with the same orientation
-  const siblingSplitPositions = [];
-  for (const [id, sl] of splitLineMap) {
-    if (id === splitLine.id) continue;
+  // Collect other alignment lines within the same parent image with the same orientation
+  const siblingAlignmentPositions = [];
+  for (const [id, sl] of alignmentLineMap) {
+    if (id === alignmentLine.id) continue;
     const slIsVertical = Math.abs(sl.start.x - sl.end.x) < 1;
     if (slIsVertical !== isVertical) continue;
     // Check it belongs to the same parent image
@@ -723,27 +723,27 @@ function _addSplitLineEdgeGuides(guides, splitLine, splitLineMap) {
     if (sMinX >= parentImg.x - 1 && sMaxX <= parentImg.x + parentImg.w + 1 &&
         sMinY >= parentImg.y - 1 && sMaxY <= parentImg.y + parentImg.h + 1) {
       if (isVertical) {
-        siblingSplitPositions.push((sl.start.x + sl.end.x) / 2);
+        siblingAlignmentPositions.push((sl.start.x + sl.end.x) / 2);
       } else {
-        siblingSplitPositions.push((sl.start.y + sl.end.y) / 2);
+        siblingAlignmentPositions.push((sl.start.y + sl.end.y) / 2);
       }
     }
   }
 
   if (isVertical) {
-    const lineX = (splitLine.start.x + splitLine.end.x) / 2;
+    const lineX = (alignmentLine.start.x + alignmentLine.end.x) / 2;
     const midY = (Math.max(slStartY, parentImg.y) + Math.min(slEndY, parentImg.y + parentImg.h)) / 2;
     const imgLeft = parentImg.x;
     const imgRight = parentImg.x + parentImg.w;
 
     // Check if this is the nearest to the left edge
     let nearestToLeft = true;
-    for (const pos of siblingSplitPositions) {
+    for (const pos of siblingAlignmentPositions) {
       if (pos > imgLeft && pos < lineX) { nearestToLeft = false; break; }
     }
     // Check if this is the nearest to the right edge
     let nearestToRight = true;
-    for (const pos of siblingSplitPositions) {
+    for (const pos of siblingAlignmentPositions) {
       if (pos < imgRight && pos > lineX) { nearestToRight = false; break; }
     }
 
@@ -752,19 +752,19 @@ function _addSplitLineEdgeGuides(guides, splitLine, splitLineMap) {
     if (nearestToLeft && distLeft > 0.5) guides.push({ fromX: imgLeft, fromY: midY, toX: lineX, toY: midY, dist: distLeft, isEdge: true });
     if (nearestToRight && distRight > 0.5) guides.push({ fromX: lineX, fromY: midY, toX: imgRight, toY: midY, dist: distRight, isEdge: true });
   } else {
-    const lineY = (splitLine.start.y + splitLine.end.y) / 2;
+    const lineY = (alignmentLine.start.y + alignmentLine.end.y) / 2;
     const midX = (Math.max(slStartX, parentImg.x) + Math.min(slEndX, parentImg.x + parentImg.w)) / 2;
     const imgTop = parentImg.y;
     const imgBottom = parentImg.y + parentImg.h;
 
     // Check if this is the nearest to the top edge
     let nearestToTop = true;
-    for (const pos of siblingSplitPositions) {
+    for (const pos of siblingAlignmentPositions) {
       if (pos > imgTop && pos < lineY) { nearestToTop = false; break; }
     }
     // Check if this is the nearest to the bottom edge
     let nearestToBottom = true;
-    for (const pos of siblingSplitPositions) {
+    for (const pos of siblingAlignmentPositions) {
       if (pos < imgBottom && pos > lineY) { nearestToBottom = false; break; }
     }
 

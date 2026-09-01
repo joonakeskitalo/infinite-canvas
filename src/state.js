@@ -121,22 +121,22 @@ export const state = {
   eyedropperMarqueePixels: null,   // ImageData of the clean selection area (for highlight rendering)
   eyedropperHighlightColor: null,  // hex string of the currently hovered color to highlight
 
-  // Split-line tool
-  splitLineOrientation: "vertical", // "vertical" or "horizontal"
-  splitLineLengthMode: "percent", // "percent" (of image dimension) or "pixel" (absolute px length)
-  splitLineLength: 100, // percentage of image dimension (10-200), 100 = full span, >100 extends beyond image
-  splitLineLengthPx: 200, // absolute length in pixels when splitLineLengthMode === "pixel" (10-2000)
-  splitLineDash: "solid", // dash pattern: "solid", "dashed", "dotted", "dash-dot"
-  splitLineFullWidth: false, // when true, line extends across full canvas (like a ruler guide)
-  splitLineHoveredImage: null,
-  splitLineWorldPos: null,
-  // Drag-to-box: when the user presses and drags with the split-line tool, a
-  // rectangular box guide (four connected split lines) is swept out instead of
+  // Alignment-line tool
+  alignmentLineOrientation: "vertical", // "vertical" or "horizontal"
+  alignmentLineLengthMode: "percent", // "percent" (of image dimension) or "pixel" (absolute px length)
+  alignmentLineLength: 100, // percentage of image dimension (10-200), 100 = full span, >100 extends beyond image
+  alignmentLineLengthPx: 200, // absolute length in pixels when alignmentLineLengthMode === "pixel" (10-2000)
+  alignmentLineDash: "solid", // dash pattern: "solid", "dashed", "dotted", "dash-dot"
+  alignmentLineFullWidth: false, // when true, line extends across full canvas (like a ruler guide)
+  alignmentLineHoveredImage: null,
+  alignmentLineWorldPos: null,
+  // Drag-to-box: when the user presses and drags with the alignment-line tool, a
+  // rectangular box guide (four connected alignment lines) is swept out instead of
   // placing a single line. A plain click (no drag) still places a single line.
-  splitLineDragStart: null,   // {x, y} world-coords where the drag began (mousedown on an image)
-  splitLineDragImage: null,   // the image element the drag started on (box is clamped to it)
-  splitLineDragRect: null,    // {x, y, w, h} world-coords of the box being swept (for preview)
-  splitLineIsDragging: false, // true once the drag passes the movement threshold
+  alignmentLineDragStart: null,   // {x, y} world-coords where the drag began (mousedown on an image)
+  alignmentLineDragImage: null,   // the image element the drag started on (box is clamped to it)
+  alignmentLineDragRect: null,    // {x, y, w, h} world-coords of the box being swept (for preview)
+  alignmentLineIsDragging: false, // true once the drag passes the movement threshold
 
 
   // Contrast checker tool
@@ -161,7 +161,7 @@ export const state = {
   draggingGuide: null,
   draggingNewGuide: null,
 
-  // Overlay visibility toggle (split lines, drawings/connectors, rulers)
+  // Overlay visibility toggle (alignment lines, drawings/connectors, rulers)
   overlaysHidden: false,
 
   // File persistence
@@ -367,33 +367,33 @@ export function spatialUpdate(el) {
   spatialIndex.update(el, getElementSpatialBounds(el));
 }
 
-// --- Split-line span helpers ---
+// --- Alignment-line span helpers ---
 
 /**
- * Compute the desired span length (in world units) for a split line given the
+ * Compute the desired span length (in world units) for a alignment line given the
  * dimension of the parent image along the span axis.
  * In "percent" mode the span is a fraction of the image dimension.
  * In "pixel" mode the span is an absolute length in pixels.
  */
-export function getSplitLineSpan(imgDim) {
-  if (state.splitLineLengthMode === "pixel") {
-    return state.splitLineLengthPx;
+export function getAlignmentLineSpan(imgDim) {
+  if (state.alignmentLineLengthMode === "pixel") {
+    return state.alignmentLineLengthPx;
   }
-  return imgDim * (state.splitLineLength / 100);
+  return imgDim * (state.alignmentLineLength / 100);
 }
 
 /**
- * Compute the start/end coordinates of a split line along a single axis.
+ * Compute the start/end coordinates of a alignment line along a single axis.
  * Replicates the clamping / symmetric-extension behavior used everywhere the
- * split line is drawn or placed.
+ * alignment line is drawn or placed.
  *
  * @param {number} origin - image origin along the axis (img.x or img.y)
  * @param {number} size - image size along the axis (img.w or img.h)
  * @param {number} cursor - cursor position along the axis
  * @returns {{ start: number, end: number }}
  */
-export function getSplitLineExtent(origin, size, cursor) {
-  const span = getSplitLineSpan(size);
+export function getAlignmentLineExtent(origin, size, cursor) {
+  const span = getAlignmentLineSpan(size);
   if (span > size) {
     // Extend symmetrically beyond the image edges
     const ext = (span - size) / 2;
@@ -407,15 +407,15 @@ export function getSplitLineExtent(origin, size, cursor) {
 }
 
 /**
- * Trim an axis-aligned split line's extent so it stops at (does not extend past)
- * any existing perpendicular split line that crosses it. Used when Shift is held
- * so newly placed/previewed split lines butt up against the existing ones
+ * Trim an axis-aligned alignment line's extent so it stops at (does not extend past)
+ * any existing perpendicular alignment line that crosses it. Used when Shift is held
+ * so newly placed/previewed alignment lines butt up against the existing ones
  * instead of overlapping them.
  *
  * For a "vertical" line the fixed coordinate is its X position and the extent is
- * its Y range; crossings are existing horizontal split lines. For a "horizontal"
+ * its Y range; crossings are existing horizontal alignment lines. For a "horizontal"
  * line the fixed coordinate is its Y position and the extent is its X range;
- * crossings are existing vertical split lines.
+ * crossings are existing vertical alignment lines.
  *
  * @param {"vertical"|"horizontal"} orientation
  * @param {number} fixed - the line's fixed-axis coordinate (x for vertical, y for horizontal)
@@ -423,18 +423,18 @@ export function getSplitLineExtent(origin, size, cursor) {
  * @param {{start:number,end:number}} extent - the untrimmed span
  * @returns {{start:number,end:number}} trimmed span
  */
-export function trimSplitLineExtentAtCrossings(orientation, fixed, cursor, extent) {
+export function trimAlignmentLineExtentAtCrossings(orientation, fixed, cursor, extent) {
   const EPS = 1e-6;
   let start = extent.start;
   let end = extent.end;
 
   for (const d of state.drawings) {
-    if (!d.isSplitLine || !d.start || !d.end) continue;
+    if (!d.isAlignmentLine || !d.start || !d.end) continue;
     const isVertical = Math.abs(d.start.x - d.end.x) < EPS;
     const isHorizontal = Math.abs(d.start.y - d.end.y) < EPS;
 
     if (orientation === "vertical") {
-      // Look for horizontal split lines that cross this vertical line's X.
+      // Look for horizontal alignment lines that cross this vertical line's X.
       if (!isHorizontal || isVertical) continue;
       const y = d.start.y;
       const xLo = Math.min(d.start.x, d.end.x);
@@ -443,7 +443,7 @@ export function trimSplitLineExtentAtCrossings(orientation, fixed, cursor, exten
       if (y > cursor && y < end - EPS) end = y;             // nearest crossing below cursor
       if (y < cursor && y > start + EPS) start = y;         // nearest crossing above cursor
     } else {
-      // Look for vertical split lines that cross this horizontal line's Y.
+      // Look for vertical alignment lines that cross this horizontal line's Y.
       if (!isVertical || isHorizontal) continue;
       const x = d.start.x;
       const yLo = Math.min(d.start.y, d.end.y);

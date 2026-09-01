@@ -129,8 +129,8 @@
         </button>
         <button
           class="tool-btn"
-          id="tool-split-line"
-          data-tool="split-line"
+          id="tool-alignment-line"
+          data-tool="alignment-line"
           title="Alignment Tool [W] (W toggles orientation, drag to draw a box, Shift snaps to center/other elements, ⌘/Ctrl places both, [ / ] adjust length)"
           style="width: 38px"
         >
@@ -983,12 +983,12 @@
           >
         </div>
         <div
-          id="split-line-dash-group"
+          id="alignment-line-dash-group"
           style="display: none; align-items: center; gap: 4px"
         >
           <span class="align-title">Style</span>
           <select
-            id="split-line-dash-select"
+            id="alignment-line-dash-select"
             title="Alignment line dash pattern. Use , key to cycle."
             style="
               background: #2d2d2d;
@@ -1008,13 +1008,13 @@
           </select>
         </div>
         <div
-          id="split-line-length-group"
+          id="alignment-line-length-group"
           style="display: none; align-items: center; gap: 4px"
         >
           <span class="align-title">Length</span>
           <input
             type="range"
-            id="split-line-length-slider"
+            id="alignment-line-length-slider"
             min="10"
             max="200"
             value="100"
@@ -1023,7 +1023,7 @@
             style="width: 280px; accent-color: #ff6400; cursor: pointer"
           />
           <span
-            id="split-line-length-val"
+            id="alignment-line-length-val"
             style="
               font-size: 11px;
               color: #aaa;
@@ -1033,7 +1033,7 @@
             >100%</span
           >
           <button
-            id="split-line-length-mode"
+            id="alignment-line-length-mode"
             type="button"
             title="Toggle length unit between percentage of image and absolute pixels. Use . key."
             style="

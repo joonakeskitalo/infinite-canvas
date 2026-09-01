@@ -4,7 +4,7 @@
  * Sets up all event listeners for the canvas application.
  */
 
-import { state, CONSTANTS, getDom, spatialInsert, spatialRemove, spatialUpdate, spatialIndex, rebuildSpatialIndex, getSplitLineExtent, trimSplitLineExtentAtCrossings } from "./state.js";
+import { state, CONSTANTS, getDom, spatialInsert, spatialRemove, spatialUpdate, spatialIndex, rebuildSpatialIndex, getAlignmentLineExtent, trimAlignmentLineExtentAtCrossings } from "./state.js";
 import { screenToWorld, worldToScreen, showToast, showColorToast, constraintToAngle } from "./utils.js";
 import {
   getShapeBounds, isPointHittingShape, getElementResizeHandles,
@@ -17,7 +17,7 @@ import { render, renderSync, executePNGExport, executeJPEGExport } from "./rende
 import {
   getSnapTargets, snapToElements, snapToSpacing, snapResizeEdges,
   getProximityGuides, getSpacingGuides, computeMeasureHoverGuides,
-  snapSplitLineAxis,
+  snapAlignmentLineAxis,
 } from "./snap-guides.js";
 import {
   getConnectorAnchorPoint, computeAnchorRatio,
@@ -74,31 +74,31 @@ let _dragOffsetMap = null;
 let _dragExcludeIds = null; // Array of selected element IDs (stable during a drag)
 let _dragExcludeIdSet = null; // Set version for O(1) lookups
 
-// Max length (world units) of a Ctrl+drag "corner marks" split-line arm. The
+// Max length (world units) of a Ctrl+drag "corner marks" alignment-line arm. The
 // actual arm length is relative to the box size (a quarter of each side) but
 // never longer than this.
-const SPLIT_LINE_CORNER_ARM_MAX = 48;
+const ALIGNMENT_LINE_CORNER_ARM_MAX = 48;
 
 /**
- * Snap a split-line coordinate (Shift held). Snaps to the hovered image's
+ * Snap a alignment-line coordinate (Shift held). Snaps to the hovered image's
  * quadrant/fraction lines AND to other elements' edges/centers and existing
- * split lines. Delegates to the shared helper in snap-guides.js.
+ * alignment lines. Delegates to the shared helper in snap-guides.js.
  * @param {"x"|"y"} axis which axis pos lies on
  */
-function snapSplitLinePos(pos, axis, origin, size) {
-  return snapSplitLineAxis(pos, axis, origin, size);
+function snapAlignmentLinePos(pos, axis, origin, size) {
+  return snapAlignmentLineAxis(pos, axis, origin, size);
 }
 
 /**
- * Create a split-line drawing element. Shared by single-line placement and the
+ * Create a alignment-line drawing element. Shared by single-line placement and the
  * box (marquee) placement so they stay visually identical.
  */
-function makeSplitLineEl(start, end, dashPattern) {
+function makeAlignmentLineEl(start, end, dashPattern) {
   return {
     id: "draw_" + state.elementIdCounter++,
     elementType: "drawing",
     type: "line",
-    isSplitLine: true,
+    isAlignmentLine: true,
     color: state.drawColor,
     width: state.currentLineWidth / 4,
     opacity: 0.7,
@@ -109,13 +109,13 @@ function makeSplitLineEl(start, end, dashPattern) {
 }
 
 /**
- * Place split line(s) for a plain click on an image (no drag). Preserves the
+ * Place alignment line(s) for a plain click on an image (no drag). Preserves the
  * original behavior: Ctrl → four arms radiating from the click point,
  * otherwise a single line in the effective orientation (Meta flips it, Shift
- * snaps to the image center and existing split lines).
+ * snaps to the image center and existing alignment lines).
  */
-function placeSplitLineClick(img, pos, e) {
-  const dashPattern = state.splitLineDash;
+function placeAlignmentLineClick(img, pos, e) {
+  const dashPattern = state.alignmentLineDash;
   pushUndo();
 
   if (state.isCtrlPressed) {
@@ -125,13 +125,13 @@ function placeSplitLineClick(img, pos, e) {
     let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
     let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
     if (e.shiftKey) {
-      lx = snapSplitLinePos(lx, "x", img.x, img.w);
-      ly = snapSplitLinePos(ly, "y", img.y, img.h);
+      lx = snapAlignmentLinePos(lx, "x", img.x, img.w);
+      ly = snapAlignmentLinePos(ly, "y", img.y, img.h);
     }
     // Vertical extent (along Y axis), split at the click point ly
-    const vExt = getSplitLineExtent(img.y, img.h, ly);
+    const vExt = getAlignmentLineExtent(img.y, img.h, ly);
     // Horizontal extent (along X axis), split at the click point lx
-    const hExt = getSplitLineExtent(img.x, img.w, lx);
+    const hExt = getAlignmentLineExtent(img.x, img.w, lx);
 
     const armSpecs = [
       [{ x: lx, y: vExt.start }, { x: lx, y: ly }], // up
@@ -142,40 +142,40 @@ function placeSplitLineClick(img, pos, e) {
     for (const [start, end] of armSpecs) {
       // Skip degenerate zero-length arms (click landing on a clamped edge)
       if (start.x === end.x && start.y === end.y) continue;
-      const arm = makeSplitLineEl(start, end, dashPattern);
+      const arm = makeAlignmentLineEl(start, end, dashPattern);
       state.drawings.push(arm);
       spatialInsert(arm);
     }
   } else {
     // Create a single line based on effective orientation
     const effectiveOrientation = e.metaKey
-      ? (state.splitLineOrientation === "vertical" ? "horizontal" : "vertical")
-      : state.splitLineOrientation;
+      ? (state.alignmentLineOrientation === "vertical" ? "horizontal" : "vertical")
+      : state.alignmentLineOrientation;
     let start, end;
     if (effectiveOrientation === "vertical") {
       let lx = Math.max(img.x, Math.min(pos.x, img.x + img.w));
-      if (e.shiftKey) lx = snapSplitLinePos(lx, "x", img.x, img.w);
+      if (e.shiftKey) lx = snapAlignmentLinePos(lx, "x", img.x, img.w);
       // Shift also snaps the line's along-axis center to the image center y.
       let cy = pos.y;
-      if (e.shiftKey) cy = snapSplitLinePos(cy, "y", img.y, img.h);
-      let ext = getSplitLineExtent(img.y, img.h, cy);
-      // Shift: stop the line at existing perpendicular split lines.
-      if (e.shiftKey) ext = trimSplitLineExtentAtCrossings("vertical", lx, cy, ext);
+      if (e.shiftKey) cy = snapAlignmentLinePos(cy, "y", img.y, img.h);
+      let ext = getAlignmentLineExtent(img.y, img.h, cy);
+      // Shift: stop the line at existing perpendicular alignment lines.
+      if (e.shiftKey) ext = trimAlignmentLineExtentAtCrossings("vertical", lx, cy, ext);
       start = { x: lx, y: ext.start };
       end = { x: lx, y: ext.end };
     } else {
       let ly = Math.max(img.y, Math.min(pos.y, img.y + img.h));
-      if (e.shiftKey) ly = snapSplitLinePos(ly, "y", img.y, img.h);
+      if (e.shiftKey) ly = snapAlignmentLinePos(ly, "y", img.y, img.h);
       // Shift also snaps the line's along-axis center to the image center x.
       let cx = pos.x;
-      if (e.shiftKey) cx = snapSplitLinePos(cx, "x", img.x, img.w);
-      let ext = getSplitLineExtent(img.x, img.w, cx);
-      // Shift: stop the line at existing perpendicular split lines.
-      if (e.shiftKey) ext = trimSplitLineExtentAtCrossings("horizontal", ly, cx, ext);
+      if (e.shiftKey) cx = snapAlignmentLinePos(cx, "x", img.x, img.w);
+      let ext = getAlignmentLineExtent(img.x, img.w, cx);
+      // Shift: stop the line at existing perpendicular alignment lines.
+      if (e.shiftKey) ext = trimAlignmentLineExtentAtCrossings("horizontal", ly, cx, ext);
       start = { x: ext.start, y: ly };
       end = { x: ext.end, y: ly };
     }
-    const lineEl = makeSplitLineEl(start, end, dashPattern);
+    const lineEl = makeAlignmentLineEl(start, end, dashPattern);
     state.drawings.push(lineEl);
     spatialInsert(lineEl);
   }
@@ -187,19 +187,19 @@ function placeSplitLineClick(img, pos, e) {
 /**
  * Compute the box rectangle (in world coords) swept between two points, clamped
  * to the image bounds. Optionally snaps each edge to the image center and
- * existing split lines (Shift). Returns null when the rectangle is degenerate
+ * existing alignment lines (Shift). Returns null when the rectangle is degenerate
  * (< 1px on either axis).
  */
-function computeSplitLineBoxRect(img, startPos, endPos, snap) {
+function computeAlignmentLineBoxRect(img, startPos, endPos, snap) {
   let x0 = Math.max(img.x, Math.min(startPos.x, img.x + img.w));
   let y0 = Math.max(img.y, Math.min(startPos.y, img.y + img.h));
   let x1 = Math.max(img.x, Math.min(endPos.x, img.x + img.w));
   let y1 = Math.max(img.y, Math.min(endPos.y, img.y + img.h));
   if (snap) {
-    x0 = snapSplitLinePos(x0, "x", img.x, img.w);
-    y0 = snapSplitLinePos(y0, "y", img.y, img.h);
-    x1 = snapSplitLinePos(x1, "x", img.x, img.w);
-    y1 = snapSplitLinePos(y1, "y", img.y, img.h);
+    x0 = snapAlignmentLinePos(x0, "x", img.x, img.w);
+    y0 = snapAlignmentLinePos(y0, "y", img.y, img.h);
+    x1 = snapAlignmentLinePos(x1, "x", img.x, img.w);
+    y1 = snapAlignmentLinePos(y1, "y", img.y, img.h);
   }
   const left = Math.min(x0, x1);
   const right = Math.max(x0, x1);
@@ -210,12 +210,12 @@ function computeSplitLineBoxRect(img, startPos, endPos, snap) {
 }
 
 /**
- * Place a rectangular box guide (four connected split lines) spanning the given
- * world-coords rectangle. Each edge is an independent split line so it can be
+ * Place a rectangular box guide (four connected alignment lines) spanning the given
+ * world-coords rectangle. Each edge is an independent alignment line so it can be
  * erased/selected separately, consistent with the Ctrl "cross" placement.
  */
-function placeSplitLineBox(rect, partial) {
-  const dashPattern = state.splitLineDash;
+function placeAlignmentLineBox(rect, partial) {
+  const dashPattern = state.alignmentLineDash;
   const left = rect.x, top = rect.y;
   const right = rect.x + rect.w, bottom = rect.y + rect.h;
 
@@ -228,7 +228,7 @@ function placeSplitLineBox(rect, partial) {
     // size; it's a quarter of the shorter side (so it fits both edges) capped at
     // the max. The centered edge "helper" ticks are preview-only (see
     // rendering.js) and are intentionally NOT committed to the canvas.
-    const arm = Math.min(Math.min(rect.w, rect.h) / 4, SPLIT_LINE_CORNER_ARM_MAX);
+    const arm = Math.min(Math.min(rect.w, rect.h) / 4, ALIGNMENT_LINE_CORNER_ARM_MAX);
     const armX = arm;
     const armY = arm;
     specs = [
@@ -256,7 +256,7 @@ function placeSplitLineBox(rect, partial) {
 
   for (const [start, end] of specs) {
     if (start.x === end.x && start.y === end.y) continue;
-    const edge = makeSplitLineEl(start, end, dashPattern);
+    const edge = makeAlignmentLineEl(start, end, dashPattern);
     state.drawings.push(edge);
     spatialInsert(edge);
   }
@@ -264,44 +264,44 @@ function placeSplitLineBox(rect, partial) {
   render();
 }
 
-// Slider bounds for each split-line length mode
-const SPLIT_LINE_PERCENT_RANGE = { min: 10, max: 200, step: 5 };
-const SPLIT_LINE_PIXEL_RANGE = { min: 10, max: 2000, step: 10 };
+// Slider bounds for each alignment-line length mode
+const ALIGNMENT_LINE_PERCENT_RANGE = { min: 10, max: 200, step: 5 };
+const ALIGNMENT_LINE_PIXEL_RANGE = { min: 10, max: 2000, step: 10 };
 
 /**
- * Update only the value display and mode-button label for the split-line
+ * Update only the value display and mode-button label for the alignment-line
  * length control (used during slider input, cheap).
  */
-export function updateSplitLineLengthDisplay() {
-  const valEl = document.getElementById("split-line-length-val");
-  const modeEl = document.getElementById("split-line-length-mode");
-  if (state.splitLineLengthMode === "pixel") {
-    if (valEl) valEl.textContent = state.splitLineLengthPx + "px";
+export function updateAlignmentLineLengthDisplay() {
+  const valEl = document.getElementById("alignment-line-length-val");
+  const modeEl = document.getElementById("alignment-line-length-mode");
+  if (state.alignmentLineLengthMode === "pixel") {
+    if (valEl) valEl.textContent = state.alignmentLineLengthPx + "px";
     if (modeEl) modeEl.textContent = "px";
   } else {
-    if (valEl) valEl.textContent = state.splitLineLength + "%";
+    if (valEl) valEl.textContent = state.alignmentLineLength + "%";
     if (modeEl) modeEl.textContent = "%";
   }
 }
 
 /**
- * Reconfigure the shared split-line length slider (min/max/step/value) to
+ * Reconfigure the shared alignment-line length slider (min/max/step/value) to
  * match the current mode, then refresh the display. Called when the mode
  * toggles or when the value changes via keyboard.
  */
-export function syncSplitLineLengthControl() {
-  const slider = document.getElementById("split-line-length-slider");
+export function syncAlignmentLineLengthControl() {
+  const slider = document.getElementById("alignment-line-length-slider");
   if (slider) {
-    const range = state.splitLineLengthMode === "pixel" ? SPLIT_LINE_PIXEL_RANGE : SPLIT_LINE_PERCENT_RANGE;
+    const range = state.alignmentLineLengthMode === "pixel" ? ALIGNMENT_LINE_PIXEL_RANGE : ALIGNMENT_LINE_PERCENT_RANGE;
     slider.min = range.min;
     slider.max = range.max;
     slider.step = range.step;
-    slider.value = state.splitLineLengthMode === "pixel" ? state.splitLineLengthPx : state.splitLineLength;
-    slider.title = state.splitLineLengthMode === "pixel"
+    slider.value = state.alignmentLineLengthMode === "pixel" ? state.alignmentLineLengthPx : state.alignmentLineLength;
+    slider.title = state.alignmentLineLengthMode === "pixel"
       ? "Alignment line length in pixels. Use [ / ] keys."
       : "Alignment line length (% of image dimension). 100% = full span, >100% extends beyond. Use [ / ] keys.";
   }
-  updateSplitLineLengthDisplay();
+  updateAlignmentLineLengthDisplay();
 }
 
 /**
@@ -470,9 +470,9 @@ export function initEventHandlers() {
       if (!targetBtn.dataset.tool) return;
       if (textEditor.style.display === "block") bakeText();
       if (state.cropMode) exitCropMode(false);
-      // Toggle split-line orientation when clicking the tool icon while already active
-      if (targetBtn.dataset.tool === "split-line" && state.currentTool === "split-line") {
-        state.splitLineOrientation = state.splitLineOrientation === "vertical" ? "horizontal" : "vertical";
+      // Toggle alignment-line orientation when clicking the tool icon while already active
+      if (targetBtn.dataset.tool === "alignment-line" && state.currentTool === "alignment-line") {
+        state.alignmentLineOrientation = state.alignmentLineOrientation === "vertical" ? "horizontal" : "vertical";
         render();
         return;
       }
@@ -491,10 +491,10 @@ export function initEventHandlers() {
       if (state.currentTool !== "select") { state.swapHoveredElement = null; state.isSwapDragging = false; state.swapSourceElement = null; state.swapDragWorldPos = null; state.swapTargetElement = null; }
       if (state.currentTool !== "measure") { state.measureHoverGuides = []; state.activeMeasureLine = null; }
       if (state.currentTool !== "marquee" && state.marqueeMode) { marqueeCommit(); }
-      if (state.currentTool !== "split-line") {
-        state.splitLineHoveredImage = null; state.splitLineWorldPos = null;
-        state.splitLineDragStart = null; state.splitLineDragImage = null;
-        state.splitLineDragRect = null; state.splitLineIsDragging = false;
+      if (state.currentTool !== "alignment-line") {
+        state.alignmentLineHoveredImage = null; state.alignmentLineWorldPos = null;
+        state.alignmentLineDragStart = null; state.alignmentLineDragImage = null;
+        state.alignmentLineDragRect = null; state.alignmentLineIsDragging = false;
       }
       if (state.currentTool !== "stamp") { state.stampPreview = null; }
       else { updateStampPanel(); }
@@ -658,8 +658,8 @@ export function initEventHandlers() {
           }
         });
         if (changed) render();
-      } else if (state.currentTool === "split-line") {
-        // Refresh the live split-line preview, which uses currentLineWidth
+      } else if (state.currentTool === "alignment-line") {
+        // Refresh the live alignment-line preview, which uses currentLineWidth
         render();
       }
     });
@@ -822,44 +822,44 @@ export function initEventHandlers() {
   opacitySlider.addEventListener("mousedown", (e) => { e.stopPropagation(); opacityUndoPushed = false; });
   opacitySlider.addEventListener("change", () => { opacityUndoPushed = false; });
 
-  // --- Split line length slider (shared between percent and pixel modes) ---
-  const splitLineLengthSlider = document.getElementById("split-line-length-slider");
-  const splitLineLengthVal = document.getElementById("split-line-length-val");
-  const splitLineLengthMode = document.getElementById("split-line-length-mode");
-  if (splitLineLengthSlider) {
-    splitLineLengthSlider.addEventListener("input", (e) => {
+  // --- Alignment line length slider (shared between percent and pixel modes) ---
+  const alignmentLineLengthSlider = document.getElementById("alignment-line-length-slider");
+  const alignmentLineLengthVal = document.getElementById("alignment-line-length-val");
+  const alignmentLineLengthMode = document.getElementById("alignment-line-length-mode");
+  if (alignmentLineLengthSlider) {
+    alignmentLineLengthSlider.addEventListener("input", (e) => {
       const val = parseInt(e.target.value);
-      if (state.splitLineLengthMode === "pixel") {
-        state.splitLineLengthPx = val;
+      if (state.alignmentLineLengthMode === "pixel") {
+        state.alignmentLineLengthPx = val;
       } else {
-        state.splitLineLength = val;
+        state.alignmentLineLength = val;
       }
-      updateSplitLineLengthDisplay();
+      updateAlignmentLineLengthDisplay();
       render();
     });
-    splitLineLengthSlider.addEventListener("change", () => { splitLineLengthSlider.blur(); });
-    splitLineLengthSlider.addEventListener("mousedown", (e) => { e.stopPropagation(); });
+    alignmentLineLengthSlider.addEventListener("change", () => { alignmentLineLengthSlider.blur(); });
+    alignmentLineLengthSlider.addEventListener("mousedown", (e) => { e.stopPropagation(); });
   }
-  if (splitLineLengthMode) {
-    splitLineLengthMode.addEventListener("click", (e) => {
+  if (alignmentLineLengthMode) {
+    alignmentLineLengthMode.addEventListener("click", (e) => {
       e.stopPropagation();
-      state.splitLineLengthMode = state.splitLineLengthMode === "pixel" ? "percent" : "pixel";
-      syncSplitLineLengthControl();
+      state.alignmentLineLengthMode = state.alignmentLineLengthMode === "pixel" ? "percent" : "pixel";
+      syncAlignmentLineLengthControl();
       render();
     });
   }
   // Initialize the shared length control to match current state.
-  syncSplitLineLengthControl();
+  syncAlignmentLineLengthControl();
 
-  // --- Split line dash pattern select ---
-  const splitLineDashSelect = document.getElementById("split-line-dash-select");
-  if (splitLineDashSelect) {
-    splitLineDashSelect.addEventListener("change", (e) => {
-      state.splitLineDash = e.target.value;
+  // --- Alignment line dash pattern select ---
+  const alignmentLineDashSelect = document.getElementById("alignment-line-dash-select");
+  if (alignmentLineDashSelect) {
+    alignmentLineDashSelect.addEventListener("change", (e) => {
+      state.alignmentLineDash = e.target.value;
       render();
-      splitLineDashSelect.blur();
+      alignmentLineDashSelect.blur();
     });
-    splitLineDashSelect.addEventListener("mousedown", (e) => { e.stopPropagation(); });
+    alignmentLineDashSelect.addEventListener("mousedown", (e) => { e.stopPropagation(); });
   }
 
   // --- Grid spacing input ---
@@ -2106,17 +2106,17 @@ function setupKeyboardHandlers() {
   window.addEventListener("keydown", (e) => {
     if (e.key === "Meta") {
       state.isMetaPressed = true;
-      if (state.currentTool === "split-line") render();
+      if (state.currentTool === "alignment-line") render();
       if (state.currentTool === "measure" && state.activeMeasureLine) render();
     }
     if (e.key === "Control") {
       state.isCtrlPressed = true;
-      if (state.currentTool === "split-line") render();
+      if (state.currentTool === "alignment-line") render();
       if (state.currentTool === "measure" && state.activeMeasureLine) render();
     }
     if (e.key === "Shift") {
       state.isShiftPressed = true;
-      if (state.currentTool === "split-line") render();
+      if (state.currentTool === "alignment-line") render();
     }
     if (e.key === " " || e.code === "Space") {
       if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA" || e.target.isContentEditable) return;
@@ -2142,17 +2142,17 @@ function setupKeyboardHandlers() {
   window.addEventListener("keyup", (e) => {
     if (e.key === "Meta") {
       state.isMetaPressed = false;
-      if (state.currentTool === "split-line") render();
+      if (state.currentTool === "alignment-line") render();
       if (state.currentTool === "measure" && state.activeMeasureLine) render();
     }
     if (e.key === "Control") {
       state.isCtrlPressed = false;
-      if (state.currentTool === "split-line") render();
+      if (state.currentTool === "alignment-line") render();
       if (state.currentTool === "measure" && state.activeMeasureLine) render();
     }
     if (e.key === "Shift") {
       state.isShiftPressed = false;
-      if (state.currentTool === "split-line") render();
+      if (state.currentTool === "alignment-line") render();
       state.panLockDirection = null;
       if (state.activeSnapGuides.length > 0) {
         state.activeSnapGuides = [];
@@ -2636,28 +2636,28 @@ function setupKeyboardHandlers() {
       targetTool = "stamp";
     }
 
-    // W: activate split-line tool
+    // W: activate alignment-line tool
     if (key === "w" && !e.shiftKey) {
-      if (state.currentTool === "split-line") {
-        state.splitLineOrientation = state.splitLineOrientation === "vertical" ? "horizontal" : "vertical";
+      if (state.currentTool === "alignment-line") {
+        state.alignmentLineOrientation = state.alignmentLineOrientation === "vertical" ? "horizontal" : "vertical";
         render();
         return;
       }
-      targetTool = "split-line";
+      targetTool = "alignment-line";
     }
 
     // Shift+W: cycle line dash style (solid → dashed → dotted → dash-dot)
     if (key === "w" && e.shiftKey) {
       e.preventDefault();
-      if (state.currentTool === "split-line") {
-        // Cycle split-line dash pattern
+      if (state.currentTool === "alignment-line") {
+        // Cycle alignment-line dash pattern
         const patterns = ["solid", "dashed", "dotted", "dash-dot"];
-        const idx = patterns.indexOf(state.splitLineDash);
-        state.splitLineDash = patterns[(idx + 1) % patterns.length];
-        const dashSelect = document.getElementById("split-line-dash-select");
-        if (dashSelect) dashSelect.value = state.splitLineDash;
+        const idx = patterns.indexOf(state.alignmentLineDash);
+        state.alignmentLineDash = patterns[(idx + 1) % patterns.length];
+        const dashSelect = document.getElementById("alignment-line-dash-select");
+        if (dashSelect) dashSelect.value = state.alignmentLineDash;
         const labels = { solid: "Solid", dashed: "Dashed", dotted: "Dotted", "dash-dot": "Dash-dot" };
-        showToast(`Alignment line: ${labels[state.splitLineDash]}`);
+        showToast(`Alignment line: ${labels[state.alignmentLineDash]}`);
         render();
       } else {
         // Cycle general line dash style
@@ -2684,16 +2684,16 @@ function setupKeyboardHandlers() {
       return;
     }
 
-    // [ / ] keys: adjust split line length when split-line tool is active.
+    // [ / ] keys: adjust alignment line length when alignment-line tool is active.
     // With Shift held, browsers report the shifted characters "{" / "}", so
     // match both the plain and shifted forms.
     const isDecreaseLen = key === "[" || key === "{";
     const isIncreaseLen = key === "]" || key === "}";
-    if ((isDecreaseLen || isIncreaseLen) && state.currentTool === "split-line") {
+    if ((isDecreaseLen || isIncreaseLen) && state.currentTool === "alignment-line") {
       e.preventDefault();
-      if (state.splitLineLengthMode === "pixel") {
+      if (state.alignmentLineLengthMode === "pixel") {
         const step = e.shiftKey ? 100 : 50;
-        const cur = state.splitLineLengthPx;
+        const cur = state.alignmentLineLengthPx;
         let next;
         if (isDecreaseLen) {
           // Snap down to the previous multiple of `step`
@@ -2702,48 +2702,48 @@ function setupKeyboardHandlers() {
           // Snap up to the next multiple of `step`
           next = (Math.floor(cur / step) + 1) * step;
         }
-        state.splitLineLengthPx = Math.max(step, Math.min(2000, next));
+        state.alignmentLineLengthPx = Math.max(step, Math.min(2000, next));
       } else {
         const step = e.shiftKey ? 5 : 10;
         if (isDecreaseLen) {
-          state.splitLineLength = Math.max(10, state.splitLineLength - step);
+          state.alignmentLineLength = Math.max(10, state.alignmentLineLength - step);
         } else {
-          state.splitLineLength = Math.min(200, state.splitLineLength + step);
+          state.alignmentLineLength = Math.min(200, state.alignmentLineLength + step);
         }
       }
       // Sync the slider UI
-      syncSplitLineLengthControl();
+      syncAlignmentLineLengthControl();
       render();
       return;
     }
 
-    // , key: cycle split line dash pattern when split-line tool is active
-    if (key === "," && state.currentTool === "split-line") {
+    // , key: cycle alignment line dash pattern when alignment-line tool is active
+    if (key === "," && state.currentTool === "alignment-line") {
       e.preventDefault();
       const patterns = ["solid", "dashed", "dotted", "dash-dot"];
-      const idx = patterns.indexOf(state.splitLineDash);
-      state.splitLineDash = patterns[(idx + 1) % patterns.length];
-      const dashSelect = document.getElementById("split-line-dash-select");
-      if (dashSelect) dashSelect.value = state.splitLineDash;
+      const idx = patterns.indexOf(state.alignmentLineDash);
+      state.alignmentLineDash = patterns[(idx + 1) % patterns.length];
+      const dashSelect = document.getElementById("alignment-line-dash-select");
+      if (dashSelect) dashSelect.value = state.alignmentLineDash;
       render();
       return;
     }
 
-    // . key: toggle split line length unit (percentage <-> pixels)
-    if (key === "." && state.currentTool === "split-line") {
+    // . key: toggle alignment line length unit (percentage <-> pixels)
+    if (key === "." && state.currentTool === "alignment-line") {
       e.preventDefault();
-      state.splitLineLengthMode = state.splitLineLengthMode === "pixel" ? "percent" : "pixel";
-      syncSplitLineLengthControl();
-      showToast(state.splitLineLengthMode === "pixel" ? "Length in pixels" : "Length in percent");
+      state.alignmentLineLengthMode = state.alignmentLineLengthMode === "pixel" ? "percent" : "pixel";
+      syncAlignmentLineLengthControl();
+      showToast(state.alignmentLineLengthMode === "pixel" ? "Length in pixels" : "Length in percent");
       render();
       return;
     }
 
-    // F key: toggle full-width mode when split-line tool is active
-    if (key === "f" && state.currentTool === "split-line") {
+    // F key: toggle full-width mode when alignment-line tool is active
+    if (key === "f" && state.currentTool === "alignment-line") {
       e.preventDefault();
-      state.splitLineFullWidth = !state.splitLineFullWidth;
-      showToast(state.splitLineFullWidth ? "Full-width alignment line" : "Image-bound alignment line");
+      state.alignmentLineFullWidth = !state.alignmentLineFullWidth;
+      showToast(state.alignmentLineFullWidth ? "Full-width alignment line" : "Image-bound alignment line");
       render();
       return;
     }
@@ -2932,7 +2932,7 @@ function setupKeyboardHandlers() {
 
 
     // Number keys 1-3 set stroke width on selected drawing elements or when a drawing tool is active
-    const isDrawingTool = state.currentTool === "pen" || state.currentTool === "laser" || state.currentTool === "line" || state.currentTool === "arrow" || state.currentTool === "rect-border" || state.currentTool === "rect-fill" || state.currentTool === "measure" || state.currentTool === "split-line";
+    const isDrawingTool = state.currentTool === "pen" || state.currentTool === "laser" || state.currentTool === "line" || state.currentTool === "arrow" || state.currentTool === "rect-border" || state.currentTool === "rect-fill" || state.currentTool === "measure" || state.currentTool === "alignment-line";
     if ((key === "1" || key === "2" || key === "3") && (isDrawingTool || (state.currentTool === "select" && state.selectedElements.length > 0 && state.selectedElements.some((el) => el.elementType === "drawing" && el.type !== "text")))) {
       e.preventDefault();
       const widthMap = { "1": 2, "2": 4, "3": 10 };
@@ -2951,8 +2951,8 @@ function setupKeyboardHandlers() {
           }
         });
         render();
-      } else if (state.currentTool === "split-line") {
-        // Refresh the live split-line preview, which uses currentLineWidth
+      } else if (state.currentTool === "alignment-line") {
+        // Refresh the live alignment-line preview, which uses currentLineWidth
         render();
       }
       showToast(`Stroke width: ${newWidth}px`);
@@ -3153,8 +3153,8 @@ function setupMouseHandlers() {
       render();
     }
 
-    // Split-line tool hover — detect image under cursor
-    if (state.currentTool === "split-line" && !state.isInteracting) {
+    // Alignment-line tool hover — detect image under cursor
+    if (state.currentTool === "alignment-line" && !state.isInteracting) {
       const mouseWorld = screenToWorld(e.clientX, e.clientY);
       let hoveredImage = null;
       for (let i = state.images.length - 1; i >= 0; i--) {
@@ -3165,20 +3165,20 @@ function setupMouseHandlers() {
           break;
         }
       }
-      if (state.splitLineFullWidth) {
+      if (state.alignmentLineFullWidth) {
         // In full-width mode, always track cursor position regardless of image hover
-        const changed = state.splitLineWorldPos === null ||
-          state.splitLineWorldPos.x !== mouseWorld.x || state.splitLineWorldPos.y !== mouseWorld.y ||
-          hoveredImage !== state.splitLineHoveredImage;
-        state.splitLineHoveredImage = hoveredImage;
-        state.splitLineWorldPos = { x: mouseWorld.x, y: mouseWorld.y };
+        const changed = state.alignmentLineWorldPos === null ||
+          state.alignmentLineWorldPos.x !== mouseWorld.x || state.alignmentLineWorldPos.y !== mouseWorld.y ||
+          hoveredImage !== state.alignmentLineHoveredImage;
+        state.alignmentLineHoveredImage = hoveredImage;
+        state.alignmentLineWorldPos = { x: mouseWorld.x, y: mouseWorld.y };
         if (changed) render();
       } else {
-        const changed = hoveredImage !== state.splitLineHoveredImage ||
-          (hoveredImage && (state.splitLineWorldPos === null ||
-            state.splitLineWorldPos.x !== mouseWorld.x || state.splitLineWorldPos.y !== mouseWorld.y));
-        state.splitLineHoveredImage = hoveredImage;
-        state.splitLineWorldPos = hoveredImage ? { x: mouseWorld.x, y: mouseWorld.y } : null;
+        const changed = hoveredImage !== state.alignmentLineHoveredImage ||
+          (hoveredImage && (state.alignmentLineWorldPos === null ||
+            state.alignmentLineWorldPos.x !== mouseWorld.x || state.alignmentLineWorldPos.y !== mouseWorld.y));
+        state.alignmentLineHoveredImage = hoveredImage;
+        state.alignmentLineWorldPos = hoveredImage ? { x: mouseWorld.x, y: mouseWorld.y } : null;
         if (changed) render();
       }
     }
@@ -3494,11 +3494,11 @@ function setupMouseHandlers() {
       return;
     }
 
-    if (state.currentTool === "split-line") {
-      if (state.splitLineFullWidth && state.splitLineWorldPos) {
+    if (state.currentTool === "alignment-line") {
+      if (state.alignmentLineFullWidth && state.alignmentLineWorldPos) {
         // Full-width mode: create a line that extends far beyond the viewport
-        const pos = state.splitLineWorldPos;
-        const dashPattern = state.splitLineDash;
+        const pos = state.alignmentLineWorldPos;
+        const dashPattern = state.alignmentLineDash;
         const EXTENT = 100000; // large value to simulate infinite line
 
         pushUndo();
@@ -3507,16 +3507,16 @@ function setupMouseHandlers() {
           // Both orientations
           let lx = pos.x;
           let ly = pos.y;
-          if (e.shiftKey && state.splitLineHoveredImage) {
-            const img = state.splitLineHoveredImage;
-            lx = snapSplitLinePos(lx, "x", img.x, img.w);
-            ly = snapSplitLinePos(ly, "y", img.y, img.h);
+          if (e.shiftKey && state.alignmentLineHoveredImage) {
+            const img = state.alignmentLineHoveredImage;
+            lx = snapAlignmentLinePos(lx, "x", img.x, img.w);
+            ly = snapAlignmentLinePos(ly, "y", img.y, img.h);
           }
           const vLine = {
             id: "draw_" + state.elementIdCounter++,
             elementType: "drawing",
             type: "line",
-            isSplitLine: true,
+            isAlignmentLine: true,
             isFullWidth: true,
             color: state.drawColor,
             width: state.currentLineWidth / 4,
@@ -3529,7 +3529,7 @@ function setupMouseHandlers() {
             id: "draw_" + state.elementIdCounter++,
             elementType: "drawing",
             type: "line",
-            isSplitLine: true,
+            isAlignmentLine: true,
             isFullWidth: true,
             color: state.drawColor,
             width: state.currentLineWidth / 4,
@@ -3544,16 +3544,16 @@ function setupMouseHandlers() {
           spatialInsert(hLine);
         } else {
           const effectiveOrientation = e.metaKey
-            ? (state.splitLineOrientation === "vertical" ? "horizontal" : "vertical")
-            : state.splitLineOrientation;
+            ? (state.alignmentLineOrientation === "vertical" ? "horizontal" : "vertical")
+            : state.alignmentLineOrientation;
           let lx = pos.x;
           let ly = pos.y;
-          if (e.shiftKey && state.splitLineHoveredImage) {
-            const img = state.splitLineHoveredImage;
+          if (e.shiftKey && state.alignmentLineHoveredImage) {
+            const img = state.alignmentLineHoveredImage;
             if (effectiveOrientation === "vertical") {
-              lx = snapSplitLinePos(lx, "x", img.x, img.w);
+              lx = snapAlignmentLinePos(lx, "x", img.x, img.w);
             } else {
-              ly = snapSplitLinePos(ly, "y", img.y, img.h);
+              ly = snapAlignmentLinePos(ly, "y", img.y, img.h);
             }
           }
           let start, end;
@@ -3568,7 +3568,7 @@ function setupMouseHandlers() {
             id: "draw_" + state.elementIdCounter++,
             elementType: "drawing",
             type: "line",
-            isSplitLine: true,
+            isAlignmentLine: true,
             isFullWidth: true,
             color: state.drawColor,
             width: state.currentLineWidth / 4,
@@ -3583,15 +3583,15 @@ function setupMouseHandlers() {
 
         scheduleSave();
         render();
-      } else if (state.splitLineHoveredImage && state.splitLineWorldPos) {
+      } else if (state.alignmentLineHoveredImage && state.alignmentLineWorldPos) {
         // Defer placement: a plain click (mouseup with no meaningful drag) places
-        // a single split line (existing behavior), while a press-and-drag sweeps
+        // a single alignment line (existing behavior), while a press-and-drag sweeps
         // out a rectangular box guide. The actual work happens in mousemove /
         // mouseup so we keep isInteracting = true here.
-        state.splitLineDragStart = { x: state.splitLineWorldPos.x, y: state.splitLineWorldPos.y };
-        state.splitLineDragImage = state.splitLineHoveredImage;
-        state.splitLineDragRect = null;
-        state.splitLineIsDragging = false;
+        state.alignmentLineDragStart = { x: state.alignmentLineWorldPos.x, y: state.alignmentLineWorldPos.y };
+        state.alignmentLineDragImage = state.alignmentLineHoveredImage;
+        state.alignmentLineDragRect = null;
+        state.alignmentLineIsDragging = false;
         return;
       }
       state.isInteracting = false;
@@ -3949,20 +3949,20 @@ function setupMouseHandlers() {
       return;
     }
 
-    // Split-line box drag: sweep out a rectangular guide box on the source image.
-    if (state.currentTool === "split-line" && state.splitLineDragStart && state.splitLineDragImage) {
+    // Alignment-line box drag: sweep out a rectangular guide box on the source image.
+    if (state.currentTool === "alignment-line" && state.alignmentLineDragStart && state.alignmentLineDragImage) {
       const screenDx = e.clientX - state.startX;
       const screenDy = e.clientY - state.startY;
-      if (!state.splitLineIsDragging &&
+      if (!state.alignmentLineIsDragging &&
           Math.sqrt(screenDx * screenDx + screenDy * screenDy) < CONSTANTS.MIN_DRAW_DISTANCE) {
         return; // not enough movement yet — still a potential click
       }
-      state.splitLineIsDragging = true;
-      state.splitLineDragRect = computeSplitLineBoxRect(
-        state.splitLineDragImage, state.splitLineDragStart, worldPos, e.shiftKey
+      state.alignmentLineIsDragging = true;
+      state.alignmentLineDragRect = computeAlignmentLineBoxRect(
+        state.alignmentLineDragImage, state.alignmentLineDragStart, worldPos, e.shiftKey
       );
       // Keep the crosshair preview position in sync so hover overlay stays hidden.
-      state.splitLineWorldPos = { x: worldPos.x, y: worldPos.y };
+      state.alignmentLineWorldPos = { x: worldPos.x, y: worldPos.y };
       render();
       return;
     }
@@ -4400,7 +4400,7 @@ function setupMouseHandlers() {
           if (el.elementType === "image") {
             bx = el.x; by = el.y; bw = el.w; bh = el.h;
           } else if (el.start && el.end) {
-            // Fast path for line-type elements (line, arrow, split lines, connectors)
+            // Fast path for line-type elements (line, arrow, alignment lines, connectors)
             bx = Math.min(el.start.x, el.end.x);
             by = Math.min(el.start.y, el.end.y);
             bw = Math.max(el.start.x, el.end.x) - bx;
@@ -4609,29 +4609,29 @@ function setupMouseHandlers() {
       render(); return;
     }
 
-    // Split-line tool mouseup: a drag places a box guide, a plain click places
-    // a single split line (existing behavior).
-    if (state.currentTool === "split-line" && state.splitLineDragStart) {
-      const img = state.splitLineDragImage;
-      const wasDrag = state.splitLineIsDragging;
-      const dragRect = state.splitLineDragRect;
-      const clickPos = state.splitLineDragStart;
+    // Alignment-line tool mouseup: a drag places a box guide, a plain click places
+    // a single alignment line (existing behavior).
+    if (state.currentTool === "alignment-line" && state.alignmentLineDragStart) {
+      const img = state.alignmentLineDragImage;
+      const wasDrag = state.alignmentLineIsDragging;
+      const dragRect = state.alignmentLineDragRect;
+      const clickPos = state.alignmentLineDragStart;
       // Clear drag state before placing so a re-render doesn't show stale preview.
-      state.splitLineDragStart = null;
-      state.splitLineDragImage = null;
-      state.splitLineDragRect = null;
-      state.splitLineIsDragging = false;
+      state.alignmentLineDragStart = null;
+      state.alignmentLineDragImage = null;
+      state.alignmentLineDragRect = null;
+      state.alignmentLineIsDragging = false;
 
       if (wasDrag) {
         if (dragRect) {
           // Ctrl/Cmd+drag draws only partial corner marks instead of full edges.
-          placeSplitLineBox(dragRect, e.metaKey || e.ctrlKey);
+          placeAlignmentLineBox(dragRect, e.metaKey || e.ctrlKey);
         } else {
           render();
         }
       } else if (img) {
         // No meaningful movement — treat as a click at the press point.
-        placeSplitLineClick(img, clickPos, e);
+        placeAlignmentLineClick(img, clickPos, e);
       }
       return;
     }
