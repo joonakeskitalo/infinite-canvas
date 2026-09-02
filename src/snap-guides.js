@@ -624,7 +624,7 @@ export function computeMeasureHoverGuides(worldPos, cursorPos) {
 
     for (const b of nearbyBounds) {
       if (b.id === hoveredBounds.id) continue;
-      _addPairGuides(guides, myLeft, myTop, myRight, myBottom, b.x, b.y, b.x + b.w, b.y + b.h, MAX_DIST, nearbyBounds, hoveredBounds.id, b.id);
+      _addPairGuides(guides, myLeft, myTop, myRight, myBottom, b.x, b.y, b.x + b.w, b.y + b.h, MAX_DIST, allBounds, hoveredBounds.id, b.id);
     }
   }
 
@@ -635,7 +635,7 @@ export function computeMeasureHoverGuides(worldPos, cursorPos) {
       const b = nearbyBounds[j];
       // Skip if one of them is the hovered element (already handled above)
       if (hoveredBounds && (a.id === hoveredBounds.id || b.id === hoveredBounds.id)) continue;
-      _addPairGuides(guides, a.x, a.y, a.x + a.w, a.y + a.h, b.x, b.y, b.x + b.w, b.y + b.h, MAX_DIST, nearbyBounds, a.id, b.id);
+      _addPairGuides(guides, a.x, a.y, a.x + a.w, a.y + a.h, b.x, b.y, b.x + b.w, b.y + b.h, MAX_DIST, allBounds, a.id, b.id);
     }
   }
 
