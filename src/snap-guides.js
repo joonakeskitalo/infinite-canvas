@@ -602,10 +602,10 @@ export function computeMeasureHoverGuides(worldPos) {
     const distToTop = worldPos.y - myTop;
     const distToBottom = myBottom - worldPos.y;
 
-    if (distToLeft > 0.5) guides.push({ fromX: myLeft, fromY: worldPos.y, toX: worldPos.x, toY: worldPos.y, dist: distToLeft, isEdge: true });
-    if (distToRight > 0.5) guides.push({ fromX: worldPos.x, fromY: worldPos.y, toX: myRight, toY: worldPos.y, dist: distToRight, isEdge: true });
-    if (distToTop > 0.5) guides.push({ fromX: worldPos.x, fromY: myTop, toX: worldPos.x, toY: worldPos.y, dist: distToTop, isEdge: true });
-    if (distToBottom > 0.5) guides.push({ fromX: worldPos.x, fromY: worldPos.y, toX: worldPos.x, toY: myBottom, dist: distToBottom, isEdge: true });
+    if (distToLeft > 0.5) guides.push({ fromX: myLeft, fromY: worldPos.y, toX: worldPos.x, toY: worldPos.y, dist: distToLeft, isEdge: true, isCursor: true });
+    if (distToRight > 0.5) guides.push({ fromX: worldPos.x, fromY: worldPos.y, toX: myRight, toY: worldPos.y, dist: distToRight, isEdge: true, isCursor: true });
+    if (distToTop > 0.5) guides.push({ fromX: worldPos.x, fromY: myTop, toX: worldPos.x, toY: worldPos.y, dist: distToTop, isEdge: true, isCursor: true });
+    if (distToBottom > 0.5) guides.push({ fromX: worldPos.x, fromY: worldPos.y, toX: worldPos.x, toY: myBottom, dist: distToBottom, isEdge: true, isCursor: true });
 
     // If hovering a alignment line, show distance from the alignment line to the parent image edges
     // (only to the nearest edge, i.e., if no other alignment line is between it and the edge)
@@ -650,20 +650,20 @@ export function computeMeasureHoverGuides(worldPos) {
       if (worldPos.y >= top && worldPos.y <= bottom) {
         if (worldPos.x < left) {
           const dist = left - worldPos.x;
-          if (dist < MAX_DIST) guides.push({ fromX: worldPos.x, fromY: worldPos.y, toX: left, toY: worldPos.y, dist });
+          if (dist < MAX_DIST) guides.push({ fromX: worldPos.x, fromY: worldPos.y, toX: left, toY: worldPos.y, dist, isCursor: true });
         } else if (worldPos.x > right) {
           const dist = worldPos.x - right;
-          if (dist < MAX_DIST) guides.push({ fromX: worldPos.x, fromY: worldPos.y, toX: right, toY: worldPos.y, dist });
+          if (dist < MAX_DIST) guides.push({ fromX: worldPos.x, fromY: worldPos.y, toX: right, toY: worldPos.y, dist, isCursor: true });
         }
       }
 
       if (worldPos.x >= left && worldPos.x <= right) {
         if (worldPos.y < top) {
           const dist = top - worldPos.y;
-          if (dist < MAX_DIST) guides.push({ fromX: worldPos.x, fromY: worldPos.y, toX: worldPos.x, toY: top, dist });
+          if (dist < MAX_DIST) guides.push({ fromX: worldPos.x, fromY: worldPos.y, toX: worldPos.x, toY: top, dist, isCursor: true });
         } else if (worldPos.y > bottom) {
           const dist = worldPos.y - bottom;
-          if (dist < MAX_DIST) guides.push({ fromX: worldPos.x, fromY: worldPos.y, toX: worldPos.x, toY: bottom, dist });
+          if (dist < MAX_DIST) guides.push({ fromX: worldPos.x, fromY: worldPos.y, toX: worldPos.x, toY: bottom, dist, isCursor: true });
         }
       }
     }
@@ -825,18 +825,8 @@ function _addPairGuides(guides, aLeft, aTop, aRight, aBottom, bLeft, bTop, bRigh
     }
   }
 
-  // Diagonal distance for elements without axis overlap
-  if (!vOverlap && !hOverlap) {
-    const closestOnA = _clampPointToRect((bLeft + bRight) / 2, (bTop + bBottom) / 2, aLeft, aTop, aRight, aBottom);
-    const closestOnB = _clampPointToRect(closestOnA.x, closestOnA.y, bLeft, bTop, bRight, bBottom);
-    const refined = _clampPointToRect(closestOnB.x, closestOnB.y, aLeft, aTop, aRight, aBottom);
-    const dx = closestOnB.x - refined.x;
-    const dy = closestOnB.y - refined.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist > 0.5 && dist < maxDist && !_isOccluded(refined.x, refined.y, closestOnB.x, closestOnB.y, allBounds, idA, idB)) {
-      guides.push({ fromX: refined.x, fromY: refined.y, toX: closestOnB.x, toY: closestOnB.y, dist });
-    }
-  }
+  // Diagonal distance guides (for elements without axis overlap) are intentionally
+  // omitted for the measure tool — only horizontal/vertical distance guides are shown.
 }
 
 /**
@@ -873,14 +863,6 @@ function _isOccluded(x1, y1, x2, y2, allBounds, idA, idB) {
     }
   }
   return false;
-}
-/**
- * Clamp a point to the nearest position on a rectangle's boundary.
- */
-function _clampPointToRect(px, py, left, top, right, bottom) {
-  const x = Math.max(left, Math.min(px, right));
-  const y = Math.max(top, Math.min(py, bottom));
-  return { x, y };
 }
 
 // Closest point on the axis-aligned segment from (ax,ay) to (bx,by) to point (px,py).

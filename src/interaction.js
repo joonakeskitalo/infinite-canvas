@@ -2130,6 +2130,17 @@ function handlePaste(e) {
   }
 }
 
+/**
+ * Recompute the measure-tool guides from the active line's current endpoint.
+ * Rendering decides which guides are shown (X/Y guides always, element-to-element
+ * overlays only on Cmd/Ctrl), so this just refreshes the full set. Used when the
+ * modifier state changes mid-drag to re-evaluate overlay visibility immediately.
+ */
+function refreshMeasureDragGuides() {
+  if (!state.activeMeasureLine) { state.measureHoverGuides = []; return; }
+  state.measureHoverGuides = computeMeasureHoverGuides(state.activeMeasureLine.end);
+}
+
 function setupKeyboardHandlers() {
   const dom = getDom();
   const { container, textEditor, colorPicker } = dom;
@@ -2138,12 +2149,12 @@ function setupKeyboardHandlers() {
     if (e.key === "Meta") {
       state.isMetaPressed = true;
       if (state.currentTool === "alignment-line") render();
-      if (state.currentTool === "measure" && state.activeMeasureLine) render();
+      if (state.currentTool === "measure" && state.activeMeasureLine) { refreshMeasureDragGuides(); render(); }
     }
     if (e.key === "Control") {
       state.isCtrlPressed = true;
       if (state.currentTool === "alignment-line") render();
-      if (state.currentTool === "measure" && state.activeMeasureLine) render();
+      if (state.currentTool === "measure" && state.activeMeasureLine) { refreshMeasureDragGuides(); render(); }
     }
     if (e.key === "Shift") {
       state.isShiftPressed = true;
@@ -2174,12 +2185,12 @@ function setupKeyboardHandlers() {
     if (e.key === "Meta") {
       state.isMetaPressed = false;
       if (state.currentTool === "alignment-line") render();
-      if (state.currentTool === "measure" && state.activeMeasureLine) render();
+      if (state.currentTool === "measure" && state.activeMeasureLine) { refreshMeasureDragGuides(); render(); }
     }
     if (e.key === "Control") {
       state.isCtrlPressed = false;
       if (state.currentTool === "alignment-line") render();
-      if (state.currentTool === "measure" && state.activeMeasureLine) render();
+      if (state.currentTool === "measure" && state.activeMeasureLine) { refreshMeasureDragGuides(); render(); }
     }
     if (e.key === "Shift") {
       state.isShiftPressed = false;
@@ -3180,6 +3191,8 @@ function setupMouseHandlers() {
     // Measure tool hover
     if (state.currentTool === "measure" && !state.isInteracting) {
       const mouseWorld = screenToWorld(e.clientX, e.clientY);
+      // Always compute the guides; rendering shows the cursor-anchored X/Y guide
+      // lines always and the element-to-element measurement overlays only on Cmd/Ctrl.
       state.measureHoverGuides = computeMeasureHoverGuides(mouseWorld);
       // Preview where the start point will snap so distances can be measured from
       // an exact element edge/corner/center before the drag begins.
@@ -4604,6 +4617,9 @@ function setupMouseHandlers() {
         }
       }
       state.activeMeasureLine.end = { ...worldPos };
+      // Keep the guides live during the drag so the line can be aligned against
+      // nearby elements. Rendering shows X/Y guides always, overlays only on Cmd/Ctrl.
+      state.measureHoverGuides = computeMeasureHoverGuides(worldPos);
       render();
     } else if (state.activeContrastLine) {
       // Don't update contrast line until user has dragged beyond minimum distance

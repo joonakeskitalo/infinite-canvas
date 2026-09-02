@@ -1589,7 +1589,11 @@ function _doRender(targetCtx, isExporting) {
       targetCtx.restore();
     }
     if (state.measureHoverGuides.length > 0) {
+      const showOverlays = state.isMetaPressed || state.isCtrlPressed;
       state.measureHoverGuides.forEach((g) => {
+        // Only the cursor-anchored X/Y guide lines are always drawn. Every
+        // item-to-item measurement line is shown only while Cmd/Ctrl is held.
+        if (!g.isCursor && !showOverlays) return;
         const zf = transform.zoom;
         const lineWidth = 1 / zf;
         const capSize = 4 / zf;
