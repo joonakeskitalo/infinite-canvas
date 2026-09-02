@@ -91,6 +91,7 @@ export const state = {
   // Measurement tool
   measureHoverGuides: [],
   activeMeasureLine: null,
+  measureSnapPoint: null, // {x, y} world-coords of the current Shift-snap target (for visual marker)
 
   // Swap tool
   swapHoveredElement: null,

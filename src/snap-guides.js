@@ -882,3 +882,163 @@ function _clampPointToRect(px, py, left, top, right, bottom) {
   const y = Math.max(top, Math.min(py, bottom));
   return { x, y };
 }
+
+// Closest point on the axis-aligned segment from (ax,ay) to (bx,by) to point (px,py).
+function _closestPointOnSegment(px, py, ax, ay, bx, by) {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) return { x: ax, y: ay };
+  let t = ((px - ax) * dx + (py - ay) * dy) / lenSq;
+  t = Math.max(0, Math.min(1, t));
+  return { x: ax + t * dx, y: ay + t * dy };
+}
+
+/**
+ * Snap a free 2D point (e.g. a measurement line endpoint) to the nearest point on
+ * an on-screen element's edges — anywhere along an edge, not just corners. Corners
+ * fall out naturally as segment endpoints; element centers are added as extra
+ * targets. Off-screen elements are ignored. Returns the nearest candidate within a
+ * generous screen-space catch zone, else the original point.
+ *
+ * @param {{x:number,y:number}} pos   the cursor point (world-coords)
+ * @param {Set<string>|string[]} [excludeIds]  element ids to ignore
+ * @returns {{x:number,y:number, snapped:boolean}} snapped point (snapped=false when no target was close enough)
+ */
+export function snapMeasurePoint(pos, excludeIds) {
+  const excluded = excludeIds instanceof Set ? excludeIds : new Set(excludeIds || []);
+  // Generous catch zone (screen px, converted to world) so targets are easy to hit.
+  const threshold = 16 / state.transform.zoom;
+  const vp = getViewportBounds();
+
+  let best = null;
+  let bestDist = threshold;
+
+  function considerPoint(x, y) {
+    const dist = Math.hypot(pos.x - x, pos.y - y);
+    if (dist < bestDist) { bestDist = dist; best = { x, y }; }
+  }
+
+  function considerEdge(ax, ay, bx, by) {
+    const p = _closestPointOnSegment(pos.x, pos.y, ax, ay, bx, by);
+    const dist = Math.hypot(pos.x - p.x, pos.y - p.y);
+    if (dist < bestDist) { bestDist = dist; best = p; }
+  }
+
+  function consider(b) {
+    if (!isRectInViewport(b.x, b.y, b.w, b.h, vp)) return; // off-screen — skip
+    const l = b.x, t = b.y, r = b.x + b.w, btm = b.y + b.h;
+    // Four edges (snaps to any point along them; corners are the segment ends).
+    considerEdge(l, t, r, t);     // top
+    considerEdge(l, btm, r, btm); // bottom
+    considerEdge(l, t, l, btm);   // left
+    considerEdge(r, t, r, btm);   // right
+    // Center as an extra strong target.
+    considerPoint(l + b.w / 2, t + b.h / 2);
+  }
+
+  for (const img of state.images) {
+    if (excluded.has(img.id)) continue;
+    consider({ x: img.x, y: img.y, w: img.w, h: img.h });
+  }
+  for (const shape of state.drawings) {
+    if (excluded.has(shape.id)) continue;
+    if (shape.type === "connector") continue;
+    consider(getShapeBounds(shape));
+  }
+
+  if (best) return { x: best.x, y: best.y, snapped: true };
+  return { x: pos.x, y: pos.y, snapped: false };
+}
+
+/**
+ * Direction-locked measurement snapping. The line direction is fixed (the caller
+ * has already angle-locked `lockedEnd` to 0/45/90° relative to `start`). This
+ * slides the endpoint ALONG that locked direction so it lands where the locked
+ * ray meets a nearby element's edge or corner — the direction lock always wins,
+ * snapping only adjusts the length.
+ *
+ * Candidates:
+ *  - the intersection of the locked ray with each element edge segment, and
+ *  - each corner / center, projected onto the ray when it lies within the catch
+ *    zone perpendicular to the ray.
+ * The candidate whose endpoint is closest to `lockedEnd` (within the catch zone
+ * measured along the ray) wins.
+ *
+ * @returns {{x:number,y:number, snapped:boolean}} endpoint on the locked ray
+ */
+export function snapMeasureAlongRay(start, lockedEnd, excludeIds) {
+  const excluded = excludeIds instanceof Set ? excludeIds : new Set(excludeIds || []);
+  const threshold = 16 / state.transform.zoom;
+  const vp = getViewportBounds();
+
+  const dx = lockedEnd.x - start.x;
+  const dy = lockedEnd.y - start.y;
+  const len = Math.hypot(dx, dy);
+  if (len < 1e-6) return { x: lockedEnd.x, y: lockedEnd.y, snapped: false };
+  const ux = dx / len, uy = dy / len; // unit direction of the locked ray
+  // Distance along the ray to the current (unsnapped) locked endpoint.
+  const tEnd = len;
+
+  let bestT = null;
+  let bestDelta = threshold; // how far the snapped endpoint may sit from lockedEnd (along ray)
+
+  // Consider a world point: project it onto the ray, require it be in front of
+  // start and within the perpendicular catch zone, then treat its projection as a
+  // candidate length.
+  function considerProjectedPoint(px, py) {
+    const rx = px - start.x, ry = py - start.y;
+    const t = rx * ux + ry * uy;          // distance along ray
+    if (t <= 0) return;                    // behind the start point
+    const perp = Math.abs(rx * uy - ry * ux); // perpendicular distance to ray
+    if (perp > threshold) return;
+    const delta = Math.abs(t - tEnd);
+    if (delta < bestDelta) { bestDelta = delta; bestT = t; }
+  }
+
+  // Intersect the ray with an axis-aligned segment and, when it lands within the
+  // segment, add the intersection length as a candidate.
+  function considerRaySegment(ax, ay, bx, by) {
+    const sx = bx - ax, sy = by - ay;
+    const denom = ux * sy - uy * sx;
+    if (Math.abs(denom) < 1e-9) return; // parallel — handled by projected points
+    // Solve start + t*u = a + s*seg
+    const qx = ax - start.x, qy = ay - start.y;
+    const t = (qx * sy - qy * sx) / denom;   // length along ray
+    const s = (qx * uy - qy * ux) / denom;   // param along segment [0,1]
+    if (t <= 0) return;
+    if (s < 0 || s > 1) return;
+    const delta = Math.abs(t - tEnd);
+    if (delta < bestDelta) { bestDelta = delta; bestT = t; }
+  }
+
+  function consider(b) {
+    if (!isRectInViewport(b.x, b.y, b.w, b.h, vp)) return;
+    const l = b.x, tp = b.y, r = b.x + b.w, btm = b.y + b.h;
+    considerRaySegment(l, tp, r, tp);
+    considerRaySegment(l, btm, r, btm);
+    considerRaySegment(l, tp, l, btm);
+    considerRaySegment(r, tp, r, btm);
+    // Corners and center as projected points (snap even if the ray passes nearby).
+    considerProjectedPoint(l, tp);
+    considerProjectedPoint(r, tp);
+    considerProjectedPoint(l, btm);
+    considerProjectedPoint(r, btm);
+    considerProjectedPoint(l + b.w / 2, tp + b.h / 2);
+  }
+
+  for (const img of state.images) {
+    if (excluded.has(img.id)) continue;
+    consider({ x: img.x, y: img.y, w: img.w, h: img.h });
+  }
+  for (const shape of state.drawings) {
+    if (excluded.has(shape.id)) continue;
+    if (shape.type === "connector") continue;
+    consider(getShapeBounds(shape));
+  }
+
+  if (bestT !== null) {
+    return { x: start.x + ux * bestT, y: start.y + uy * bestT, snapped: true };
+  }
+  return { x: lockedEnd.x, y: lockedEnd.y, snapped: false };
+}

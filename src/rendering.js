@@ -1574,6 +1574,20 @@ function _doRender(targetCtx, isExporting) {
         drawMeasureLine(targetCtx, state.activeMeasureLine.start, state.activeMeasureLine.end, "#00bcd4", false);
       }
     }
+    // Highlight the current snap target with a small ring — shown both while
+    // hovering (previewing the start point) and during the drag (the endpoint).
+    if (state.measureSnapPoint) {
+      const r = 5 / transform.zoom;
+      targetCtx.save();
+      targetCtx.beginPath();
+      targetCtx.arc(state.measureSnapPoint.x, state.measureSnapPoint.y, r, 0, Math.PI * 2);
+      targetCtx.strokeStyle = "#00bcd4";
+      targetCtx.lineWidth = 1.5 / transform.zoom;
+      targetCtx.fillStyle = "rgba(0, 188, 212, 0.35)";
+      targetCtx.fill();
+      targetCtx.stroke();
+      targetCtx.restore();
+    }
     if (state.measureHoverGuides.length > 0) {
       state.measureHoverGuides.forEach((g) => {
         const zf = transform.zoom;

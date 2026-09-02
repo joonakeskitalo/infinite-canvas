@@ -16,7 +16,7 @@ import { scheduleSave, saveFile, saveAs, openFile } from "./persistence.js";
 import { render, renderSync, executePNGExport, executeJPEGExport } from "./rendering.js";
 import {
   getSnapTargets, snapToElements, snapToSpacing, snapResizeEdges,
-  getProximityGuides, getSpacingGuides, computeMeasureHoverGuides,
+  getProximityGuides, getSpacingGuides, computeMeasureHoverGuides, snapMeasurePoint, snapMeasureAlongRay,
   snapAlignmentLineAxis,
 } from "./snap-guides.js";
 import {
@@ -490,7 +490,7 @@ export function initEventHandlers() {
       }
       if (state.currentTool !== "select") state.selectedElements = [];
       if (state.currentTool !== "select") { state.swapHoveredElement = null; state.isSwapDragging = false; state.swapSourceElement = null; state.swapDragWorldPos = null; state.swapTargetElement = null; }
-      if (state.currentTool !== "measure") { state.measureHoverGuides = []; state.activeMeasureLine = null; }
+      if (state.currentTool !== "measure") { state.measureHoverGuides = []; state.activeMeasureLine = null; state.measureSnapPoint = null; }
       if (state.currentTool !== "marquee" && state.marqueeMode) { marqueeCommit(); }
       if (state.currentTool !== "alignment-line") {
         state.alignmentLineHoveredImage = null; state.alignmentLineWorldPos = null;
@@ -3181,6 +3181,10 @@ function setupMouseHandlers() {
     if (state.currentTool === "measure" && !state.isInteracting) {
       const mouseWorld = screenToWorld(e.clientX, e.clientY);
       state.measureHoverGuides = computeMeasureHoverGuides(mouseWorld);
+      // Preview where the start point will snap so distances can be measured from
+      // an exact element edge/corner/center before the drag begins.
+      const snapped = snapMeasurePoint(mouseWorld);
+      state.measureSnapPoint = snapped.snapped ? { x: snapped.x, y: snapped.y } : null;
       render();
     }
 
@@ -3512,7 +3516,16 @@ function setupMouseHandlers() {
     }
 
     if (state.currentTool === "measure") {
-      state.activeMeasureLine = { start: { ...worldPos }, end: { ...worldPos } };
+      let startPos = worldPos;
+      state.measureSnapPoint = null;
+      // Snap the start point to the nearest element edge/corner/center (always on)
+      // so a measurement can begin exactly on an item.
+      const snapped = snapMeasurePoint(worldPos);
+      if (snapped.snapped) {
+        startPos = { x: snapped.x, y: snapped.y };
+        state.measureSnapPoint = { x: snapped.x, y: snapped.y };
+      }
+      state.activeMeasureLine = { start: { ...startPos }, end: { ...startPos } };
       state.measureHoverGuides = [];
       return;
     }
@@ -4573,7 +4586,23 @@ function setupMouseHandlers() {
       const screenDy = e.clientY - state.startY;
       if (Math.sqrt(screenDx * screenDx + screenDy * screenDy) < CONSTANTS.MIN_DRAW_DISTANCE) return;
 
-      if (e.shiftKey) worldPos = constraintToAngle(state.activeMeasureLine.start, worldPos);
+      // Shift locks the line to 0/45/90° and keeps that lock; snapping then slides
+      // the endpoint along the locked direction to where it meets an element edge
+      // or corner. Without Shift, the endpoint snaps freely to element
+      // edges/corners/centers so distances between items are easy to measure.
+      state.measureSnapPoint = null;
+      if (e.shiftKey) {
+        const locked = constraintToAngle(state.activeMeasureLine.start, worldPos);
+        const snapped = snapMeasureAlongRay(state.activeMeasureLine.start, locked);
+        worldPos = { x: snapped.x, y: snapped.y };
+        if (snapped.snapped) state.measureSnapPoint = { x: snapped.x, y: snapped.y };
+      } else {
+        const snapped = snapMeasurePoint(worldPos);
+        if (snapped.snapped) {
+          worldPos = { x: snapped.x, y: snapped.y };
+          state.measureSnapPoint = { x: snapped.x, y: snapped.y };
+        }
+      }
       state.activeMeasureLine.end = { ...worldPos };
       render();
     } else if (state.activeContrastLine) {
@@ -4863,6 +4892,7 @@ function setupMouseHandlers() {
         }
       }
       state.activeMeasureLine = null;
+      state.measureSnapPoint = null;
       render(); scheduleSave();
       state.isMiddleClick = false; state.isRightClickHand = false; updateCursor();
       return;
