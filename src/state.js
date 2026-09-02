@@ -92,6 +92,8 @@ export const state = {
   measureHoverGuides: [],
   activeMeasureLine: null,
   measureSnapPoint: null, // {x, y} world-coords of the current Shift-snap target (for visual marker)
+  measureOriginPos: null, // {x, y} measurement origin (snapped endpoint when snapping)
+  measureCursorPos: null, // {x, y} raw cursor used for hover/nearby detection
 
   // Swap tool
   swapHoveredElement: null,

@@ -490,7 +490,7 @@ export function initEventHandlers() {
       }
       if (state.currentTool !== "select") state.selectedElements = [];
       if (state.currentTool !== "select") { state.swapHoveredElement = null; state.isSwapDragging = false; state.swapSourceElement = null; state.swapDragWorldPos = null; state.swapTargetElement = null; }
-      if (state.currentTool !== "measure") { state.measureHoverGuides = []; state.activeMeasureLine = null; state.measureSnapPoint = null; }
+      if (state.currentTool !== "measure") { state.measureHoverGuides = []; state.activeMeasureLine = null; state.measureSnapPoint = null; state.measureOriginPos = null; state.measureCursorPos = null; }
       if (state.currentTool !== "marquee" && state.marqueeMode) { marqueeCommit(); }
       if (state.currentTool !== "alignment-line") {
         state.alignmentLineHoveredImage = null; state.alignmentLineWorldPos = null;
@@ -2138,7 +2138,9 @@ function handlePaste(e) {
  */
 function refreshMeasureDragGuides() {
   if (!state.activeMeasureLine) { state.measureHoverGuides = []; return; }
-  state.measureHoverGuides = computeMeasureHoverGuides(state.activeMeasureLine.end);
+  const origin = state.measureOriginPos || state.activeMeasureLine.end;
+  const cursor = state.measureCursorPos || origin;
+  state.measureHoverGuides = computeMeasureHoverGuides(origin, cursor);
 }
 
 function setupKeyboardHandlers() {
@@ -3191,13 +3193,23 @@ function setupMouseHandlers() {
     // Measure tool hover
     if (state.currentTool === "measure" && !state.isInteracting) {
       const mouseWorld = screenToWorld(e.clientX, e.clientY);
-      // Always compute the guides; rendering shows the cursor-anchored X/Y guide
-      // lines always and the element-to-element measurement overlays only on Cmd/Ctrl.
-      state.measureHoverGuides = computeMeasureHoverGuides(mouseWorld);
-      // Preview where the start point will snap so distances can be measured from
-      // an exact element edge/corner/center before the drag begins.
-      const snapped = snapMeasurePoint(mouseWorld);
-      state.measureSnapPoint = snapped.snapped ? { x: snapped.x, y: snapped.y } : null;
+      // With Shift held, snap the origin to the nearest element edge/corner/center
+      // and measure from that snap point (so a few pixels of cursor slop doesn't
+      // throw off the distance). Without Shift, measure from the raw cursor.
+      let guidePos = mouseWorld;
+      state.measureSnapPoint = null;
+      if (e.shiftKey) {
+        const snapped = snapMeasurePoint(mouseWorld);
+        if (snapped.snapped) {
+          state.measureSnapPoint = { x: snapped.x, y: snapped.y };
+          guidePos = state.measureSnapPoint;
+        }
+      }
+      // Rendering shows the cursor-anchored X/Y guide lines always and the
+      // element-to-element measurement overlays only on Cmd/Ctrl. Hover/nearby
+      // detection stays on the raw cursor so a snapped origin doesn't switch the
+      // readout to measuring inside the snapped element.
+      state.measureHoverGuides = computeMeasureHoverGuides(guidePos, mouseWorld);
       render();
     }
 
@@ -3531,12 +3543,14 @@ function setupMouseHandlers() {
     if (state.currentTool === "measure") {
       let startPos = worldPos;
       state.measureSnapPoint = null;
-      // Snap the start point to the nearest element edge/corner/center (always on)
-      // so a measurement can begin exactly on an item.
-      const snapped = snapMeasurePoint(worldPos);
-      if (snapped.snapped) {
-        startPos = { x: snapped.x, y: snapped.y };
-        state.measureSnapPoint = { x: snapped.x, y: snapped.y };
+      // With Shift held, snap the start point to the nearest element
+      // edge/corner/center so a measurement can begin exactly on an item.
+      if (e.shiftKey) {
+        const snapped = snapMeasurePoint(worldPos);
+        if (snapped.snapped) {
+          startPos = { x: snapped.x, y: snapped.y };
+          state.measureSnapPoint = { x: snapped.x, y: snapped.y };
+        }
       }
       state.activeMeasureLine = { start: { ...startPos }, end: { ...startPos } };
       state.measureHoverGuides = [];
@@ -4599,6 +4613,9 @@ function setupMouseHandlers() {
       const screenDy = e.clientY - state.startY;
       if (Math.sqrt(screenDx * screenDx + screenDy * screenDy) < CONSTANTS.MIN_DRAW_DISTANCE) return;
 
+      // Raw cursor (pre-snap) used for hover/nearby detection in the guides.
+      const rawCursor = { x: worldPos.x, y: worldPos.y };
+
       // Shift locks the line to 0/45/90° and keeps that lock; snapping then slides
       // the endpoint along the locked direction to where it meets an element edge
       // or corner. Without Shift, the endpoint snaps freely to element
@@ -4618,8 +4635,11 @@ function setupMouseHandlers() {
       }
       state.activeMeasureLine.end = { ...worldPos };
       // Keep the guides live during the drag so the line can be aligned against
-      // nearby elements. Rendering shows X/Y guides always, overlays only on Cmd/Ctrl.
-      state.measureHoverGuides = computeMeasureHoverGuides(worldPos);
+      // nearby elements. Measure from the snapped endpoint but detect hover/nearby
+      // from the raw cursor. Rendering shows X/Y guides always, overlays only on Cmd/Ctrl.
+      state.measureOriginPos = { x: worldPos.x, y: worldPos.y };
+      state.measureCursorPos = rawCursor;
+      state.measureHoverGuides = computeMeasureHoverGuides(worldPos, rawCursor);
       render();
     } else if (state.activeContrastLine) {
       // Don't update contrast line until user has dragged beyond minimum distance
@@ -4909,6 +4929,8 @@ function setupMouseHandlers() {
       }
       state.activeMeasureLine = null;
       state.measureSnapPoint = null;
+      state.measureOriginPos = null;
+      state.measureCursorPos = null;
       render(); scheduleSave();
       state.isMiddleClick = false; state.isRightClickHand = false; updateCursor();
       return;

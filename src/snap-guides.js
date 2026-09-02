@@ -549,7 +549,15 @@ export function snapResizeEdges(bounds, handlePosition, targets, threshold) {
   return { dx, dy, guides };
 }
 
-export function computeMeasureHoverGuides(worldPos) {
+/**
+ * @param {{x:number,y:number}} worldPos  measurement origin (the snapped point when snapping)
+ * @param {{x:number,y:number}} [cursorPos]  raw cursor position used for hover/nearby
+ *   detection. Defaults to worldPos. Passing the real cursor keeps "hovering an
+ *   element" based on the cursor, so snapping the origin onto an element's edge
+ *   doesn't flip the readout into measuring inside that element.
+ */
+export function computeMeasureHoverGuides(worldPos, cursorPos) {
+  const detectPos = cursorPos || worldPos;
   const NEARBY_RADIUS = 600 / state.transform.zoom;
   const MAX_DIST = 500 / state.transform.zoom;
   const MAX_GUIDES = 12;
@@ -569,11 +577,11 @@ export function computeMeasureHoverGuides(worldPos) {
     if (shape.isAlignmentLine) alignmentLineMap.set(shape.id, shape);
   });
 
-  // Determine if hovering over an element
+  // Determine if hovering over an element (based on the real cursor position)
   let hoveredBounds = null;
   for (let i = allBounds.length - 1; i >= 0; i--) {
     const b = allBounds[i];
-    if (worldPos.x >= b.x && worldPos.x <= b.x + b.w && worldPos.y >= b.y && worldPos.y <= b.y + b.h) {
+    if (detectPos.x >= b.x && detectPos.x <= b.x + b.w && detectPos.y >= b.y && detectPos.y <= b.y + b.h) {
       hoveredBounds = b;
       break;
     }
@@ -584,7 +592,7 @@ export function computeMeasureHoverGuides(worldPos) {
   for (const b of allBounds) {
     const cx = b.x + b.w / 2;
     const cy = b.y + b.h / 2;
-    const distToCursor = Math.hypot(cx - worldPos.x, cy - worldPos.y);
+    const distToCursor = Math.hypot(cx - detectPos.x, cy - detectPos.y);
     if (distToCursor < NEARBY_RADIUS) {
       nearbyBounds.push(b);
     }
