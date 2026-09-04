@@ -3351,6 +3351,13 @@ function setupMouseHandlers() {
 
     let worldPos = screenToWorld(e.clientX, e.clientY);
 
+    // Middle-click / right-click always pans, even in crop mode. Handle this
+    // before crop interaction so panning stays available while cropping.
+    if (state.isMiddleClick || state.isRightClickHand) {
+      updateCursor();
+      return;
+    }
+
     // Crop mode interaction
     if (state.cropMode && state.cropTarget && state.cropRect) {
       const full = getFullImageBounds(state.cropTarget);
