@@ -70,6 +70,10 @@ export const state = {
   regionEnd: { x: 0, y: 0 },
   dragOffsets: [],
   hasDragThresholdBeenMet: false,
+  // ID of an already-selected element that was modifier+clicked. The deselect is
+  // deferred to mouseup so a shift+click-drag moves the whole selection instead
+  // of dropping the clicked item.
+  pendingModifierDeselectId: null,
   resizingElement: null,
   resizeStartBounds: null,
 

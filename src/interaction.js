@@ -3747,6 +3747,7 @@ function setupMouseHandlers() {
     }
 
     if (state.currentTool === "select") {
+      state.pendingModifierDeselectId = null;
       // Swap handle hit
       if (state.selectedElements.length >= 2 && state.swapHoveredElement && isPointOnSwapHandle(worldPos, state.swapHoveredElement)) {
         state.isSwapDragging = true;
@@ -3893,8 +3894,15 @@ function setupMouseHandlers() {
           state.selectedElements = overlapping;
         } else if (isModifierActive) {
           const idx = state.selectedElements.findIndex((el) => el.id === clickedElement.id);
-          if (idx !== -1) state.selectedElements.splice(idx, 1);
-          else state.selectedElements.push(clickedElement);
+          if (idx !== -1) {
+            // Element is already selected. Defer the toggle-deselect to mouseup so
+            // that shift+click-and-drag moves the whole selection instead of
+            // accidentally dropping the clicked item. If no drag happens, the
+            // deselect is applied on mouseup (see the mouseup handler).
+            state.pendingModifierDeselectId = clickedElement.id;
+          } else {
+            state.selectedElements.push(clickedElement);
+          }
         } else {
           const isAlreadyInSelection = state.selectedElements.some((el) => el.id === clickedElement.id);
           if (!isAlreadyInSelection) state.selectedElements = [clickedElement];
@@ -5109,9 +5117,20 @@ function setupMouseHandlers() {
       // If the drag threshold was never met, the elements weren't actually moved — remove the premature undo entry
       if (!state.hasDragThresholdBeenMet && state.dragOffsets.length > 0) {
         state.undoStack.pop();
+        // A modifier+click on an already-selected element with no drag: apply the
+        // deferred toggle-deselect now (mousedown deferred it so a drag could move
+        // the whole selection instead of dropping the clicked item).
+        if (state.pendingModifierDeselectId) {
+          const idx = state.selectedElements.findIndex((el) => el.id === state.pendingModifierDeselectId);
+          if (idx !== -1) {
+            state.selectedElements.splice(idx, 1);
+            expandSelectionToGroups();
+          }
+        }
       }
       for (const el of state.selectedElements) spatialUpdate(el);
     }
+    state.pendingModifierDeselectId = null;
     _dragOffsetMap = null;
     _dragExcludeIds = null;
     _dragExcludeIdSet = null;
