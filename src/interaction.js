@@ -4619,7 +4619,7 @@ function setupMouseHandlers() {
       };
       render();
     } else if (state.marqueeIsSelecting || state.marqueeIsDragging) {
-      marqueeUpdateSelection(worldPos, e.shiftKey);
+      marqueeUpdateSelection(worldPos, e.shiftKey, e.metaKey);
     } else if (isAccessibilityPreviewInteracting()) {
       accessibilityPreviewMove(worldPos, e.shiftKey);
     } else if (state.activeMeasureLine) {

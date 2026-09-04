@@ -357,9 +357,12 @@ export function marqueeSelectImageAt(worldPos) {
 
 /**
  * Update the marquee rectangle while dragging to define it.
- * Pass shiftKey=true to enable snapping to grid or other elements.
+ * While drawing a new selection, pass shiftKey=true to snap the dragged endpoint
+ * to the grid or nearby elements, and metaKey=true to lock the rectangle to a
+ * square. While dragging an existing selection, shiftKey=true moves the captured
+ * content (with snapping) instead of only the selection box.
  */
-export function marqueeUpdateSelection(worldPos, shiftKey) {
+export function marqueeUpdateSelection(worldPos, shiftKey, metaKey) {
   if (state.marqueeIsDragging && state.marqueeDragStart) {
     const dx = worldPos.x - state.marqueeDragStart.x;
     const dy = worldPos.y - state.marqueeDragStart.y;
@@ -404,6 +407,17 @@ export function marqueeUpdateSelection(worldPos, shiftKey) {
   const startY = state.marqueeStart.y;
   let endX = worldPos.x;
   let endY = worldPos.y;
+
+  if (metaKey) {
+    // Cmd locks the selection to a square: use the larger of the two deltas as
+    // the side length, preserving the drag direction on each axis so the square
+    // grows toward the cursor.
+    const dx = endX - startX;
+    const dy = endY - startY;
+    const side = Math.max(Math.abs(dx), Math.abs(dy));
+    endX = startX + (dx < 0 ? -side : side);
+    endY = startY + (dy < 0 ? -side : side);
+  }
 
   if (shiftKey) {
     // Snap only the dragged endpoint, keep the start point fixed
