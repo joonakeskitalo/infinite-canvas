@@ -2930,7 +2930,7 @@ function setupKeyboardHandlers() {
       const availW = canvas.width - padding * 2;
       const availH = canvas.height - padding * 2;
       const newZoom = Math.min(availW / boundsW, availH / boundsH, 12.0);
-      const clampedZoom = Math.max(0.05, Math.min(12.0, newZoom));
+      const clampedZoom = Math.max(0.03, Math.min(12.0, newZoom));
       const centerX = (minX + maxX) / 2;
       const centerY = (minY + maxY) / 2;
       state.transform.zoom = clampedZoom;
@@ -2962,7 +2962,7 @@ function setupKeyboardHandlers() {
       const availW = canvas.width - padding * 2;
       const availH = canvas.height - padding * 2;
       const newZoom = Math.min(availW / boundsW, availH / boundsH, 12.0);
-      const clampedZoom = Math.max(0.05, Math.min(12.0, newZoom));
+      const clampedZoom = Math.max(0.01, Math.min(12.0, newZoom));
       const centerX = (minX + maxX) / 2;
       const centerY = (minY + maxY) / 2;
       state.transform.zoom = clampedZoom;

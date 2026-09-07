@@ -265,7 +265,7 @@ function zoomToFit() {
   const availW = canvas.width - padding * 2;
   const availH = canvas.height - padding * 2;
   const newZoom = Math.min(availW / boundsW, availH / boundsH, 12.0);
-  state.transform.zoom = Math.max(0.05, Math.min(12.0, newZoom));
+  state.transform.zoom = Math.max(0.03, Math.min(12.0, newZoom));
   state.transform.x = canvas.width / 2 - ((minX + maxX) / 2) * state.transform.zoom;
   state.transform.y = canvas.height / 2 - ((minY + maxY) / 2) * state.transform.zoom;
   render();
