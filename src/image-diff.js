@@ -14,8 +14,10 @@
  *   - Changed Pixels             (a binary mask of pixels above a threshold)
  *   - Mean (average)             (the average composite of all images)
  *
- * A summary reports the percent of pixels that differ and the mean spread. All
- * selected source images are shown once in a final section.
+ * A summary reports the percent of pixels that differ and the mean spread.
+ * After the combined diff, each unique pair of images (1↔2, 1↔3, 2↔3, …) gets
+ * its own pairwise diff section. All selected source images are shown once in a
+ * final section.
  *
  * The panel updates live as the canvas selection changes. Selecting fewer than
  * two images shows a hint. Any cell can be dragged onto the canvas or
@@ -209,6 +211,72 @@ function computeCombinedDiff(datas, w, h) {
 }
 
 /**
+ * Compute the pairwise diff products between two ImageData buffers of identical
+ * size (absolute per-channel |A-B|). Returns the per-view canvases plus stats.
+ */
+function computePairDiff(dataA, dataB, w, h) {
+  const a = dataA.data;
+  const b = dataB.data;
+  const n = w * h;
+
+  const diffData = new Uint8ClampedArray(a.length);
+  const heatData = new Uint8ClampedArray(a.length);
+  const maskData = new Uint8ClampedArray(a.length);
+  const blendData = new Uint8ClampedArray(a.length);
+
+  let changedPixels = 0;
+  let totalDiff = 0;
+
+  for (let i = 0; i < n; i++) {
+    const o = i * 4;
+    const dr = Math.abs(a[o] - b[o]);
+    const dg = Math.abs(a[o + 1] - b[o + 1]);
+    const db = Math.abs(a[o + 2] - b[o + 2]);
+
+    diffData[o] = dr;
+    diffData[o + 1] = dg;
+    diffData[o + 2] = db;
+    diffData[o + 3] = 255;
+
+    const mag = Math.max(dr, dg, db);
+    totalDiff += (dr + dg + db) / 3;
+
+    const heat = heatColor(mag / 255);
+    heatData[o] = heat[0];
+    heatData[o + 1] = heat[1];
+    heatData[o + 2] = heat[2];
+    heatData[o + 3] = 255;
+
+    const changed = mag > DIFF_THRESHOLD;
+    if (changed) changedPixels++;
+    maskData[o] = changed ? 255 : 235;
+    maskData[o + 1] = changed ? 60 : 235;
+    maskData[o + 2] = changed ? 60 : 235;
+    maskData[o + 3] = 255;
+
+    blendData[o] = (a[o] + b[o]) >> 1;
+    blendData[o + 1] = (a[o + 1] + b[o + 1]) >> 1;
+    blendData[o + 2] = (a[o + 2] + b[o + 2]) >> 1;
+    blendData[o + 3] = 255;
+  }
+
+  return {
+    canvases: {
+      difference: imageDataToCanvas(new ImageData(diffData, w, h)),
+      heatmap: imageDataToCanvas(new ImageData(heatData, w, h)),
+      mask: imageDataToCanvas(new ImageData(maskData, w, h)),
+      blend: imageDataToCanvas(new ImageData(blendData, w, h)),
+    },
+    stats: {
+      changedPixels,
+      totalPixels: n,
+      changedPercent: n > 0 ? (changedPixels / n) * 100 : 0,
+      meanDiff: n > 0 ? totalDiff / n : 0,
+    },
+  };
+}
+
+/**
  * Map a normalized magnitude t (0..1) to an [r,g,b] heatmap color.
  * Ramp: near-black (no change) -> blue -> cyan -> green -> yellow -> red.
  */
@@ -244,12 +312,20 @@ function imageDataToCanvas(imageData) {
 }
 
 // The comparison / diff views rendered for each pair of images.
-// The combined-diff views. Source images are rendered after these.
+// The combined-diff views (across all selected images).
 const DIFF_VIEWS = [
   { key: "difference", label: "Combined Difference" },
   { key: "heatmap", label: "Difference Heatmap" },
   { key: "mask", label: "Changed Pixels" },
   { key: "mean", label: "Mean (average)" },
+];
+
+// The per-pair diff views.
+const PAIR_VIEWS = [
+  { key: "difference", label: "Difference" },
+  { key: "heatmap", label: "Difference Heatmap" },
+  { key: "mask", label: "Changed Pixels" },
+  { key: "blend", label: "Blend (50%)" },
 ];
 
 const MAX_DIM = 1024;
@@ -325,9 +401,18 @@ function refreshDiff() {
     `;
   }
 
-  // Single combined-diff section.
+  // Combined-diff section (across all images).
+  appendSectionHeader("Combined diff", `across all ${n} images`);
   for (const { key: viewKey, label } of DIFF_VIEWS) {
     appendCell(canvases[viewKey], label, placeW, placeH);
+  }
+
+  // Pairwise diff sections for every unique pair (1↔2, 1↔3, 2↔3, …). All rasters
+  // share the same working size, so their pixel buffers align directly.
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      renderPairSection(rasters, i, j, placeW, placeH);
+    }
   }
 
   // Source images, once, at the end.
@@ -418,6 +503,30 @@ function appendCell(canvas, label, worldW, worldH) {
       insertImageToCanvas(dataURL, worldW, worldH, label);
     }
   });
+}
+
+/**
+ * Render one pairwise comparison section for images[i] vs images[j], reusing the
+ * already-rasterized (shared-size) pixel buffers. `i`/`j` are 0-based indices.
+ */
+function renderPairSection(rasters, i, j, placeW, placeH) {
+  const rasterA = rasters[i];
+  const rasterB = rasters[j];
+  const w = rasterA.imageData.width;
+  const h = rasterA.imageData.height;
+
+  const { canvases, stats } = computePairDiff(rasterA.imageData, rasterB.imageData, w, h);
+
+  const pct = stats.changedPercent;
+  const pctStr = pct >= 10 ? pct.toFixed(1) : pct.toFixed(2);
+  const subtitle = `<span class="image-diff-summary-strong">${pctStr}%</span> changed`
+    + ` · mean ${stats.meanDiff.toFixed(1)}/255`;
+
+  appendSectionHeader(`Image ${i + 1} ↔ Image ${j + 1}`, subtitle);
+
+  for (const { key, label } of PAIR_VIEWS) {
+    appendCell(canvases[key], label, placeW, placeH);
+  }
 }
 
 /**

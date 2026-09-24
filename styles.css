@@ -2985,6 +2985,12 @@ input[type="color"]::-webkit-color-swatch {
   }
 }
 
+@container (min-width: 1300px) {
+  .image-diff-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
 .image-diff-cell {
   background: #fff;
   border-radius: 8px;
