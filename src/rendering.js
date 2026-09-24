@@ -1030,7 +1030,7 @@ function _doRender(targetCtx, isExporting) {
       }
       targetCtx.restore();
 
-      if (!isExporting && state.currentTool === "select" && !state.overlaysHidden && !(state.cropMode && state.cropTarget && state.cropTarget.id === imgData.id)) {
+      if (!isExporting && (state.currentTool === "select" || state.currentTool === "image-diff") && !state.overlaysHidden && !(state.cropMode && state.cropTarget && state.cropTarget.id === imgData.id)) {
         const isSelected = _selectedIdSet && _selectedIdSet.has(imgData.id);
         const isGrouped = !!imgData.groupId;
         targetCtx.save();
@@ -1041,7 +1041,9 @@ function _doRender(targetCtx, isExporting) {
         }
         targetCtx.strokeRect(imgData.x, imgData.y, imgData.w, imgData.h);
 
-        if (isSelected && state.selectedElements.length === 1) {
+        // Resize handles are a Select-tool affordance only; the image-diff tool
+        // just compares images and does not resize them.
+        if (isSelected && state.selectedElements.length === 1 && state.currentTool === "select") {
           targetCtx.fillStyle = "#ff4444";
           const hSize = CONSTANTS.RESIZE_HANDLE_SIZE / transform.zoom;
           const handles = getElementResizeHandles(imgData);

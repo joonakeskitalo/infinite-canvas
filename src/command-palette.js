@@ -13,6 +13,7 @@ import { groupSelection, ungroupSelection, toggleLockSelection, selectAllElement
 import { saveFile, saveAs, openFile } from "./persistence.js";
 import { showToast } from "./utils.js";
 import { getCustomColors } from "./custom-colors.js";
+import { activateImageDiff, deactivateImageDiff } from "./image-diff.js";
 
 let _render = null;
 let paletteEl = null;
@@ -57,6 +58,7 @@ function getCommands() {
     { id: "tool-contrast", label: "Contrast Checker", shortcut: "K", category: "Tools", action: () => switchTool("contrast") },
     { id: "tool-eyedropper", label: "Color Picker / Eyedropper", shortcut: "I", category: "Tools", action: () => switchTool("eyedropper") },
     { id: "tool-accessibility-preview", label: "Accessibility Preview", shortcut: "J", category: "Tools", action: () => switchTool("accessibility-preview") },
+    { id: "tool-image-diff", label: "Image Diff — Compare Two Images", shortcut: "Q", category: "Tools", action: () => switchTool("image-diff") },
 
     // --- Export ---
     // Export options. "Copy to Clipboard" and "Download" render the same image and
@@ -143,7 +145,12 @@ function getCommands() {
 
 function switchTool(toolId) {
   state.currentTool = toolId;
-  if (toolId !== "select") state.selectedElements = [];
+  // "select" and "image-diff" both operate on the current canvas selection, so
+  // preserve it when switching into either.
+  if (toolId !== "select" && toolId !== "image-diff") state.selectedElements = [];
+  // Open/close the image-diff side panel to match the accessibility-preview tool.
+  if (toolId === "image-diff") activateImageDiff();
+  else deactivateImageDiff();
   updateToolbarUI();
   updateCursor();
   render();

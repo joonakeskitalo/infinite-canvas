@@ -61,6 +61,10 @@ import {
   activateAccessibilityPreview, deactivateAccessibilityPreview,
   handleAccessibilityPreviewDrop, getAccessibilityPreviewCursor,
 } from "./accessibility-preview.js";
+import {
+  activateImageDiff, deactivateImageDiff, handleImageDiffDrop,
+  imageDiffSelectionChanged, isImageDiffPanelOpen,
+} from "./image-diff.js";
 import { analyzeMarqueeColors, hideMarqueeColors } from "./marquee-colors.js";
 import { toggle as toggleCommandPalette } from "./command-palette.js";
 import { updateStampPanel, clearRestoreSelection } from "./saved-stamps.js";
@@ -488,8 +492,11 @@ export function initEventHandlers() {
         toolbar.style.display = "";
         zoomOverlay.style.display = "";
       }
-      if (state.currentTool !== "select") state.selectedElements = [];
-      if (state.currentTool !== "select") { state.swapHoveredElement = null; state.isSwapDragging = false; state.swapSourceElement = null; state.swapDragWorldPos = null; state.swapTargetElement = null; }
+      // "select" and "image-diff" both operate on the canvas selection, so
+      // preserve selectedElements when switching between (or into) them.
+      const selectionToolActive = state.currentTool === "select" || state.currentTool === "image-diff";
+      if (!selectionToolActive) state.selectedElements = [];
+      if (!selectionToolActive) { state.swapHoveredElement = null; state.isSwapDragging = false; state.swapSourceElement = null; state.swapDragWorldPos = null; state.swapTargetElement = null; }
       if (state.currentTool !== "measure") { state.measureHoverGuides = []; state.activeMeasureLine = null; state.measureSnapPoint = null; state.measureOriginPos = null; state.measureCursorPos = null; }
       if (state.currentTool !== "marquee" && state.marqueeMode) { marqueeCommit(); }
       if (state.currentTool !== "alignment-line") {
@@ -501,6 +508,8 @@ export function initEventHandlers() {
       else { updateStampPanel(); }
       if (state.currentTool === "accessibility-preview") { activateAccessibilityPreview(); }
       else { deactivateAccessibilityPreview(); }
+      if (state.currentTool === "image-diff") { activateImageDiff(); }
+      else { deactivateImageDiff(); }
       if (state.currentTool === "contrast") { state.contrastClickCount = 0; state.contrastColor1 = null; state.contrastColor2 = null; state.contrastWorldPos1 = null; state.activeContrastLine = null; showContrastWaiting(1); }
       else { hideContrastPanel(); }
       if (state.currentTool === "text") { colorPicker.value = state.textDrawColor; }
@@ -1191,7 +1200,7 @@ export function initEventHandlers() {
 
   container.addEventListener("wheel", (e) => {
     // Don't zoom/pan when cursor is over app UI elements (toolbar, menus, panels)
-    const uiRoot = e.target.closest("#toolbar, #toolbar-menu, #color-popup, #alignment-panel, #filter-preview-overlay, #accessibility-preview-panel, .toast");
+    const uiRoot = e.target.closest("#toolbar, #toolbar-menu, #color-popup, #alignment-panel, #filter-preview-overlay, #accessibility-preview-panel, #image-diff-panel, .toast");
     if (uiRoot) return;
 
     e.preventDefault();
@@ -1217,6 +1226,11 @@ export function initEventHandlers() {
     // Check if this is a drag from the accessibility preview panel
     if (e.dataTransfer && e.dataTransfer.types.includes("application/x-a11y-preview")) {
       handleAccessibilityPreviewDrop(e);
+      return;
+    }
+    // Check if this is a drag from the image diff panel
+    if (e.dataTransfer && e.dataTransfer.types.includes("application/x-image-diff")) {
+      handleImageDiffDrop(e);
       return;
     }
     if (e.dataTransfer && e.dataTransfer.files.length > 0) {
@@ -2300,6 +2314,12 @@ function setupKeyboardHandlers() {
         updateToolbarUI();
         updateCursor();
         render();
+      } else if (isImageDiffPanelOpen()) {
+        deactivateImageDiff();
+        state.currentTool = "select";
+        updateToolbarUI();
+        updateCursor();
+        render();
       } else if (state.selectedElements.length > 0) {
         state.selectedElements = [];
         toggleAlignmentPanelVisibility();
@@ -2665,6 +2685,7 @@ function setupKeyboardHandlers() {
     if (key === "y") targetTool = "measure";
     if (key === "k") targetTool = "contrast";
     if (key === "j") targetTool = "accessibility-preview";
+    if (key === "q") targetTool = "image-diff";
     // Bracket keys: adjust z-index (no modifier required)
     if ((key === "[" || key === "]") && state.currentTool === "select" && state.selectedElements.length > 0) {
       e.preventDefault();
@@ -3746,7 +3767,7 @@ function setupMouseHandlers() {
       return;
     }
 
-    if (state.currentTool === "select") {
+    if (state.currentTool === "select" || state.currentTool === "image-diff") {
       state.pendingModifierDeselectId = null;
       // Swap handle hit
       if (state.selectedElements.length >= 2 && state.swapHoveredElement && isPointOnSwapHandle(worldPos, state.swapHoveredElement)) {
@@ -4215,7 +4236,7 @@ function setupMouseHandlers() {
 
     if (state.currentTool === "eraser") { checkAndEraseAtPosition(worldPos); return; }
 
-    if (state.currentTool === "select") {
+    if (state.currentTool === "select" || state.currentTool === "image-diff") {
       if (state.resizingElement) {
         const el = state.resizingElement;
         const sb = state.resizeStartBounds;
@@ -5043,7 +5064,7 @@ function setupMouseHandlers() {
       return;
     }
 
-    if (state.currentTool === "select" && state.isRegionSelecting) {
+    if ((state.currentTool === "select" || state.currentTool === "image-diff") && state.isRegionSelecting) {
       state.isRegionSelecting = false;
       const rx = Math.min(state.regionStart.x, state.regionEnd.x);
       const ry = Math.min(state.regionStart.y, state.regionEnd.y);
@@ -5136,6 +5157,8 @@ function setupMouseHandlers() {
     _dragExcludeIdSet = null;
 
     toggleAlignmentPanelVisibility();
+    // Keep the image-diff panel in sync with the (possibly changed) selection.
+    if (isImageDiffPanelOpen()) imageDiffSelectionChanged();
     render();
     state.isMiddleClick = false;
     state.isRightClickHand = false;
