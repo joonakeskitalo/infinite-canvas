@@ -3,21 +3,23 @@
  *
  * A tool mode with a non-blocking side panel — the same UX pattern as the
  * Accessibility Preview tool. When activated, a panel opens on the right side.
- * Select exactly two image elements on the canvas (Shift-click to add to the
- * selection) and the panel shows the visual difference between them in several
- * complementary views:
+ * Select two or more image elements on the canvas (Shift-click to add to the
+ * selection). The panel shows a single combined difference across all of them
+ * — for each pixel it measures the spread (max - min per channel) across every
+ * selected image, so a region lights up wherever the images disagree and stays
+ * dark where they all match. Views:
  *
- *   - Image A / Image B          (the two sources, normalized to a common size)
- *   - Difference                 (absolute per-channel |A-B|, brightened)
- *   - Heatmap                    (per-pixel magnitude mapped to a color ramp)
+ *   - Combined Difference        (per-channel spread across all images)
+ *   - Difference Heatmap         (per-pixel spread mapped to a color ramp)
  *   - Changed Pixels             (a binary mask of pixels above a threshold)
- *   - A over B (50%)             (a blend, handy for spotting registration shifts)
+ *   - Mean (average)             (the average composite of all images)
  *
- * A summary line reports how many pixels changed and the mean difference.
+ * A summary reports the percent of pixels that differ and the mean spread. All
+ * selected source images are shown once in a final section.
  *
- * The panel updates live as the canvas selection changes. Selecting other than
- * two images shows a hint. Diff view cells can be dragged onto the canvas or
- * Cmd/Ctrl-clicked to insert them as new image elements, mirroring the
+ * The panel updates live as the canvas selection changes. Selecting fewer than
+ * two images shows a hint. Any cell can be dragged onto the canvas or
+ * Cmd/Ctrl-clicked to insert it as a new image element, mirroring the
  * accessibility preview tool.
  */
 
@@ -30,17 +32,6 @@ import { scheduleSave } from "./persistence.js";
 // Pixels whose per-channel max difference exceeds this (0-255) count as "changed"
 // and are highlighted in the mask / heatmap views.
 const DIFF_THRESHOLD = 16;
-
-// The diff views computed once two images are available. `key` selects which
-// renderer runs; `label` is shown under each cell.
-const DIFF_VIEWS = [
-  { key: "difference", label: "Difference" },
-  { key: "heatmap", label: "Difference Heatmap" },
-  { key: "mask", label: "Changed Pixels" },
-  { key: "blend", label: "A over B (50%)" },
-  { key: "a", label: "Image A" },
-  { key: "b", label: "Image B" },
-];
 
 // --- Panel state ---
 let panelOpen = false;
@@ -132,49 +123,61 @@ function rasterizeImage(el, targetW, targetH) {
 }
 
 /**
- * Compute all diff products from two ImageData buffers of identical size.
+ * Compute a single combined diff across N ImageData buffers of identical size.
+ * For each pixel channel it measures the spread across all images (max - min),
+ * so a pixel lights up wherever the images disagree and stays dark where they
+ * all match. Also produces a mean (average) composite of the images.
+ *
  * Returns the per-view canvases plus summary statistics.
  */
-function computeDiff(dataA, dataB, w, h) {
-  const a = dataA.data;
-  const b = dataB.data;
+function computeCombinedDiff(datas, w, h) {
+  const count = datas.length;
+  const buffers = datas.map((d) => d.data);
+  const len = buffers[0].length;
   const n = w * h;
 
-  // Output buffers for each computed view.
-  const diffData = new Uint8ClampedArray(a.length);
-  const heatData = new Uint8ClampedArray(a.length);
-  const maskData = new Uint8ClampedArray(a.length);
-  const blendData = new Uint8ClampedArray(a.length);
+  const diffData = new Uint8ClampedArray(len);
+  const heatData = new Uint8ClampedArray(len);
+  const maskData = new Uint8ClampedArray(len);
+  const meanData = new Uint8ClampedArray(len);
 
   let changedPixels = 0;
   let totalDiff = 0;
 
   for (let i = 0; i < n; i++) {
     const o = i * 4;
-    const dr = Math.abs(a[o] - b[o]);
-    const dg = Math.abs(a[o + 1] - b[o + 1]);
-    const db = Math.abs(a[o + 2] - b[o + 2]);
 
-    // Absolute difference view (per channel), fully opaque.
+    // Per-channel min / max / sum across all images.
+    let minR = 255, minG = 255, minB = 255;
+    let maxR = 0, maxG = 0, maxB = 0;
+    let sumR = 0, sumG = 0, sumB = 0;
+    for (let k = 0; k < count; k++) {
+      const buf = buffers[k];
+      const r = buf[o], g = buf[o + 1], b = buf[o + 2];
+      if (r < minR) minR = r; if (r > maxR) maxR = r; sumR += r;
+      if (g < minG) minG = g; if (g > maxG) maxG = g; sumG += g;
+      if (b < minB) minB = b; if (b > maxB) maxB = b; sumB += b;
+    }
+
+    // Spread per channel — the combined difference.
+    const dr = maxR - minR;
+    const dg = maxG - minG;
+    const db = maxB - minB;
+
     diffData[o] = dr;
     diffData[o + 1] = dg;
     diffData[o + 2] = db;
     diffData[o + 3] = 255;
 
-    // Magnitude of change for this pixel (max channel delta).
     const mag = Math.max(dr, dg, db);
     totalDiff += (dr + dg + db) / 3;
 
-    // Heatmap: blue (small) -> green -> red (large).
-    const t = mag / 255;
-    const heat = heatColor(t);
+    const heat = heatColor(mag / 255);
     heatData[o] = heat[0];
     heatData[o + 1] = heat[1];
     heatData[o + 2] = heat[2];
     heatData[o + 3] = 255;
 
-    // Binary mask: changed pixels are red, unchanged are light gray so the
-    // changed regions stand out clearly.
     const changed = mag > DIFF_THRESHOLD;
     if (changed) changedPixels++;
     maskData[o] = changed ? 255 : 235;
@@ -182,11 +185,11 @@ function computeDiff(dataA, dataB, w, h) {
     maskData[o + 2] = changed ? 60 : 235;
     maskData[o + 3] = 255;
 
-    // 50/50 blend of the two images.
-    blendData[o] = (a[o] + b[o]) >> 1;
-    blendData[o + 1] = (a[o + 1] + b[o + 1]) >> 1;
-    blendData[o + 2] = (a[o + 2] + b[o + 2]) >> 1;
-    blendData[o + 3] = 255;
+    // Mean composite (average of all images).
+    meanData[o] = Math.round(sumR / count);
+    meanData[o + 1] = Math.round(sumG / count);
+    meanData[o + 2] = Math.round(sumB / count);
+    meanData[o + 3] = 255;
   }
 
   return {
@@ -194,7 +197,7 @@ function computeDiff(dataA, dataB, w, h) {
       difference: imageDataToCanvas(new ImageData(diffData, w, h)),
       heatmap: imageDataToCanvas(new ImageData(heatData, w, h)),
       mask: imageDataToCanvas(new ImageData(maskData, w, h)),
-      blend: imageDataToCanvas(new ImageData(blendData, w, h)),
+      mean: imageDataToCanvas(new ImageData(meanData, w, h)),
     },
     stats: {
       changedPixels,
@@ -240,34 +243,43 @@ function imageDataToCanvas(imageData) {
   return canvas;
 }
 
-/**
- * The two image elements to diff, in a stable order (by z-order) so "A" and "B"
- * are consistent across selection re-orderings. Returns null when the selection
- * is not exactly two images.
- */
-function getSelectedImagePair() {
-  const images = state.selectedElements.filter((el) => el && el.elementType === "image");
-  if (images.length !== 2) return { images, ok: false };
+// The comparison / diff views rendered for each pair of images.
+// The combined-diff views. Source images are rendered after these.
+const DIFF_VIEWS = [
+  { key: "difference", label: "Combined Difference" },
+  { key: "heatmap", label: "Difference Heatmap" },
+  { key: "mask", label: "Changed Pixels" },
+  { key: "mean", label: "Mean (average)" },
+];
 
-  // Order by z-order (elementOrder index) for a stable A/B assignment.
+const MAX_DIM = 1024;
+
+/**
+ * The selected image elements, in a stable order (by z-order) so the labelling
+ * is consistent across selection re-orderings. Returns { images, ok } where ok
+ * is true when there are at least two images.
+ */
+function getSelectedImages() {
+  const images = state.selectedElements.filter((el) => el && el.elementType === "image");
   const sorted = [...images].sort((a, b) => {
     const ia = state.elementOrder.indexOf(a.id);
     const ib = state.elementOrder.indexOf(b.id);
     return ia - ib;
   });
-  return { images: sorted, ok: true };
+  return { images: sorted, ok: sorted.length >= 2 };
 }
 
 // --- Panel content ---
 
 /**
- * Rebuild the panel grid from the current selection. Shows a hint when the
- * selection is not exactly two images.
+ * Rebuild the panel from the current selection. Produces a single combined diff
+ * across all selected images (per-pixel spread), then shows every source image
+ * once at the end. Shows a hint when fewer than two images are selected.
  */
 function refreshDiff() {
   if (!panelOpen || !gridEl) return;
 
-  const { images, ok } = getSelectedImagePair();
+  const { images, ok } = getSelectedImages();
 
   if (!ok) {
     lastRenderedKey = null;
@@ -275,47 +287,51 @@ function refreshDiff() {
     return;
   }
 
-  const [elA, elB] = images;
-
-  // Skip recompute if the same pair is already rendered.
-  const key = elA.id + "|" + elB.id + "|" + selectionCropKey(elA) + "|" + selectionCropKey(elB);
+  // Skip recompute if the same set of images (and crops) is already rendered.
+  const key = images.map((el) => el.id + ":" + selectionCropKey(el)).join("|");
   if (key === lastRenderedKey && gridEl.querySelector(".image-diff-cell")) return;
   lastRenderedKey = key;
 
-  // Choose a shared working size: the larger of the two natural sizes, capped so
-  // we don't allocate huge buffers. Both images are scaled to this size so the
-  // comparison is pixel-aligned.
-  const sizeA = naturalSize(elA);
-  const sizeB = naturalSize(elB);
-  const MAX_DIM = 1024;
-  let targetW = Math.max(sizeA.w, sizeB.w);
-  let targetH = Math.max(sizeA.h, sizeB.h);
+  gridEl.innerHTML = "";
+
+  const n = images.length;
+
+  // Shared working size: the largest natural dimension across all images (capped
+  // by MAX_DIM) so every image is scaled to the same grid and the diff aligns.
+  const sizes = images.map(naturalSize);
+  let targetW = Math.max(...sizes.map((s) => s.w));
+  let targetH = Math.max(...sizes.map((s) => s.h));
   if (targetW > MAX_DIM || targetH > MAX_DIM) {
     const s = MAX_DIM / Math.max(targetW, targetH);
     targetW = Math.max(1, Math.round(targetW * s));
     targetH = Math.max(1, Math.round(targetH * s));
   }
 
-  const rasterA = rasterizeImage(elA, targetW, targetH);
-  const rasterB = rasterizeImage(elB, targetW, targetH);
+  const rasters = images.map((el) => rasterizeImage(el, targetW, targetH));
+  const { canvases, stats } = computeCombinedDiff(rasters.map((r) => r.imageData), targetW, targetH);
 
-  const { canvases, stats } = computeDiff(rasterA.imageData, rasterB.imageData, targetW, targetH);
+  // Inserted cells match the on-canvas footprint of the compared images.
+  const placeW = Math.max(...images.map((el) => el.w));
+  const placeH = Math.max(...images.map((el) => el.h));
 
-  const cellCanvases = {
-    a: rasterA.canvas,
-    b: rasterB.canvas,
-    ...canvases,
-  };
+  const anyMismatch = sizes.some((s) => s.w !== sizes[0].w || s.h !== sizes[0].h);
+  const pct = stats.changedPercent;
+  const pctStr = pct >= 10 ? pct.toFixed(1) : pct.toFixed(2);
+  if (summaryEl) {
+    summaryEl.innerHTML = `
+      Combined diff of <span class="image-diff-summary-strong">${n}</span> images
+      · <span class="image-diff-summary-strong">${pctStr}%</span> of pixels differ
+      · mean ${stats.meanDiff.toFixed(1)}/255${anyMismatch ? " · sizes differ, scaled to align" : ""}
+    `;
+  }
 
-  // The diff canvases share the aspect ratio of `targetW x targetH`. When a cell
-  // is inserted onto the canvas we want it to match the on-canvas footprint of
-  // the images being compared, not the raw pixel buffer size. Use the larger of
-  // the two selected images' on-canvas dimensions.
-  const placeW = Math.max(elA.w, elB.w);
-  const placeH = Math.max(elA.h, elB.h);
+  // Single combined-diff section.
+  for (const { key: viewKey, label } of DIFF_VIEWS) {
+    appendCell(canvases[viewKey], label, placeW, placeH);
+  }
 
-  renderGrid(cellCanvases, placeW, placeH);
-  renderSummary(stats, sizeA, sizeB);
+  // Source images, once, at the end.
+  renderSourcesSection(images, rasters);
 }
 
 /**
@@ -328,85 +344,91 @@ function selectionCropKey(el) {
 }
 
 /**
- * Render the grid of diff view cells.
+ * Append a section header spanning the full grid width.
  */
-function renderGrid(cellCanvases, worldW, worldH) {
-  gridEl.innerHTML = "";
-
-  for (const { key, label } of DIFF_VIEWS) {
-    const canvas = cellCanvases[key];
-    if (!canvas) continue;
-
-    const dataURL = canvasToDataURL(canvas);
-
-    const cell = document.createElement("div");
-    cell.className = "image-diff-cell";
-
-    const imgWrapper = document.createElement("div");
-    imgWrapper.className = "image-diff-img-wrapper";
-
-    const img = document.createElement("img");
-    img.src = dataURL;
-    img.alt = label;
-    img.className = "image-diff-img";
-    img.draggable = true;
-
-    imgWrapper.appendChild(img);
-
-    const labelEl = document.createElement("div");
-    labelEl.className = "image-diff-label";
-    labelEl.textContent = label;
-
-    cell.appendChild(imgWrapper);
-    cell.appendChild(labelEl);
-    gridEl.appendChild(cell);
-
-    // Drag onto the canvas to insert as a new image.
-    img.addEventListener("dragstart", (e) => {
-      e.dataTransfer.setData("text/plain", "image-diff-drag");
-      e.dataTransfer.setData("application/x-image-diff", JSON.stringify({
-        dataURL, w: worldW, h: worldH, label,
-      }));
-      e.dataTransfer.effectAllowed = "copy";
-    });
-
-    // Shift+hover: fullscreen modal preview.
-    cell.addEventListener("mouseenter", () => {
-      hoveredCellData = { dataURL, label };
-      if (isShiftHeld) showModal(dataURL, label);
-    });
-    cell.addEventListener("mouseleave", () => {
-      if (hoveredCellData && hoveredCellData.dataURL === dataURL) hoveredCellData = null;
-      if (isShiftHeld) showModalBackdrop();
-    });
-
-    // Cmd/Ctrl-click: insert onto canvas.
-    cell.addEventListener("click", (e) => {
-      if (e.metaKey || e.ctrlKey) {
-        e.preventDefault();
-        e.stopPropagation();
-        insertImageToCanvas(dataURL, worldW, worldH, label);
-      }
-    });
+function appendSectionHeader(title, subtitle) {
+  const header = document.createElement("div");
+  header.className = "image-diff-section-header";
+  const titleEl = document.createElement("span");
+  titleEl.className = "image-diff-section-title";
+  titleEl.textContent = title;
+  header.appendChild(titleEl);
+  if (subtitle) {
+    const subEl = document.createElement("span");
+    subEl.className = "image-diff-section-subtitle";
+    subEl.innerHTML = subtitle;
+    header.appendChild(subEl);
   }
+  gridEl.appendChild(header);
 }
 
 /**
- * Render the summary statistics line under the header.
+ * Append one preview cell (image + label) to the grid, wired for drag-to-canvas,
+ * shift-hover modal, and Cmd/Ctrl-click insert. `worldW`/`worldH` are the
+ * on-canvas dimensions used when inserting the cell as a new image element.
  */
-function renderSummary(stats, sizeA, sizeB) {
-  if (!summaryEl) return;
-  const pct = stats.changedPercent;
-  const pctStr = pct >= 10 ? pct.toFixed(1) : pct.toFixed(2);
-  const mismatch = (sizeA.w !== sizeB.w || sizeA.h !== sizeB.h);
-  const dimNote = mismatch
-    ? ` · sizes differ (${sizeA.w}×${sizeA.h} vs ${sizeB.w}×${sizeB.h}), scaled to align`
-    : "";
-  summaryEl.innerHTML = `
-    <span class="image-diff-summary-strong">${pctStr}%</span> of pixels changed
-    · mean diff ${stats.meanDiff.toFixed(1)}/255
-    · ${stats.changedPixels.toLocaleString()} of ${stats.totalPixels.toLocaleString()} px${dimNote}
-  `;
+function appendCell(canvas, label, worldW, worldH) {
+  const dataURL = canvasToDataURL(canvas);
+
+  const cell = document.createElement("div");
+  cell.className = "image-diff-cell";
+
+  const imgWrapper = document.createElement("div");
+  imgWrapper.className = "image-diff-img-wrapper";
+
+  const img = document.createElement("img");
+  img.src = dataURL;
+  img.alt = label;
+  img.className = "image-diff-img";
+  img.draggable = true;
+  imgWrapper.appendChild(img);
+
+  const labelEl = document.createElement("div");
+  labelEl.className = "image-diff-label";
+  labelEl.textContent = label;
+
+  cell.appendChild(imgWrapper);
+  cell.appendChild(labelEl);
+  gridEl.appendChild(cell);
+
+  // Drag onto the canvas to insert as a new image.
+  img.addEventListener("dragstart", (e) => {
+    e.dataTransfer.setData("text/plain", "image-diff-drag");
+    e.dataTransfer.setData("application/x-image-diff", JSON.stringify({
+      dataURL, w: worldW, h: worldH, label,
+    }));
+    e.dataTransfer.effectAllowed = "copy";
+  });
+
+  // Shift+hover: fullscreen modal preview.
+  cell.addEventListener("mouseenter", () => {
+    hoveredCellData = { dataURL, label };
+    if (isShiftHeld) showModal(dataURL, label);
+  });
+  cell.addEventListener("mouseleave", () => {
+    if (hoveredCellData && hoveredCellData.dataURL === dataURL) hoveredCellData = null;
+    if (isShiftHeld) showModalBackdrop();
+  });
+
+  // Cmd/Ctrl-click: insert onto canvas.
+  cell.addEventListener("click", (e) => {
+    if (e.metaKey || e.ctrlKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      insertImageToCanvas(dataURL, worldW, worldH, label);
+    }
+  });
+}
+
+/**
+ * Render each source image once, in its own section at the end. Reuses the
+ * rasterized canvases already produced for the combined diff.
+ */
+function renderSourcesSection(images, rasters) {
+  appendSectionHeader("Source images", `${images.length} selected`);
+  images.forEach((el, idx) => {
+    appendCell(rasters[idx].canvas, `Image ${idx + 1}`, el.w, el.h);
+  });
 }
 
 /**
@@ -417,11 +439,9 @@ function showHint(count) {
   gridEl.innerHTML = "";
   if (summaryEl) summaryEl.innerHTML = "";
 
-  const message = count > 2
-    ? `You have ${count} images selected. Select exactly two to compare.`
-    : count === 1
-      ? "One image selected. Shift-click another image to compare the two."
-      : "Select two images on the canvas to see their visual difference. Click one, then Shift-click another.";
+  const message = count === 1
+    ? "One image selected. Shift-click one or more images to compare them."
+    : "Select two or more images on the canvas to compare them. Click one, then Shift-click others. Every image is diffed against every other.";
 
   const hint = document.createElement("div");
   hint.className = "image-diff-empty";
