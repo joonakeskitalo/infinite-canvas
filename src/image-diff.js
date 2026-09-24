@@ -166,9 +166,10 @@ function computeCombinedDiff(datas, w, h) {
     const dg = maxG - minG;
     const db = maxB - minB;
 
-    diffData[o] = dr;
-    diffData[o + 1] = dg;
-    diffData[o + 2] = db;
+    // Light mode: unchanged pixels are white, differences darken from white.
+    diffData[o] = 255 - dr;
+    diffData[o + 1] = 255 - dg;
+    diffData[o + 2] = 255 - db;
     diffData[o + 3] = 255;
 
     const mag = Math.max(dr, dg, db);
@@ -277,18 +278,19 @@ function computePairDiff(dataA, dataB, w, h) {
 }
 
 /**
- * Map a normalized magnitude t (0..1) to an [r,g,b] heatmap color.
- * Ramp: near-black (no change) -> blue -> cyan -> green -> yellow -> red.
+ * Map a normalized magnitude t (0..1) to an [r,g,b] heatmap color (light mode).
+ * Ramp: white (no change) -> light blue -> teal -> orange -> red (large change),
+ * so unchanged areas read as a clean white background.
  */
 function heatColor(t) {
-  if (t <= 0) return [20, 20, 30];
+  if (t <= 0) return [255, 255, 255];
   // Piecewise linear ramp across five stops.
   const stops = [
-    [20, 20, 60],    // very small
-    [0, 120, 255],   // blue
-    [0, 220, 180],   // teal
-    [180, 230, 0],   // yellow-green
-    [255, 40, 0],    // red
+    [255, 255, 255], // no change (white)
+    [150, 200, 255], // light blue
+    [0, 190, 190],   // teal
+    [255, 150, 0],   // orange
+    [220, 30, 0],    // red
   ];
   const scaled = t * (stops.length - 1);
   const idx = Math.min(stops.length - 2, Math.floor(scaled));
